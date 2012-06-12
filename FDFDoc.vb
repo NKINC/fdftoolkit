@@ -17,7 +17,21 @@ Namespace FDFApp
     ' FDFDOC CLASS
 	Public Class FDFDoc_Class
 		Implements IDisposable
-
+        'Private _DebugMode As Boolean = False
+        'Protected Function DEBUGMODE_TESTSCRIPT() As Boolean
+        '    Try
+        '        If True = True Then
+        '            Throw New Exception("Error TEST")
+        '        End If
+        '    Catch exExceptionError As Exception
+        '        If _DebugMode Then
+        '            Dim st As New StackTrace
+        '            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & exExceptionError.Message, st.GetFrame(1).GetMethod.ReflectedType.Name & "." & st.GetFrame(1).GetMethod.Name, 1)
+        '        Else
+        '            Throw exExceptionError
+        '        End If
+        '    End Try
+        'End Function
 		Private _PDF As New PDFDoc
         Private _FDF As New List(Of FDFDoc_Class)
         Private _CurFDFDoc As Integer = 0
@@ -354,7 +368,7 @@ Namespace FDFApp
 						newFile = newFile & ".pdf"
 
 						Dim reader As New iTextSharp.text.pdf.PdfReader(formFile)
-						Dim MemStream As New MemoryStream
+                        Dim MemStream As New MemoryStream
 						Try
 
 							Dim stamper As New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
@@ -588,43 +602,47 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
                     Flatten = False
                 Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
                 Set_PDF_Fields_Merge(reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 stamper = Nothing
-                If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
-                    Return True
-                Else
-                    Return False
-                End If
+                myFileStream.Close()
+                myFileStream.Dispose()
+                'If Not MemStream Is Nothing Then
+                '    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                '    Try
+                '        If MemStream.CanSeek Then
+                '            MemStream.Position = 0
+                '        End If
+                '        With myFileStream
+                '            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                '        End With
+                '        MemStream.Close()
+                '        MemStream.Dispose()
+                '    Catch ex As Exception
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                '    Finally
+                '        If Not myFileStream Is Nothing Then
+                '            With myFileStream
+                '                .Close()
+                '                .Dispose()
+                '            End With
+                '        End If
+                '    End Try
+                '    Return True
+                'Else
+                '    Return False
+                'End If
                 Return True
                 Return True
             Catch ex As Exception
@@ -795,8 +813,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -860,8 +882,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -917,8 +943,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -969,8 +999,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -1026,8 +1060,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -1325,8 +1363,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -1391,7 +1433,7 @@ Namespace FDFApp
                 stamper.Close()
                 If Not MemStream Is Nothing Then
                     'PDFData = GetUsedBytesOnly(MemStream)
-                    If MemStream.CanSeek Then MemStream.Position = 0
+                    'If MemStream.CanSeek Then MemStream.Position = 0
                     Return GetUsedBytesOnly(MemStream, True)
                 Else
                     'stamper.Close()
@@ -1449,8 +1491,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -1511,8 +1557,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     'stamper.Close()
                     Return Nothing
@@ -1582,9 +1632,9 @@ Namespace FDFApp
                 Catch ex As Exception
 
                 End Try
-                If MemStream.CanSeek Then MemStream.Position = 0
-                'Return GetUsedBytesOnly(MemStream, True)
-                Return MemStream.GetBuffer
+                'If MemStream.CanSeek Then MemStream.Position = 0
+                Return GetUsedBytesOnly(MemStream, True)
+                'Return MemStream.GetBuffer
             Catch ex As Exception
                 Return Nothing
             End Try
@@ -1644,14 +1694,14 @@ Namespace FDFApp
                         stamper.Close()
                         ' END NEW
 
-                        
+
                     End If
                 Catch ex As Exception
 
                 End Try
-                If MemStream.CanSeek Then MemStream.Position = 0
-                'Return GetUsedBytesOnly(MemStream, True)
-                Return MemStream.GetBuffer
+                'If MemStream.CanSeek Then MemStream.Position = 0
+                Return GetUsedBytesOnly(MemStream, True)
+                'Return MemStream.GetBuffer
             Catch ex As Exception
                 Return Nothing
             End Try
@@ -1719,9 +1769,9 @@ Namespace FDFApp
                 Catch ex As Exception
 
                 End Try
-                If MemStream.CanSeek Then MemStream.Position = 0
-                'Return GetUsedBytesOnly(MemStream, True)
-                Return MemStream.GetBuffer
+                'If MemStream.CanSeek Then MemStream.Position = 0
+                Return GetUsedBytesOnly(MemStream, True)
+                'Return MemStream.GetBuffer
             Catch ex As Exception
                 Return Nothing
             End Try
@@ -1777,8 +1827,12 @@ Namespace FDFApp
                 stamper.Close()
                 If Not MemStream Is Nothing Then
                     'PDFData = GetUsedBytesOnly(MemStream)
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     'stamper.Close()
                     Return Nothing
@@ -1829,12 +1883,14 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
                     Flatten = False
                 Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
                 stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
@@ -1842,28 +1898,30 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 stamper = Nothing
-                If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        With myFileStream
-                            .Write(GetUsedBytesOnly(MemStream), 0, GetUsedBytesOnly(MemStream).Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
-                    Return True
-                Else
-                    Return False
-                End If
+                myFileStream.Close()
+                myFileStream.Dispose()
+                'If Not MemStream Is Nothing Then
+                '    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                '    Try
+                '        With myFileStream
+                '            .Write(GetUsedBytesOnly(MemStream), 0, GetUsedBytesOnly(MemStream).Length)
+                '        End With
+                '        MemStream.Close()
+                '        MemStream.Dispose()
+                '    Catch ex As Exception
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                '    Finally
+                '        If Not myFileStream Is Nothing Then
+                '            With myFileStream
+                '                .Close()
+                '                .Dispose()
+                '            End With
+                '        End If
+                '    End Try
+                '    Return True
+                'Else
+                '    Return False
+                'End If
                 Return True
             Catch ex As Exception
                 'IOPerm.RevertAssert()
@@ -1909,12 +1967,14 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
                     Flatten = False
                 Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
                 stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
@@ -1922,31 +1982,33 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 stamper = Nothing
-                If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        With myFileStream
-                            .Write(GetUsedBytesOnly(MemStream), 0, GetUsedBytesOnly(MemStream).Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
-                    Return True
-                Else
-                    Return False
-                End If
+                myFileStream.Close()
+                myFileStream.Dispose()
+                'If Not MemStream Is Nothing Then
+                '    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                '    Try
+                '        If MemStream.CanSeek Then
+                '            MemStream.Position = 0
+                '        End If
+                '        With myFileStream
+                '            .Write(GetUsedBytesOnly(MemStream), 0, GetUsedBytesOnly(MemStream).Length)
+                '        End With
+                '        MemStream.Close()
+                '        MemStream.Dispose()
+                '    Catch ex As Exception
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                '    Finally
+                '        If Not myFileStream Is Nothing Then
+                '            With myFileStream
+                '                .Close()
+                '                .Dispose()
+                '            End With
+                '        End If
+                '    End Try
+                '    Return True
+                'Else
+                '    Return False
+                'End If
                 Return True
             Catch ex As Exception
                 'IOPerm.RevertAssert()
@@ -2018,7 +2080,7 @@ Namespace FDFApp
             Try
                 Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
                 If Not FileStrem Is Nothing Then
-                    If xStream.CanSeek Then xStream.Position = 0
+                    'If xStream.CanSeek Then xStream.Position = 0
                     With FileStrem
                         .Write(GetUsedBytesOnly(xStream), 0, GetUsedBytesOnly(xStream).Length)
                     End With
@@ -2059,7 +2121,7 @@ Namespace FDFApp
                         If FileNm.Length > 0 Then
                             reader = New iTextSharp.text.pdf.PdfReader(FileNm)
                             If Not reader Is Nothing Then
-                                If RemoveUsageRights = True Then
+                                If RemoveUsageRights = True Or Flatten = True Then
                                     reader.RemoveUsageRights()
                                 End If
                             End If
@@ -2100,8 +2162,12 @@ Namespace FDFApp
 
             Try
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -2159,9 +2225,9 @@ Namespace FDFApp
             Try
                 Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
                 If Not FileStrem Is Nothing Then
-                    If copyStream.CanSeek Then
-                        copyStream.Position = 0
-                    End If
+                    'If copyStream.CanSeek Then
+                    '    copyStream.Position = 0
+                    'End If
                     FileStrem.Write(GetUsedBytesOnly(copyStream), 0, GetUsedBytesOnly(copyStream).Length)
                     FileStrem.Close()
                     FileStrem.Dispose()
@@ -2226,8 +2292,9 @@ Namespace FDFApp
                 Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
                
                 If Not FileStrem Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    FileStrem.Write(MemStream.GetBuffer, 0, MemStream.Length)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    Dim b() As Byte = GetUsedBytesOnly(MemStream, True)
+                    FileStrem.Write(b, 0, b.Length)
                     MemStream.Close()
                     MemStream.Dispose()
                     FileStrem.Close()
@@ -2284,7 +2351,7 @@ Namespace FDFApp
             End Try
             Try
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
+                    'If MemStream.CanSeek Then MemStream.Position = 0
                     Return GetUsedBytesOnly(MemStream, True)
                 Else
                     Return Nothing
@@ -2336,7 +2403,7 @@ Namespace FDFApp
             Try
 
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
+                    'If MemStream.CanSeek Then MemStream.Position = 0
                     Return GetUsedBytesOnly(MemStream, True)
                 Else
                     Return Nothing
@@ -2444,6 +2511,9 @@ Namespace FDFApp
                             Dim MemStream As New MemoryStream
                             pdfByte = PDFMergeXDP2Buf(FDFDocs(ctr), FDFDocs(ctr).FDFGetFile, Flatten)
                             MemStream.Write(pdfByte, 0, pdfByte.Length - 1)
+                            If MemStream.CanSeek Then
+                                MemStream.Position = 0
+                            End If
                             reader = New iTextSharp.text.pdf.PdfReader(MemStream.ToArray)
                             copy.AddDocument(reader)
                         End If
@@ -2663,7 +2733,11 @@ Namespace FDFApp
 
             Try
                 If Not MemStream Is Nothing Then
-                    Return GetUsedBytesOnly(MemStream, True)
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -2713,8 +2787,12 @@ Namespace FDFApp
 
             Try
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -2769,7 +2847,11 @@ Namespace FDFApp
 
             Try
                 If Not MemStream Is Nothing Then
-                    Return GetUsedBytesOnly(MemStream, True)
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -2827,8 +2909,12 @@ Namespace FDFApp
 
             Try
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -3051,8 +3137,12 @@ Namespace FDFApp
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -3299,13 +3389,11 @@ Namespace FDFApp
         ''' <remarks></remarks>
         Public Sub FDFSetStatus(ByVal Value As String, Optional ByVal ReplaceStatus As Boolean = True)
             If ReplaceStatus Then
-                Dim _nFDF As FDFDoc_Class = _FDF(_CurFDFDoc)
-                _nFDF.Status = Value
-                _FDF(_CurFDFDoc) = _nFDF
+                _FDF(0).Status = Value
             Else
-                Dim _nFDF As FDFDoc_Class = _FDF(_CurFDFDoc)
-                _nFDF.Status = _FDF(_CurFDFDoc).Status & "\n" & Value
-                _FDF(_CurFDFDoc) = _nFDF
+                Dim _nFDF As FDFDoc_Class = _FDF(0)
+                _nFDF.Status = _FDF(0).Status & "\n" & Value
+                _FDF(0) = _nFDF
             End If
         End Sub
         Private Sub FDFAddTemplate(ByVal bNewPage As Boolean, ByVal bstrFileName As String, ByVal bstrTemplateName As String, ByVal bRename As Boolean)
@@ -3340,7 +3428,7 @@ Namespace FDFApp
         ''' <remarks></remarks>
         Public ReadOnly Property FDFGetStatus() As String
             Get
-                Return _FDF(_CurFDFDoc).Status
+                Return _FDF(0).Status
             End Get
         End Property
         ''' <summary>
@@ -3763,7 +3851,7 @@ Namespace FDFApp
                     Next
                 End If
                 If Not FoundField Then
-                    FDFAddField(FieldName, Me.FDFCheckChar(FieldValue))
+                    FDFAddField(FieldName, (FieldValue))
                 End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
@@ -3794,7 +3882,7 @@ Namespace FDFApp
                     Next
                 End If
                 If Not FoundField Then
-                    FDFAddField(FieldName, Me.FDFCheckChar(FieldValue))
+                    FDFAddField(FieldName, (FieldValue))
                 End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
@@ -3824,7 +3912,7 @@ Namespace FDFApp
                                 If Not String_IsNullOrEmpty(_fld.FieldName) Then
                                     If _fld.FieldName.ToLower = FieldName.ToLower Then
                                         _fld.FieldValue.Clear()
-                                        _fld.FieldValue.Add(Me.FDFCheckChar(FieldValue))
+                                        _fld.FieldValue.Add((FieldValue))
                                         _fld.FieldEnabled = FieldEnabled
                                         FoundField = True
                                         Exit Sub
@@ -3853,41 +3941,45 @@ Namespace FDFApp
         ''' <remarks></remarks>
         Public Sub XDPSetValue(ByVal FieldName As String, ByVal FieldValue As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True)
             Dim FoundField As Boolean
+            ''EDITED BY NK-INC 11/30/2011
             FoundField = False
             Try
                 Dim xdpFrm As New FDFDoc_Class
                 Dim TmpCurFDFDoc As Integer = 0
                 If _FDF.Count > 0 Then
-                    If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
-                        If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
-                            GoTo continue_setting_value
-                        End If
-                    Else
-                        Dim intx As Integer = -1
-                        For Each _fdfdoc As FDFDoc_Class In _FDF
-                            intx += 1
-                            If Not _fdfdoc.struc_FDFFields.Count <= 0 Then
-                                If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
-                                    For Each _fld As FDFField In _fdfdoc.struc_FDFFields
-                                        If Not String_IsNullOrEmpty(_fld.FieldName) Then
-                                            If _fld.FieldName.ToLower = FieldName.ToLower Then
-                                                _CurFDFDoc = intx
-                                                _fld.FieldValue.Clear()
-                                                _fld.FieldValue.Add(FDFCheckChar(FieldValue))
-                                                _fld.FieldEnabled = FieldEnabled
-                                                FoundField = True
-                                                Exit Sub
-                                            End If
+                    'If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
+                    Dim intx As Integer = -1
+                    For Each _fdfdoc As FDFDoc_Class In _FDF
+                        intx += 1
+                        If Not _fdfdoc.struc_FDFFields.Count <= 0 Then
+                            If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                For Each _fld As FDFField In _fdfdoc.struc_FDFFields
+                                    If Not String_IsNullOrEmpty(_fld.FieldName) Then
+                                        If _fld.FieldName.ToLower = FieldName.ToLower Then
+                                            '_CurFDFDoc = intx
+                                            _fld.FieldValue.Clear()
+                                            _fld.FieldValue.Add((FieldValue))
+                                            _fld.FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            'Exit Sub
                                         End If
-                                    Next
-                                End If
+                                    End If
+                                Next
                             End If
-                            'End If
-                        Next
-
+                        End If
+                        'End If
+                    Next
+                    If FoundField = False Then
+                        GoTo continue_setting_value
+                    Else
+                        Exit Sub
+                    End If
+                Else
+                    If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
                         GoTo continue_setting_value
                     End If
                 End If
+                'End If
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field (" & FieldName & ") Not Found", "FDFDoc.FDFSetValue", 1)
                 Exit Sub
 continue_setting_value:
@@ -3930,7 +4022,7 @@ continue_setting_value:
                                             If _fld.FieldName.ToLower = FieldName.ToLower Then
                                                 If _fld.FieldNum = FieldNumber Then
                                                     _fld.FieldValue.Clear()
-                                                    _fld.FieldValue.Add(Me.FDFCheckChar(FieldValue))
+                                                    _fld.FieldValue.Add((FieldValue))
                                                     _fld.FieldEnabled = FieldEnabled
                                                     FoundField = True
                                                     Exit Sub
@@ -3981,7 +4073,7 @@ continue_setting_value:
                                 If Not String_IsNullOrEmpty(_fld.FieldName) Then
                                     If _fld.FieldName.ToLower = FieldName.ToLower Then
                                         _fld.FieldValue.Clear()
-                                        _fld.FieldValue.Add(Me.FDFCheckChar(FieldValue))
+                                        _fld.FieldValue.Add((FieldValue))
                                         _fld.FieldEnabled = FieldEnabled
                                         FoundField = True
                                         Exit Sub
@@ -4212,7 +4304,7 @@ continue_setting_value:
                             If Not xfld Is Nothing And xfld(0).FieldEnabled = True Then
                                 Select Case LCase(DsFld.DataType.ToString & "")
                                     Case "system.dbnull"
-                                        Ds.Tables(0).Rows(Row_Number)(Fieldname) = Me.FDFGetValue(Fieldname) & ""
+                                        Ds.Tables(0).Rows(Row_Number)(Fieldname) = Me.XDPGetValue(Fieldname) & ""
                                     Case "system.sbyte"
                                         If Me.FDFGetValue(Fieldname) = "" Then
                                             Ds.Tables(0).Rows(Row_Number)(Fieldname) = System.DBNull.Value
@@ -7942,13 +8034,20 @@ continue_setting_value:
                             Next
                         End If
                         retString = retString & "</fields>"
+                        Dim intX As Integer = InStrRev(retString, "</fields>", -1, CompareMethod.Text)
+                        retString = retString.Substring(0, intX + 8)
+
                     Case FDFType.XML
                         retString = "<fields>" & WriteXMLFormFields() & "</fields>"
+                        Dim intX As Integer = InStrRev(retString, "</fields>", -1, CompareMethod.Text)
+                        retString = retString.Substring(0, intX + 8)
+
                     Case FDFType.XDP
                         retString = WriteXDPFormFields()
                 End Select
                 Me.ResetActions()
-                Return retString.Trim(" ".ToCharArray) & ""
+                Return retString
+                'Return retString.Trim(" ".ToCharArray) & ""
             Catch Ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteFields", 1)
                 Return ""
@@ -10166,6 +10265,8 @@ continue_setting_value:
                                     For Each xField In _FDF(FormNumber).struc_FDFFields
                                         If Not String_IsNullOrEmpty(xField.FieldName) Then
                                             If FieldName.ToLower = xField.FieldName.ToLower Then
+                                                ' EDITED NK-INC @ 2012-04-07 NK
+                                                xField.FieldValue.Clear()
                                                 xField.FieldValue.Add(Me.XDPCheckChar(FieldValue))
                                                 xField.FieldEnabled = FieldEnabled
                                                 xField.FieldType = FieldType
@@ -10399,6 +10500,8 @@ contintue_here:
                                         If Not String_IsNullOrEmpty(xField.FieldName) Then
                                             If FieldName.ToLower = xField.FieldName.ToLower Then
                                                 If FieldNumber = xField.FieldNum Then
+                                                    ' EDITED NK-INC @ 2012-04-07 NK
+                                                    xField.FieldValue.Clear()
                                                     xField.FieldValue.Add(Me.XDPCheckChar(FieldValue))
                                                     xField.FieldEnabled = FieldEnabled
                                                     xField.FieldType = FieldType
@@ -10456,6 +10559,54 @@ contintue_here:
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
             End Try
         End Sub
+        ''' <summary>
+        ''' Get last Field Number
+        ''' </summary>
+        ''' <param name="FieldName">Field name</param>
+        ''' <remarks></remarks>
+        Public Function XDPGetLastFieldNumber(ByVal FieldName As String) As Integer
+            ' EDITED NK-INC 2012-04-07
+            Dim fldNumber As Integer = -1
+            Try
+                Dim TmpCurFDFDoc As Integer = 0
+                Dim XDPFDF As Integer = 0
+                If _FDF.Count > 0 Then
+                    If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
+                        If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
+                            XDPFDF = _CurFDFDoc
+                            GoTo contintue_here
+                        Else
+                            XDPFDF = _CurFDFDoc
+                            GoTo contintue_here
+                        End If
+                    End If
+                End If
+                Exit Function
+contintue_here:
+                Dim fldName As String = FieldName
+                Try
+                    If False = False Then
+                        If FieldName.LastIndexOf("[") > 0 Then
+                            Dim int As Integer = FieldName.LastIndexOf("[") + 1
+                            fldNumber = FieldName.Substring(int, FieldName.LastIndexOf("]") - int)
+                        Else
+                            For Each fld As FDFField In _FDF(XDPFDF).struc_FDFFields
+                                If Not fld.FieldName Is Nothing Then
+                                    If fld.FieldName = FieldName Then
+                                        fldNumber += 1
+                                    End If
+                                End If
+                            Next
+                        End If
+                    End If
+                Catch ex As Exception
+                    fldNumber = 0
+                End Try
+                Return fldNumber
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetLastFieldNumber", 1)
+            End Try
+        End Function
         ''' <summary>
         ''' Get Live-Cycle form path or url
         ''' </summary>
@@ -10609,19 +10760,29 @@ contintue_here:
                 Return ""
                 Exit Function
             End If
-            strINPUT = strINPUT.Replace("&", "&&38;")
-            strINPUT = strINPUT.Replace("#", "&#35;")
-            strINPUT = strINPUT.Replace("&&38;", "&#38;")
-            strINPUT = strINPUT.Replace("<", "&#60;")
-            strINPUT = strINPUT.Replace(">", "&#62;")
-            strINPUT = strINPUT.Replace("(", "&#40;")
-            strINPUT = strINPUT.Replace(")", "&#41;")
-            strINPUT = strINPUT.Replace("'", "&#39;")
-            strINPUT = strINPUT.Replace("`", "&#39;")
-            strINPUT = strINPUT.Replace("""", "&#34;")
-            strINPUT = strINPUT.Replace("‚", "&#44;")
-            strINPUT = strINPUT.Replace("’", "&#8217;")
-            strINPUT = strINPUT.Replace("$", "&#36;")
+            strINPUT = strINPUT.Replace("&", "&amp;")
+            strINPUT = strINPUT.Replace("<", "&lt;")
+            strINPUT = strINPUT.Replace(">", "&gt;")
+            strINPUT = strINPUT.Replace("""", "&quot;")
+            strINPUT = strINPUT.Replace("'", "&apos;")
+            strINPUT = strINPUT.Replace("'", "&apos;")
+            strINPUT = strINPUT.Replace("`", "&apos;")
+            strINPUT = strINPUT.Replace("""", "&apos;")
+            strINPUT = strINPUT.Replace("’", "&apos;")
+
+            'strINPUT = strINPUT.Replace("&", "&&38;")
+            'strINPUT = strINPUT.Replace("#", "&#35;")
+            'strINPUT = strINPUT.Replace("&&38;", "&#38;")
+            'strINPUT = strINPUT.Replace("<", "&#60;")
+            'strINPUT = strINPUT.Replace(">", "&#62;")
+            'strINPUT = strINPUT.Replace("(", "&#40;")
+            'strINPUT = strINPUT.Replace(")", "&#41;")
+            'strINPUT = strINPUT.Replace("'", "&#39;")
+            'strINPUT = strINPUT.Replace("`", "&#39;")
+            'strINPUT = strINPUT.Replace("""", "&#34;")
+            'strINPUT = strINPUT.Replace("‚", "&#44;")
+            'strINPUT = strINPUT.Replace("’", "&#8217;")
+            'strINPUT = strINPUT.Replace("$", "&#36;")
             'strINPUT = strINPUT.Replace("", "")
             'strINPUT = strINPUT.Replace("", "")
 
@@ -10635,20 +10796,30 @@ contintue_here:
             End If
             Return strINPUT & ""
             Exit Function
-            strINPUT = strINPUT.Replace("&&38;", "&#38;")
-            strINPUT = strINPUT.Replace("&#60;", "<")
-            strINPUT = strINPUT.Replace("&#62;", ">")
-            strINPUT = strINPUT.Replace("&#40;", "(")
-            strINPUT = strINPUT.Replace("&#41;", ")")
-            strINPUT = strINPUT.Replace("&#39;", "'")
-            strINPUT = strINPUT.Replace("&#39;", "`")
-            strINPUT = strINPUT.Replace("&#34;", """")
-            strINPUT = strINPUT.Replace("&#44;", "‚")
-            strINPUT = strINPUT.Replace("&#39;", "'")
-            strINPUT = strINPUT.Replace("&#8217;", "’")
-            strINPUT = strINPUT.Replace("&#36;", "$")
-            strINPUT = strINPUT.Replace("&#35;", "#")
-            strINPUT = strINPUT.Replace("&#38;", "&")
+            'strINPUT = strINPUT.Replace("&&38;", "&#38;")
+            'strINPUT = strINPUT.Replace("&#60;", "<")
+            'strINPUT = strINPUT.Replace("&#62;", ">")
+            'strINPUT = strINPUT.Replace("&#40;", "(")
+            'strINPUT = strINPUT.Replace("&#41;", ")")
+            'strINPUT = strINPUT.Replace("&#39;", "'")
+            'strINPUT = strINPUT.Replace("&#39;", "`")
+            'strINPUT = strINPUT.Replace("&#34;", """")
+            'strINPUT = strINPUT.Replace("&#44;", "‚")
+            'strINPUT = strINPUT.Replace("&#39;", "'")
+            'strINPUT = strINPUT.Replace("&#8217;", "’")
+            'strINPUT = strINPUT.Replace("&#36;", "$")
+            'strINPUT = strINPUT.Replace("&#35;", "#")
+            'strINPUT = strINPUT.Replace("&#38;", "&")
+
+            strINPUT = strINPUT.Replace("&amp;", "&")
+            strINPUT = strINPUT.Replace("&lt;", "<")
+            strINPUT = strINPUT.Replace("&gt;", ">")
+            strINPUT = strINPUT.Replace("&quot;", """")
+            strINPUT = strINPUT.Replace("&apos;", "'")
+            'strINPUT = strINPUT.Replace("&apos;", "'")
+            'strINPUT = strINPUT.Replace("`", "&apos;")
+            'strINPUT = strINPUT.Replace("""", "&apos;")
+            'strINPUT = strINPUT.Replace("’", "&apos;")
             Return strINPUT & ""
 
         End Function
@@ -10920,7 +11091,7 @@ contintue_here:
                 Return ""
             End Try
         End Function
-        Private Function WriteXMLFormFields() As String
+        Public Function WriteXMLFormFields() As String
             '' SUBFORMS
             Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
             Dim retString As String = ""
@@ -10962,9 +11133,11 @@ contintue_here:
                                     If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
                                         For Each fld As FDFField In XDPDoc1.struc_FDFFields
                                             If Not fld.FieldName Is Nothing Then
+
                                                 If fld.FieldType = FieldType.FldLiveCycleImage Then
                                                     If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                        ' EDITED 2012-04-07 NK-INC NK - Removed XFA
+                                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
                                                     End If
@@ -10979,7 +11152,8 @@ contintue_here:
                                                 End If
                                             ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
                                                 If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                    ' EDITED 2012-04-07 NK-INC NK - Removed XFA
+                                                    retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                     retString &= fld.ImageBase64
                                                     retString &= "</" & fld.FieldName & ">"
                                                 End If
@@ -11670,8 +11844,12 @@ contintue_here:
                     'xStream.Close()
                     'Dim xStream As New FileStream(newFile, FileMode.Create)
                     'Dim byteRead() As Byte
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     'stamper.Close()
                     Return Nothing
@@ -11743,8 +11921,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     'stamper.Close()
                     Return Nothing
@@ -11793,7 +11975,6 @@ contintue_here:
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
                     Flatten = False
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
                 Dim inputDataElement As Xml.XmlElement = getXFADataElement(FDFSavetoStr(FDFType.XDP, False))
@@ -11825,8 +12006,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -11902,8 +12087,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -11979,8 +12168,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -12054,8 +12247,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -12134,8 +12331,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -12214,8 +12415,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -12296,8 +12501,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -12427,8 +12636,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -12814,6 +13027,8 @@ contintue_here:
             End If
             Dim MemStream As New MemoryStream
             Try
+                Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
                         reader.RemoveUsageRights()
@@ -12821,11 +13036,11 @@ contintue_here:
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
                     Flatten = False
                 Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
                 Dim inputDataElement As Xml.XmlElement = getXFADataElement(FDFSavetoStr(FDFType.XDP, False))
                 If inputDataElement Is Nothing Then
@@ -12857,33 +13072,35 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 stamper = Nothing
-                If Not MemStream Is Nothing Then
+                myFileStream.Close()
+                myFileStream.Dispose()
+                'If Not MemStream Is Nothing Then
 
-                    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        'PDFData = MemStream.GetBuffer
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
-                    Return True
-                Else
-                    Return False
-                End If
+                '    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                '    Try
+                '        If MemStream.CanSeek Then
+                '            MemStream.Position = 0
+                '        End If
+                '        'PDFData = MemStream.GetBuffer
+                '        With myFileStream
+                '            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                '        End With
+                '        MemStream.Close()
+                '        MemStream.Dispose()
+                '    Catch ex As Exception
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                '    Finally
+                '        If Not myFileStream Is Nothing Then
+                '            With myFileStream
+                '                .Close()
+                '                .Dispose()
+                '            End With
+                '        End If
+                '    End Try
+                '    Return True
+                'Else
+                '    Return False
+                'End If
                 Return True
                 Return Nothing
             Catch ex As Exception
@@ -12927,6 +13144,8 @@ contintue_here:
             End If
             Dim MemStream As New MemoryStream
             Try
+                Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
                         reader.RemoveUsageRights()
@@ -12934,11 +13153,11 @@ contintue_here:
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
                     Flatten = False
                 Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
                 Dim inputDataElement As Xml.XmlElement = getXFADataElement(FDFSavetoStr(FDFType.XDP, False))
                 If inputDataElement Is Nothing Then
@@ -12970,32 +13189,35 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 stamper = Nothing
-                If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        'PDFData = MemStream.GetBuffer
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
-                    Return True
-                Else
-                    Return False
-                End If
+                myFileStream.Close()
+                myFileStream.Dispose()
+                'If Not MemStream Is Nothing Then
+
+                '    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                '    Try
+                '        If MemStream.CanSeek Then
+                '            MemStream.Position = 0
+                '        End If
+                '        'PDFData = MemStream.GetBuffer
+                '        With myFileStream
+                '            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                '        End With
+                '        MemStream.Close()
+                '        MemStream.Dispose()
+                '    Catch ex As Exception
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                '    Finally
+                '        If Not myFileStream Is Nothing Then
+                '            With myFileStream
+                '                .Close()
+                '                .Dispose()
+                '            End With
+                '        End If
+                '    End Try
+                '    Return True
+                'Else
+                '    Return False
+                'End If
                 Return True
                 Return Nothing
             Catch ex As Exception
@@ -13033,6 +13255,8 @@ contintue_here:
             End If
             Dim MemStream As New MemoryStream
             Try
+                Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
                         reader.RemoveUsageRights()
@@ -13040,16 +13264,17 @@ contintue_here:
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
                     Flatten = False
                 Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
                 Dim inputDataElement As Xml.XmlElement = getXFADataElement(FDFSavetoStr(FDFType.XDP, False))
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
+                'stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -13073,41 +13298,38 @@ contintue_here:
                 End Try
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
-                'stamper.Close()
-                'stamper = Nothing
-                Try
-                    stamper.Close()
-                Catch exStamper As Exception
+                stamper.Close()
+                stamper = Nothing
+                myFileStream.Close()
+                myFileStream.Dispose()
+                'If Not MemStream Is Nothing Then
 
-                Finally
-                    stamper = Nothing
-                End Try
-                If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
-                    
-                    Return True
-                Else
-                    Return False
-                End If
+                '    Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                '    Try
+                '        If MemStream.CanSeek Then
+                '            MemStream.Position = 0
+                '        End If
+                '        'PDFData = MemStream.GetBuffer
+                '        With myFileStream
+                '            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                '        End With
+                '        MemStream.Close()
+                '        MemStream.Dispose()
+                '    Catch ex As Exception
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                '    Finally
+                '        If Not myFileStream Is Nothing Then
+                '            With myFileStream
+                '                .Close()
+                '                .Dispose()
+                '            End With
+                '        End If
+                '    End Try
+                '    Return True
+                'Else
+                '    Return False
+                'End If
+
                 Return True
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2File", 1)
@@ -13141,7 +13363,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13150,8 +13372,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -13184,7 +13410,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13193,8 +13419,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -13292,7 +13522,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13354,7 +13584,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13400,7 +13630,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13446,7 +13676,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13463,8 +13693,12 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
                 Else
                     Return Nothing
                 End If
@@ -13498,7 +13732,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13514,10 +13748,14 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
-                    MemStream.Close()
-                    MemStream.Dispose()
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
+                    'MemStream.Close()
+                    'MemStream.Dispose()
                 Else
                     Return Nothing
                 End If
@@ -13553,7 +13791,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13624,7 +13862,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13698,7 +13936,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13752,7 +13990,7 @@ contintue_here:
             Dim MemStream As New MemoryStream
             Try
                 If Not reader Is Nothing Then
-                    If RemoveUsageRights = True Then
+                    If RemoveUsageRights = True Or Flatten = True Then
                         reader.RemoveUsageRights()
                     End If
                 End If
@@ -13870,36 +14108,38 @@ contintue_here:
             Dim FoundField As Boolean
             Dim FormCount As Integer
             FoundField = False
-            Dim _ExportForms(0) As FDFApp.FDFDoc_Class.FDFDoc_Class
+            Dim _ExportForms As New System.Collections.Generic.List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
             Try
                 If Not FormNames Is Nothing Then
                     For curDoc As Integer = 0 To _FDF.Count - 1
                         For Each formname As String In FormNames
                             If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
                                 If _FDF(curDoc).FormName.ToLower = formname.ToLower Then
-                                    ReDim Preserve _ExportForms(FormCount)
-                                    _ExportForms(FormCount) = _FDF(curDoc)
+                                    'ReDim Preserve _ExportForms(FormCount)
+                                    '_ExportForms(FormCount) = _FDF(curDoc)
+                                    _ExportForms.Add(_FDF(curDoc))
                                     FormCount += 1
                                 End If
                             End If
                         Next
                     Next
-                    Return _ExportForms
+                    Return _ExportForms.ToArray
                     Exit Function
                 Else
                     For curDoc As Integer = 0 To _FDF.Count - 1
                         If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                            ReDim Preserve _ExportForms(FormCount)
-                            _ExportForms(FormCount) = _FDF(curDoc)
+                            'ReDim Preserve _ExportForms(FormCount)
+                            '_ExportForms(FormCount) = _FDF(curDoc)
+                            _ExportForms.Add(_FDF(curDoc))
                             FormCount += 1
                         End If
                     Next
-                    Return _ExportForms
+                    Return _ExportForms.ToArray
                     Exit Function
                 End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.XDPGetForms", 1)
-                Return _ExportForms
+                Return _ExportForms.ToArray
                 Exit Function
             End Try
         End Function
@@ -13915,42 +14155,68 @@ contintue_here:
             Dim FoundField As Boolean
             Dim FormCount As Integer
             FoundField = False
-            Dim _ExportForms() As FDFApp.FDFDoc_Class.FDFDoc_Class = {Nothing}
+            Dim _ExportForms As New System.Collections.Generic.List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
             Try
                 If Not String_IsNullOrEmpty(FormXMLPath) Then
                     For Each frm As FDFDoc_Class In _FDF
-                        If Not frm.struc_FDFFields.Count <= 0 Then
+                        'If Not frm.struc_FDFFields.Count <= 0 Then
+                        Try
                             If frm.FormLevel.ToLower.Contains(FormXMLPath.ToLower) Then
                                 If frm.FormLevel.ToLower = FormXMLPath.ToLower Then
-                                    ReDim Preserve _ExportForms(FormCount)
-                                    _ExportForms(FormCount) = frm
+                                    'ReDim Preserve _ExportForms(FormCount)
+                                    '_ExportForms(FormCount) = frm
+                                    _ExportForms.Add(frm)
                                     FormCount += 1
                                 Else
                                     If Include_Subforms = True Then
-                                        ReDim Preserve _ExportForms(FormCount)
-                                        _ExportForms(FormCount) = frm
+                                        'ReDim Preserve _ExportForms(FormCount)
+                                        '_ExportForms(FormCount) = frm
+                                        _ExportForms.Add(frm)
                                         FormCount += 1
                                     End If
                                 End If
+                            ElseIf frm.FormName.ToLower = FormXMLPath.ToLower And _ExportForms.Count = 0 Then
+                                'ReDim Preserve _ExportForms(FormCount)
+                                '_ExportForms(FormCount) = frm
+                                _ExportForms.Add(frm)
+                                FormCount += 1
+                                Exit For
                             End If
-                        End If
+                        Catch ex As Exception
+
+                            Try
+                                If frm.FormName.ToLower = FormXMLPath.ToLower Then
+                                    'ReDim Preserve _ExportForms(FormCount)
+                                    '_ExportForms(FormCount) = frm
+                                    _ExportForms.Add(frm)
+                                    FormCount += 1
+                                    Err.Clear()
+                                    Exit For
+                                End If
+                            Catch ex2 As Exception
+                                Err.Clear()
+                            End Try
+                            Err.Clear()
+                        End Try
+                        'End If
                     Next
-                    Return _ExportForms
+                    Return _ExportForms.ToArray()
                     Exit Function
                 Else
                     For curDoc As Integer = 0 To _FDF.Count - 1
                         If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                            ReDim Preserve _ExportForms(FormCount)
-                            _ExportForms(FormCount) = _FDF(curDoc)
+                            'ReDim Preserve _ExportForms(FormCount)
+                            '_ExportForms(FormCount) = _FDF(curDoc)
+                            _ExportForms.Add(_FDF(curDoc))
                             FormCount += 1
                         End If
                     Next
-                    Return _ExportForms
+                    Return _ExportForms.ToArray
                     Exit Function
                 End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.XDPGetForms", 1)
-                Return _ExportForms
+                Return _ExportForms.ToArray
                 Exit Function
             End Try
         End Function
@@ -14428,7 +14694,17 @@ contintue_here:
                 stamper.Close()
                 Return strOut.GetBuffer
             Catch ex As Exception
-                Return Nothing
+                Try
+
+                    Dim reader As New iTextSharp.text.pdf.PdfReader(PDFFile)
+                    Dim strOut As New MemoryStream
+                    Dim stamper As New iTextSharp.text.pdf.PdfStamper(reader, strOut)
+                    stamper.Writer.CloseStream = False
+                    stamper.Close()
+                    Return strOut.GetBuffer
+                Catch ex2 As Exception
+
+                End Try
             End Try
             Return Nothing
         End Function
@@ -14439,6 +14715,7 @@ contintue_here:
         ''' <returns>Returns the PDF without usage rights enabled</returns>
         ''' <remarks></remarks>
         Public Function RemoveUsageRights_PDF(ByVal PDFFile As Byte()) As Byte()
+            Dim _tempBytes() As Byte = PDFFile
             Try
                 Dim reader As New iTextSharp.text.pdf.PdfReader(PDFFile)
                 If Not reader Is Nothing Then
@@ -14450,9 +14727,9 @@ contintue_here:
                 stamper.Close()
                 Return strOut.GetBuffer
             Catch ex As Exception
-                Return Nothing
+                Return _tempBytes
             End Try
-            Return Nothing
+            Return _tempBytes
         End Function
         ''' <summary>
         ''' Removes Usage Rights from a PDF
@@ -14461,8 +14738,13 @@ contintue_here:
         ''' <returns>Returns the PDF without usage rights enabled</returns>
         ''' <remarks></remarks>
         Public Function RemoveUsageRights_PDF(ByVal PDFFile As Stream) As Byte()
+            Dim _tempBytes(PDFFile.Length) As Byte
             Try
-                Dim reader As New iTextSharp.text.pdf.PdfReader(PDFFile)
+                If PDFFile.CanSeek Then
+                    PDFFile.Position = 0
+                End If
+                PDFFile.Read(_tempBytes, 0, PDFFile.Length)
+                Dim reader As New iTextSharp.text.pdf.PdfReader(_tempBytes)
                 If Not reader Is Nothing Then
                     reader.RemoveUsageRights()
                 End If
@@ -14472,9 +14754,9 @@ contintue_here:
                 stamper.Close()
                 Return strOut.GetBuffer
             Catch ex As Exception
-                Return Nothing
+                Return _tempBytes
             End Try
-            Return Nothing
+            Return _tempBytes
         End Function
         ''' <summary>
         ''' Checks Usage Rights from a PDF
@@ -15573,7 +15855,7 @@ contintue_here:
             Dim fldNumber As Integer = 0
             Try
                 Dim TmpCurFDFDoc As Integer = 0
-                Dim _CurFDFDoc As Integer = 0
+                'Dim _CurFDFDoc As Integer = 0
                 Dim fldName As String = FieldName
                 Try
                     If FieldName.LastIndexOf("[") > 0 Then
@@ -16093,9 +16375,9 @@ contintue_here:
             Try
                 _CurFDFDoc = 0
                 _FDF = New List(Of FDFDoc_Class)
-                
                 _PDF = New PDFDoc
                 _FDF.Add(New FDFDoc_Class())
+                PreserveUsageRights = True
                 ResetErrors()
             Catch ex As Exception
 

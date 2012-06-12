@@ -1,0 +1,9 @@
+FDFToolkit.net Source Code
+
+Instructions:
+Open with Visual Studio 2008
+Reference the iTextSharp.dll
+Compile Project
+
+For support:
+http://www.nk-inc.com/support/

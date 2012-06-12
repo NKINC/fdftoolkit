@@ -1,0 +1,379 @@
+FDFApp.net Release Notes 
+http://www.nk-inc.com/software/fdftoolkit.net/releasenotes.aspx?app=FDFApp.net_2.0
+2.2012.04.2301
++ Fixed "Flatten[Boolean]" in all methods, *now FDFToolkit.net removes usage rights when flattened
+
+2.2012.04.2201
++ Fixed XFA (LC/XDP/XML) Predefined entities in XML
+
+2.2012.04.0701
++ Modified FileStreams, MemorStreams, and Buffers
+
+2.2012.04.0501
++ Modified FDFDoc.PDFMergeXDP2File, FDFDoc.PDFMergeFDF2File
+
+2.2012.04.0401
++ Modified FDFApp.ParseXFA() for form/field loop
+
+2.2012.03.2801
++ Fixed FDFApp.ParseXFA() for livecycle documents missing the Xml2SomDatasets
+
+2.2012.03.1101
++ Fixed FDFDoc.WriteFields() method XML,XDP,FDF,XFDF<fields></fields>
+
+2.2012.03.05
++ Fixed FDFApp.FDFOpenFromStream() method losing streamed XDP data
+
+2.2012.02.23
++ Fixed FDFSetStatus/FDFGetStatus methods
+
+2.2011.11.3001
++ Fixed Internal XDPSetValue(String, String, Boolean , Boolean) function
++ + Adds field value to all fields with same name when formNumber or formName are not presented
+
+2.2011.09.1601
++ Fixed FDFApp.FDFOpenFromBuf() w/ FDF Data
++ Fixed FDFDoc.FDFGetFields()
+
+2.2011.09.1001
++ Fixed Change_SubmitButtonURL()
+
+2.2011.07.2001
++ Fixed FDFApp.PDFOpen(Stream) method
++ Fixed FDFApp.PDFOpenFromStream(Stream) method
++ Fixed FDFApp.FDFOpen(Stream) method
++ Fixed FDFApp.FDFOpenFromStream(Stream) method
++ Fixed FDFApp.Determine_Type(Stream/Byte/String) method
++ Fixed FDFApp.FDFOpenFrom*(Ownerpassword) method
+
+
+2.2011.06.2501
++ Added FDFApp.GetPushButtonFieldNames() method
++ Fixed/Modified FDFApp.PDFOpenFromUrl() & PDFOpenFromFile() methods
++ Fixed/Modified FDFApp.Determine_Type() & FDFDoc.DetermineType methods
++ Fixed/Modified Interal Parsing Codes
+
+2.2011.03.1801 - Major Update!
++ Updated iTextSharp.dll
+	+ Flatten XFA (Static)
+	+ Merge (w/o flatten) no issues
+	+ Exists: Issue flattening XFA form field alignment issues (Centered)
+	+ + iTextSharp recreates the XFA field when flattening
+	+ + XFA has more field attributes than Acroforms
+	+ + Fields attributes are not completely copied to new XFA field
++ Converted Structures to Classes
++ Converted arrays to collection.generic.lists
++ Improved memory issues
++ + Removed PDFData calls that prepopulates the public variable - byte[] PDFData
+	+ Reduces memory overhead
++ + Removed FDFData calls that prepopulates the public variable - string FDFData
+	+ Reduces memory overhead
++ + Clearing variables and lists in .dispose function
++ Improved/Fixed multiple JavaScript actions for single objects (FDF Only)
+
+2.2011.01.2301
++ Fixed issues with PDFMergeXDP2*
++ Updated iTextSharp.dll; Recompile your projects with new iTextSharp.dll
++ iTextSharp.dll Version: 4.1.7.6
+	+ Modified iTextSharp.pdf.TextField.GetAppearance();
+	+ Was rewriting Fields when merging XDP data w/LiveCycle PDFs
+	+ Causing Fields to be VAligned differently, bc, iText doesn't support XDP VAlign
+	+ Now if XFA present, Merges w/o recreating fields (no valign issue)
+
+2.2010.12.3101
++ Fixed issues with FDFOpenFrom*
+
+2.2010.11.1501
++ [ITEXTSHARP] ver. 4.1.7.5 - Modified itextsharp.assembly to include PartiallyTrustedCallers()
+
+2.2010.11.0701
++ [ITEXTSHARP] ver. 4.1.7.4 - See release notes under help folder, inside the iTextSharp sub-folder
+
+2.2010.11.0201
++ Updated iTextSharp, Download: 
+[ITEXTSHARP] ver. 4.1.7.3 - See release notes under help folder, inside the iTextSharp sub-folder
++ Please update your projects to include the new iTextSharp.dll Assembly/File version 4.1.7.3
++ Added FDFDoc.PreserveUsageRights(bool) property
+  - Preserves Extended Reader Priveledges in PDFMerge2*() Methods
+  - Set true or false (default) prior to merge
+
+2.2010.10.2901
++ Fixed FDFDoc.toFDF(),FDFDoc.FDFSaveToBuf(),erroneously loading fdf templates
+
+2.2010.10.2501
++ Fixed PDFMergeFDFConcatenateForms2Buf() function with FDFDoc() parameter loading default fields
+
+2.2010.10.2301
++ Cleaned up some code
++ Added Methods for easy output
++  FDFDoc.toFile
++  FDFDoc.toBuffer
++  FDFDoc.toStream
++  FDFDoc.toFDF
++  FDFDoc.toPDF
++  FDFDoc.toXDP
++  FDFDoc.toXFA
++  FDFDoc.toXML
++  FDFDoc.toXPDF
+
+2.2010.10.1701
++ Added overloads: FDFOpenWithiText(Bytes(),Stream,String)
++ Added overloads: XDPGetValue()
+
+2.2010.09.2801
++ Added method FDFDoc.toFile
++ Added method FDFDoc.toBuffer
++ Added method FDFDoc.toStream
++ Added method FDFApp.FDFOpen(){byte(),stream,string}
++ Added method FDFApp.PDFOpen(){byte(),stream,string,System.uri}
+
+2.2010.08.1501
++ Fixed internal error with iTextSharp.dll(v.4.1.7.0)
++ New iTextSharp.dll (v.4.1.7.2)
++ iTextSharp (v.4.1.7.2) Source code available @ http://www.nk-inc.com/
+
+2.2010.08.1301
++ Fixed internal error when FDFGetFile()/FDFSetFile() method when importing
+
+2.2010.07.3001
++ Fixed internal error when FDFSetValues() method
+
+2.2010.01.2501
++ Using iText.FDFReader to get filename when parsing FDF data
+
+2.2010.01.0401
++ Fixed PDFMergeFDF2Buf() Methods with ownerPassword (BadPassword) Errors
+
+2.2010.01.0102
++ Added FDFDoc_Class.HasUsageRights_PDF() function to check if PDF has usage rights enabled
+
+2.2009.11.2701
++ Fixed FDF/Export Issue with formatted values (\r)
+
+2.2009.11.1101
++ Added VB & C# Example Web Projects
+2.2009.09.2801
++ Added GetForm() Method; Parameters {FormLevel Str}, Optional {IncludeSubforms Bln}
+++ Returns forms and/or subforms of a XDP or XML file
+
+2.2009.09.1501
++ Deployed iTextSharp 4.1.7.x (Source code can be downloaded from NK-Inc.com)
++ Added Property FDFDoc.RemoveUsageRights (Boolean) used when Merging Acrobat/LiveCycle data
+*** RemoveUsageRights removes Reader Enabled Acrobat Usage Rights from PDFs that may cause the PDF to become invalid after the merge
+*** Call after FDFDoc.FDFCreate/FDFOpenFrom*
+*** Call before FDFDoc.PDFMerge*
++ Added Function FDFDoc.RemoveUsageRights_PDF(fileName/Bytes/Stream) - overflow method
+*** Remove Usage Rights and returns the PDF Content as a buffer (Byte array)
+
+2.2009.08.1901
++ Fixed Errors with writing XDP Fields on subforms
+
+2.2009.08.0101
++ Fixed Errors with writing PDF Files
+
+2.2009.06.2601
++ When FDFDoc.PDFMergeFDF2*() is called it now merges PDFSubmitActions for Acrobat Forms
+
+2.2009.05.2801
++ Fixed more Merging Listboxes, and DropDownmenus Issues with Adobe Acroforms
+
+2.2009.04.3001
++ Fixed Merging Listboxes, and DropDownmenus Issues
+
+2.2009.04.0101
++ Added 3-dimensional layers to XDP files, including multiple subforms.
+    + Added XDPAddSubForm() methods
+    + Correctly Merges 3D XDP data with LiveCycle Forms
+    + Correctly Merges 2D XDP data with LiveCycle Forms
+    + Correctly Imports 3D XDP Data (3D XML Elements) LiveCycle Forms
+    + Ability to Export 3D XDP as XML,XFDF,FDF, and merge with LiveCycle Forms
++ Fixed XFDF data exporting issues
+
+2.2009.03.2501
++ MAJOR FIX: Reverted back to iTextSharp 4.0.7
+    - Causing PDF to hide single quotes in Read-Only or Flattened Forms
+    - Bug only occured when PDFMergeFDF2*() functions were used and fields were flattened or PDF Field properties were set to read-only
+    - Please update your FDFApp.dll, and iTextSharp.dll's in your projects
++ Added Overloads for PDFFlatten2*() to include string array parameter for ExcludedFields()
+
+2.2009.03.1901
++ Fixed FDFCheckChar (Replaces Newlines with /r)
+
+2.2009.03.1101
++ Recompiled and Uploaded
+
+2.2009.02.2701
++ Fixed FDFAddDocJavascript and FDFSetImportJavascript() functions when merging PDF forms with FDF data
+
+2.2009.02.2501
++ Updated Internal Subroutine for Writing "XML" & "FDF" data; it was causing errors
++ Updated FDFHasErrors function
+
+2.2009.02.1101
++ Updated Source: FDFDoc.FDFSetImportDataAction(), FDFDoc.FDFSetJavaScriptAction() Methods
+
+2.2009.02.0101
++ Added functions to Add XDP Image Fields
++ Added functions to Convert Image File to Base64 String
++ Added functions to Convert Base64 String to Image File
+
+2.2009.12.1105
++ Fixed XDP/XFA issues when merging and importing PDF documents
+
+2.2008.12.1801
++ Added FDFApp.Determine_Type & FDFDoc.Determine_Type() function to determine XML/XDP/XFDF/FDF/PDF(Acrobat)/XPDF(LiveCycle) form data formats
++ Added FDFDoc.XDPFieldCount() {Returns Field count including null fields}
++ Removed isDemo Constant (Served no purpose)
+
+2.2008.12.1401
++ Fixed issues in PDFOpenFrom* when importing LiveCycle PDF Forms
++ Added FDFApp.FDFApp_Class.PrintPDF() functions
+
+2.2008.11.0601
++ Fixed issues in Parsing Adobe LiveCycle forms
++ Fixed issues in FDFDoc.FDFCreateHTMLFromFDF() function
+
+2.2008.10.1601
++ Fixed syntax for FDFSet * Field Actions from being improperly exported as FDF
+
+2.2008.10.1401
++ Updated links in start menu, and links on desktop
+
+2.2008.10.0701
++ Updated all PDFMerge2Buf, PDFMerge2File methods to now merge DocJavaScripts, and ImportJSActions with PDF(Adobe Acrobat) forms
+
+2.2008.09.0901
++ Updated VB.net Samples
+
+2.2008.09.0601
++ Modified PDFOpenFrom*() methods, so FDFDoc.PDFForm(Bytes) returns a value of the original PDF form.
+
+2.2008.08.2601
++ Fixed FDFSave function with XDP data
+
+2.2008.08.1902
++ Added Optional ownerPassword parameter to all FDFApp.PDFOpenFrom* ,FDFDoc.PDFMerge*, and FDFDoc.PDFFlatten* functions,
++ Owner password if for opening existing PDF documents that are encrypted with an owner/modify password
+
+2.2008.08.1901
++ Changed Function Parameters for PDFPermissions to allow multiple permission selections
+
+2.2008.08.1501
++ Added iTextSharp 4.1.2.0817, Added Partial Trust to iText Assembly
++ Added iTextSharp 4.1.2.0
+
+2.2008.08.1101
++ Added Overloaded Methods for PDFMergeXDP2Buf() {Uri, bytes, or streams}
++ Added Download_RestrictedFile() with three overloads {Username, Password, Domain}
+
+2.2008.07.2301
++ Resolved issues with Parsing XDP Field Data
+
+2.2008.07.1702
++ Fixed byte issues with FDFSetDataRowFromValues, and FDFSetValuesFromDataset functions
+
+2.2008.07.1402
++ Added additional support for importing XDP data
++ Added function FDFApp.PDFOpenFromStream
+
+2.2008.07.1401
++ Added function FDFDoc.XDPGetFields
+
+2.2008.06.1902
++ Added support for XML Reserved words
+
+2.2008.06.1901
++ Added PDFMergeFDFConcatenateForms2Buf, PDFMergeFDFConcatenateForms2File
+
+2.2008.06.1801
++ Fixed Internal Error: XDP FDFOpenFrom* Detection
+
+2.2008.06.0501
++ Fixed Internal Error: StringToByteArray, now StrToByteArray
+ + Was causing errors
+
+2.2008.06.0401
++ Fixed Error in FDFSetSubmitFormAction
+
+2.2008.05.1604
++ Added Additional Export Support for Encoding
+
+2.2008.05.0501
++ Added overloaded methods for FDFOpenFromiText() - Stream, Byte Array, Filename, URL
+
+2.2008.04.0901
++ Added overload methods for PDFMergeFDF2Buf() for Stream, Byte Array
++ Added overload methods for PDFConcatenateForms2Buf() for Array of Byte Array
+
+2.2008.03.1701
++ Fixed Adobe Acrobat Reader 5.0 Compatibility issue
+
+2.2008.03.1601
++ Added Support for Western European Characters, FDFDoc/FDFApp Default_Encoding
+
+2.2008.03.1301
++ Added Garbage collection, gc.Collect(), on FDFDoc_Class.FDFClose Function
+
+2.2008.03.1101
++ Fixed major source code issues (Parsing LiveCycle PDFs)
+
+2.2008.03.0901
++ Fixed minor source code issues (Parsing XDP)
+
+2.2008.03.0401
++ SMTP Credentials
+
+2.2008.03.0201
++ Fixed minor source code issues
+
+2.2008.02.2802
++ Fixed UTF-8 Encoding for XDP input and output.
+
+2.2008.02.2701
++ Added Function FDFDoc.ForceDownload(), and FDFDoc.PDFForceDownload() functions.
+
+2.2008.02.2601
++ Added Limited support to Write Live Cycle Form Data (XDP UTF-8)
+
+2.2008.02.2201
++ Added Limited support to Input Read(read only) Live Cycle Form Data (XDP UTF-8/16)
+
+2.2008.02.1701
++ Created CHM Syntax Help file with NDoc 2.0 Alpha
+
+2.2008.02.0201
++ Fixed Importing FDF with Kid Field Arrays
+
+2.2008.01.2401
++ Updated Help File
++ Updated Sample Files
++ Changed FDF/PDF Send Email/FDFApp.Mail.*See help file
++ Specifically made for .net 2.0
+
+1.2007.10.21
++ Updated Help File FDFOpenFrom* had wrong parameters
++ Updates Sample Files
+
+1.2007.10.17
++ Fixed critical flaw in SMTP EMAIL with different attachments type only sending FDF
+
+1.2007.10.16
++ Fixed Function in FDFApp class - PDFOpenFrom{Buf,File,Url,Stream}()
++ + Error - Did not import checkboxes !FIXED
+
+
+1.2007.10.15
++ Added support for FDFApp class to PDFOpenFrom{Buf,File,Url,Stream}()
++ + Imports field names and data into fdf document
+
+1.2007.9.28
++ Fixed XML Import added support for multiple nodes
++ Fixed FDFSetOpt/FDFSetValues Functions for support for Lists
++ FDFDoc.FDFCreateHTMLFormFromDataRow = Creates HTML forms from DataRow
++ FDFDoc.FDFCreateFDFFromHTMLForm = Creates FDF form from HTML Form Page
++ FDFDoc.FDFCreateHTMLFormFromFDF = Creates HTML forms from FDF Data
+
+
+1.2007.9.20
++ Fixed XML Import added support for multiple nodes
++ Fixed FDFSetOpt/FDFSetValues Functions for support for Lists
