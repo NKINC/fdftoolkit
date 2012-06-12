@@ -1379,6 +1379,12 @@ FDFApp
 	<param name="FieldEnabled">True</param>
 	<param name="ReplaceField">If True, replaces field</param>
 	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.XDPGetLastFieldNumber(System.String)">
+	<summary>
+ Get last Field Number
+ </summary>
+	<param name="FieldName">Field name</param>
+	<remarks></remarks>
 </member><member name="P:FDFApp.FDFDoc_Class.XDPGetFile">
 	<summary>
  Get Live-Cycle form path or url

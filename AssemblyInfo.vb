@@ -30,6 +30,6 @@ Imports System.Runtime.InteropServices
 ' You can specify all the values or you can default the Build and Revision Numbers 
 ' by using the '*' as shown below:
 'D:\Data\PROGRAMMING\VS.Net\2008\iTextSharp\itextsharp_4.1.7.3-source\bin\Release
-<Assembly: AssemblyVersion("2.2011.09.1001")> 
-<Assembly: AssemblyFileVersionAttribute("2.2011.09.1601")> 
+<Assembly: AssemblyVersion("2.2012.04.2301")> 
+<Assembly: AssemblyFileVersionAttribute("2.2012.04.2301")> 
 <Assembly: NeutralResourcesLanguageAttribute("en")> 
