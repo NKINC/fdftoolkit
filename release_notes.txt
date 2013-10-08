@@ -1,5 +1,110 @@
 FDFApp.net Release Notes 
 http://www.nk-inc.com/software/fdftoolkit.net/releasenotes.aspx?app=FDFApp.net_2.0
+2.2013.10.0701
++ Fixed FDFApp.ParseXML() method when importing Images in XDP data
+
+2.2013.09.2801
++ Added FDFDoc.XDPSetDataRowFromValues(), FDFDoc.XDPSetValuesFromDataRow()
+
+2.2013.09.0901
++ Modified FDFDoc.XDPSetValue(Overloads)
++ Added FDFDoc.XDPSetAllSubformValues()
+
+2.2013.09.0601
++ Rewrote FDFApp.ParseXML
++ Rewrote FDFApp.ParseXFA
++ Rewrote FDFDoc.WriteXDPFormFields
++ Rewrote FDFDoc.WriteXDPSubforms
++ Added FDFDoc.WriteXDPSubforms(int) overload
++ Added XDPSubForms As List(Of FDFDoc_Class) to FDFDoc.FDFDoc_Class
++ Added FormNumber As Integer to FDFDoc.FDFDoc_Class
++ Added WrittenXDP As Boolean to FDFDoc.FDFDoc_Class
++ Changed FDFDoc.WriteFields(XML) From fields to root
++ Rewrote FDFDoc.WriteXMLFormFields
+
+2.2013.09.0501
++ Fixed FDFApp.ParseXML
++ Fixed FDFApp.ParseXFA
+
+2.2013.09.0401
++ Added FDFDoc.PDFisXFA, and FDFDoc.PDFisDynamicXFA
++ Determines if XFA is present, or PDF is saved as dynamic XFA
+
+2.2013.08.2101
++ Added FDFApp/FDFDoc chr(13) to chr(10) calls
++ Changed chr(10) to environment.newline in FDFDoc.FDF2HTML*() method
+
+2.2013.08.1901
++ Fixed FDFApp.parseXDP method
+
+2.2013.08.1001
++ The following functions get XDP/XML forms/subforms/fields by inputing xdp/xml form level
++ example form level parameter value: "topmostsubform1/subform[0]"
++ Added FDFDoc.XDPForm_FormLevel
++ Added FDFDoc.XDPGetAllForms_FormLevel
++ Added FDFDoc.XDPGetValue_FormLevel
+
+2.2013.08.0801
++ Modify System.IO.File.WriteAllBytes(NewPDFFileName,Bytes())
++ + PDFConcatenateForms2File
++ + FDFSavetoFile
++ + PDFFlatten2File
+
+2.2013.07.0401
++ Modified FDFErrors - replaced array() with List(of FDFError)
+
+2.2013.05.2301
++ Modified RemoveUsageRights_PDF(all overloads) to return file bytes in all cases
+
+2.2013.05.2101
++ Added FDFDoc.FDFRemoveField(string)
++ Added FDFDoc.FDFRemoveField(string,int)
+
+2.2013.03.2001
++ Added Private FDFDoc.GetNumberInBracketsString() methods
++ Modified FDFDoc.*:SetEncryption(cInt(Enum),...)
++ Added EncryptionStrength Enum ENCRYPTION_AES_128 = 2
+
+2.2013.03.1901
++ Added Private FDFDoc.ReplaceBracketsString() method
++ Modified FDFDoc.WriteXDPFormFields() - ReplaceBracketsString(FormName)
++ Fixed EncryptionStrength Enum STRENGTH40BITS = 0, STRENGTH128BITS = 1
++ Note: 40bit Encryption auto flattens XFA forms, while 128bit does not
+
+2.2012.12.1601
++ Fixed FDFDoc.PDFMerge* functions with Open/Modify Security: REMOVES USAGE RIGHTS AUTOMATICALLY
+
+2.2012.11.0801
++ Fixed FDFDoc.PDFMerge* functions with Open/Modify Security set with Reader Enabled Forms
+
+2.2012.11.0701
++ Added Exception Error Handling (FDFApp_Class.ThrowErrors & FDFDoc_Class.ThrowErrors)
+
+2.2012.10.17
++ FDFDoc.FDFAddField() - FieldName = xField.FieldName (FieldName.toLower = xField.FieldName.toLower)
++ FDFDoc.FDFAddField() - FDFGetValue(FieldName, True) Then (was FDFGetValue(FieldName) )
++ Change_SubmitButtonURL() All overloads to open the PDF with Preserve usage rights only if usage rights are present	
++ CHANGED TO: GetUsedBytesOnly(client.DownloadData(bstrFileName)), CHANGED FROM: client.DownloadData(bstrFileName)
++ Fixed issue with multiselect combo and list boxes: FDFAddField(FieldValue.Split("|").Length > 1)
+
+2.2012.10.1302
++ Change_SubmitButtonURL() All overloads to open the PDF with Preserve usage rights only if usage rights are present
+
+2.2012.08.1301
++ RECOMPILED
+
+2.2012.08.0201
++ REVERTED BACK TO iTEXTSharp.dll 4.0.7.0
+
+2.2012.08.0201
++ REVERTED BACK TO iTEXTSharp.dll 4.0.7.0
+
+2.2012.07.1201
++ FIXED FDFDOC_CLASS INITIALIZE() ENCODINGS
+
+2.2012.07.1101
++ FIXED PARSING XML DOCUMENTS WITH ENCODINGS
+
 2.2012.04.2301
 + Fixed "Flatten[Boolean]" in all methods, *now FDFToolkit.net removes usage rights when flattened
 

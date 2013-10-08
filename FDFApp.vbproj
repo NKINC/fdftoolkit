@@ -37,7 +37,8 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\</OutputPath>
-    <DocumentationFile>FDFApp.xml</DocumentationFile>
+    <DocumentationFile>
+    </DocumentationFile>
     <BaseAddress>285212672</BaseAddress>
     <ConfigurationOverrideFile>
     </ConfigurationOverrideFile>
@@ -56,7 +57,8 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\</OutputPath>
-    <DocumentationFile>FDFApp.xml</DocumentationFile>
+    <DocumentationFile>
+    </DocumentationFile>
     <BaseAddress>285212672</BaseAddress>
     <ConfigurationOverrideFile>
     </ConfigurationOverrideFile>
@@ -79,16 +81,15 @@
     <DefineTrace>true</DefineTrace>
     <OutputPath>bin\Debug Select\</OutputPath>
     <BaseAddress>285212672</BaseAddress>
-    <DocumentationFile>FDFApp.xml</DocumentationFile>
+    <DocumentationFile>
+    </DocumentationFile>
     <WarningLevel>1</WarningLevel>
     <NoWarn>42016,42017,42018,42019,42032</NoWarn>
     <DebugType>full</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="itextsharp, Version=4.1.7.7, Culture=neutral, PublicKeyToken=8354ae6d2174ddca">
-      <HintPath>..\..\FDFToolkit.net\bin\2.0\itextsharp.dll</HintPath>
-    </Reference>
+    <Reference Include="itextsharp, Version=4.0.7.0, Culture=neutral, PublicKeyToken=8354ae6d2174ddca" />
     <Reference Include="System">
       <Name>System</Name>
     </Reference>
@@ -126,22 +127,9 @@
     <Compile Include="Mail.vb">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="My Project\Settings.Designer.vb">
-      <AutoGen>True</AutoGen>
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <DependentUpon>Settings.settings</DependentUpon>
-    </Compile>
-    <Compile Include="My Project\Settings1.Designer.vb">
-      <AutoGen>True</AutoGen>
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <DependentUpon>Settings.settings</DependentUpon>
-    </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="My Project\Settings.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>Settings1.Designer.vb</LastGenOutput>
-    </None>
+    <Folder Include="My Project\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.VisualBasic.targets" />
   <PropertyGroup>
