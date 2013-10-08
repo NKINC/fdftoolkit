@@ -120,9 +120,9 @@ Namespace FDFApp
 			End Property
 			Public Sub NewNetworkCredentials(ByVal Username As String, ByVal Password As String, Optional ByVal Domain As String = "")
 				If Domain = "" Then
-					_SMTPCredentials = New Net.NetworkCredential(Username, Password)
-				Else
-					_SMTPCredentials = New Net.NetworkCredential(Username, Password, Domain)
+                    _SMTPCredentials = New System.Net.NetworkCredential(Username, Password)
+                Else
+                    _SMTPCredentials = New System.Net.NetworkCredential(Username, Password, Domain)
 				End If
 			End Sub
 
@@ -658,23 +658,23 @@ Namespace FDFApp
 		Public Class MailMessage
 			Implements IDisposable
 
-			Private _MailMessage As New Net.Mail.MailMessage
-			Public Property msgMailMessage() As Net.Mail.MailMessage
-				Get
-					Return _MailMessage
-				End Get
-				Set(ByVal value As Net.Mail.MailMessage)
-					_MailMessage = value
-				End Set
-			End Property
+            Private _MailMessage As New System.Net.Mail.MailMessage
+            Public Property msgMailMessage() As Net.Mail.MailMessage
+                Get
+                    Return _MailMessage
+                End Get
+                Set(ByVal value As Net.Mail.MailMessage)
+                    _MailMessage = value
+                End Set
+            End Property
 
-			Public Sub New()
-				_MailMessage = New Net.Mail.MailMessage
-			End Sub
-			Public Sub New(ByVal msg As Net.Mail.MailMessage)
-				_MailMessage = New Net.Mail.MailMessage
-				_MailMessage = msg
-			End Sub
+            Public Sub New()
+                _MailMessage = New System.Net.Mail.MailMessage
+            End Sub
+            Public Sub New(ByVal msg As Net.Mail.MailMessage)
+                _MailMessage = New System.Net.Mail.MailMessage
+                _MailMessage = msg
+            End Sub
 			Public Enum MailFormat
 				Text = False
 				HTML = True

@@ -11,7 +11,13 @@ Imports System.Data
 Namespace FDFApp
 	' FDFERRORS CLASS
 	Public Class FDFErrors
-		Implements IDisposable
+        Implements IDisposable
+        Public ThrowErrors As Boolean = False
+        Public Sub ThrowError(ByVal err As Exception)
+            If ThrowErrors Then
+                Throw err
+            End If
+        End Sub
 		Enum FDFErc
 			FDFErcOK = 0
 			FDFErcInternalError = 1				 'Internal FDF Library error */
@@ -91,57 +97,90 @@ Namespace FDFApp
 			Dim FDFError_Msg As String
 			Dim FDFError_Module As String
 			Dim FDFError_Number As Integer
-			Dim FDFError_Code As String
+            Dim FDFError_Code As String
+            Public Sub New(ByVal FDFErc1 As FDFErc, ByVal FDFError_Msg1 As String, ByVal FDFError_Module1 As String, ByVal FDFError_Number1 As Integer, ByVal FDFError_Code1 As String)
+                FDFError = FDFErc1
+                FDFError_Module = FDFError_Module1
+                FDFError_Number = FDFError_Number1
+                FDFError_Msg = FDFError_Msg1
+                FDFError_Code = FDFError_Code1
+            End Sub
 		End Structure
-		Private _FDFErrors(0) As FDFError
+        Private _FDFErrors As New System.Collections.Generic.List(Of FDFError)
 		Public Sub FDFAddError(ByVal FDFErrCode As FDFErc, ByVal FDFErrMessage As String, ByVal FDFErrModule As String, ByVal FDFErrNumber As Integer)
 			If Not _FDFErrors Is Nothing Then
-				ReDim Preserve _FDFErrors(_FDFErrors.Length)
-				_FDFErrors(_FDFErrors.Length - 1).FDFError = FDFErrCode
-				_FDFErrors(_FDFErrors.Length - 1).FDFError_Module = FDFErrModule
-				_FDFErrors(_FDFErrors.Length - 1).FDFError_Number = FDFErrNumber
-				_FDFErrors(_FDFErrors.Length - 1).FDFError_Msg = FDFErrMessage
-				_FDFErrors(_FDFErrors.Length - 1).FDFError_Code = ReturnErrCodeStr(FDFErrNumber)
-			ElseIf Not FDFErrCode = FDFErc.FDFErcOK Then
-				ReDim Preserve _FDFErrors(0)
-				_FDFErrors(0).FDFError = FDFErrCode
-				_FDFErrors(0).FDFError_Module = FDFErrModule
-				_FDFErrors(0).FDFError_Number = FDFErrNumber
-				_FDFErrors(0).FDFError_Msg = FDFErrMessage
-				_FDFErrors(0).FDFError_Code = ReturnErrCodeStr(FDFErrNumber)
-			End If
-		End Sub
-		Public Function FDFHasErrors() As Boolean
-			If _FDFErrors(0).FDFError = FDFErc.FDFErcOK Then
-				Return False
-			Else
-				Return True
-			End If
-		End Function
+                'ReDim Preserve _FDFErrors(_FDFErrors.Length)
+                _FDFErrors.Add(New FDFError(FDFErrCode, FDFErrMessage, FDFErrModule, FDFErrNumber, ReturnErrCodeStr(FDFErrNumber)))
+            ElseIf Not FDFErrCode = FDFErc.FDFErcOK Then
+                _FDFErrors.Clear()
+                _FDFErrors = New System.Collections.Generic.List(Of FDFError)
+                _FDFErrors.Add(New FDFError(FDFErrCode, FDFErrMessage, FDFErrModule, FDFErrNumber, ReturnErrCodeStr(FDFErrNumber)))
+            End If
+            'If ThrowErrors Then
+            '    ThrowError(New Exception(FDFErrMessage))
+            'End If
+        End Sub
+        Public Sub FDFAddError(ByVal FDFErrCode As FDFErc, ByVal FDFException As Exception)
+            If Not _FDFErrors Is Nothing Then
+                'ReDim Preserve _FDFErrors(_FDFErrors.Length)
+                '_FDFErrors(_FDFErrors.Length - 1).FDFError = FDFErrCode
+                '_FDFErrors.Clear()
+                '_FDFErrors = New System.Collections.Generic.List(Of FDFError)
+                _FDFErrors.Add(New FDFError(FDFErrCode, FDFException.Message, FDFException.TargetSite.DeclaringType.ToString & "." & FDFException.TargetSite.Name.ToString, FDFErrCode, ReturnErrCodeStr(FDFErrCode)))
+                '_FDFErrors(_FDFErrors.Length - 1).FDFError_Module = FDFException.TargetSite.DeclaringType.ToString & "." & FDFException.TargetSite.Name.ToString
+                '_FDFErrors(_FDFErrors.Length - 1).FDFError_Number=FDFErrCode.
+                '_FDFErrors(_FDFErrors.Length - 1).FDFError_Msg = FDFException.Message
+                '_FDFErrors(_FDFErrors.Length - 1).FDFError_Code = ReturnErrCodeStr(FDFErrNumber)
+            ElseIf Not FDFErrCode = FDFErc.FDFErcOK Then
+                _FDFErrors.Clear()
+                _FDFErrors = New System.Collections.Generic.List(Of FDFError)
+                _FDFErrors.Add(New FDFError(FDFErrCode, FDFException.Message, FDFException.TargetSite.DeclaringType.ToString & "." & FDFException.TargetSite.Name.ToString, FDFErrCode, ReturnErrCodeStr(FDFErrCode)))
+            End If
+            If ThrowErrors And FDFErrCode <> FDFErc.FDFErcOK Then
+                ThrowError(FDFException)
+            End If
+        End Sub
+        Public Function FDFHasErrors() As Boolean
+            If _FDFErrors.Count > 1 Then
+                Return True
+            End If
+            Return False
+            'If _FDFErrors(0).FDFError = FDFErc.FDFErcOK Then
+            '	Return False
+            'Else
+            '	Return True
+            'End If
+        End Function
 		Public Sub ResetErrors()
-			ReDim _FDFErrors(0)
-			_FDFErrors(0).FDFError = FDFErc.FDFErcOK
-			_FDFErrors(0).FDFError_Msg = "OK"
-			_FDFErrors(0).FDFError_Number = -1
-			_FDFErrors(0).FDFError_Module = ""
+            'ReDim _FDFErrors(0)
+            _FDFErrors.Clear()
+            _FDFErrors = New System.Collections.Generic.List(Of FDFError)
+            _FDFErrors.Add(New FDFError(FDFErc.FDFErcOK, "OK", "", -1, ReturnErrCodeStr(FDFErc.FDFErcOK)))
+            '         _FDFErrors(0).FDFError = FDFErc.FDFErcOK
+            '_FDFErrors(0).FDFError_Msg = "OK"
+            '_FDFErrors(0).FDFError_Number = -1
+            '_FDFErrors(0).FDFError_Module = ""
 		End Sub
 		Public Property FDFErrors() As FDFError()
 			Get
-				Return _FDFErrors
-			End Get
-			Set(ByVal Value As FDFError())
-				_FDFErrors = Value
-			End Set
+                Return _FDFErrors.ToArray
+            End Get
+            Set(ByVal Value As FDFError())
+                _FDFErrors.Clear()
+                _FDFErrors = New System.Collections.Generic.List(Of FDFError)
+                _FDFErrors.AddRange(Value)
+            End Set
 		End Property
 		Public Function FDFErrorsStr(Optional ByVal HTMLFormat As Boolean = False) As String
 			Dim FDFErrorx As FDFError
 			Dim retString As String
 			retString = IIf(HTMLFormat, "<br>", vbNewLine) & "FDF Errors:"
-			For Each FDFErrorx In FDFErrors
-				retString = retString & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Error: " & FDFErrorx.FDFError_Code & " - " & FDFErrorx.FDFError & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "#: " & FDFErrorx.FDFError_Number & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Module: " & FDFErrorx.FDFError_Module & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Message: " & FDFErrorx.FDFError_Msg & IIf(HTMLFormat, "<br>", vbNewLine)
-			Next
+            For Each FDFErrorx In FDFErrors
+                retString = retString & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Error: " & FDFErrorx.FDFError_Code & " - " & FDFErrorx.FDFError & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "#: " & FDFErrorx.FDFError_Number & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Module: " & FDFErrorx.FDFError_Module & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Message: " & FDFErrorx.FDFError_Msg & IIf(HTMLFormat, "<br>", vbNewLine)
+            Next
 			Return retString
-		End Function
+        End Function
+        
 #Region " IDisposable Support "
 		Private disposedValue As Boolean = False		  ' To detect redundant calls
 

@@ -15,8 +15,8 @@ Imports System.Drawing.Image
 Imports System.Collections.Generic
 Namespace FDFApp
     ' FDFDOC CLASS
-	Public Class FDFDoc_Class
-		Implements IDisposable
+    Public Class FDFDoc_Class
+        Implements IDisposable
         'Private _DebugMode As Boolean = False
         'Protected Function DEBUGMODE_TESTSCRIPT() As Boolean
         '    Try
@@ -39,11 +39,19 @@ Namespace FDFApp
 		Dim xField As FDFField, FoundField As Boolean
 		Private _FDFErrors As New FDFErrors
 		Private _FDFFieldCntr As Integer
-		Private _defaultEncoding As Encoding = Encoding.UTF8
-		''' <summary>
-		''' FDFType enumerator
-		''' </summary>
-		''' <remarks></remarks>
+        Private _defaultEncoding As Encoding = Encoding.UTF8
+        Public Property ThrowErrors() As Boolean
+            Get
+                Return _FDFErrors.ThrowErrors
+            End Get
+            Set(ByVal value As Boolean)
+                _FDFErrors.ThrowErrors = value
+            End Set
+        End Property
+        ''' <summary>
+        ''' FDFType enumerator
+        ''' </summary>
+        ''' <remarks></remarks>
 		Public Enum FDFType
 			FDF = 1
 			xFDF = 2
@@ -57,8 +65,9 @@ Namespace FDFApp
 		''' </summary>
 		''' <remarks></remarks>
 		Public Enum EncryptionStrength
-			STRENGTH40BITS = False
-			STRENGTH128BITS = True
+            STRENGTH40BITS = 0
+            STRENGTH128BITS = 1
+            ENCRYPTION_AES_128 = 2
 		End Enum
 		''' <summary>
 		''' PDF Permissions for PDF Form
@@ -267,7 +276,8 @@ Namespace FDFApp
             Public TmpRename As Boolean
             Public FormName As String
             Public FormLevel As String ' form1/subform1/subform4
-            Public XDPSubForms() As FDFDoc_Class
+            Public XDPSubForms As New List(Of FDFDoc_Class)
+            Public FormNumber As Integer
             Public WrittenXDP As Boolean
         End Class
 		''' <summary>
@@ -451,7 +461,7 @@ Namespace FDFApp
                                 xStream.Close()
                             End If
                         Catch ex As Exception
-                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFBatchMergeDataset2PDFFiles", 1)
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                         End Try
                     Next
                 Else
@@ -560,12 +570,12 @@ Namespace FDFApp
                                 xStream.Close()
                             End If
                         Catch ex As Exception
-                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFBatchMergeDataset2PDFFiles", 1)
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                         End Try
                     Next
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFBatchMergeDataset2PDFFiles", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Function
         ''' <summary>
@@ -592,7 +602,7 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -646,7 +656,7 @@ Namespace FDFApp
                 Return True
                 Return True
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -667,7 +677,7 @@ Namespace FDFApp
                     If String_IsNullOrEmpty(ownerPassword) Then
                         reader = New iTextSharp.text.pdf.PdfReader(PDFStream)
                     Else
-                        reader = New iTextSharp.text.pdf.PdfReader(PDFStream, DefaultEncoding.GetBytes(ownerPassword))
+                        reader = New iTextSharp.text.pdf.PdfReader(PDFStream, _defaultEncoding.GetBytes(ownerPassword))
                     End If
                 Else
                     If _FDF(0).FileName = "" Then
@@ -678,7 +688,7 @@ Namespace FDFApp
                         If String_IsNullOrEmpty(ownerPassword) Then
                             reader = New iTextSharp.text.pdf.PdfReader(formFile)
                         Else
-                            reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                            reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
                         End If
                     End If
                 End If
@@ -710,7 +720,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -736,7 +746,7 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -765,7 +775,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -791,7 +801,7 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -824,7 +834,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -844,7 +854,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFStream)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFStream, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFStream, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             Else
                 If formFile = "" Then
@@ -856,7 +866,7 @@ Namespace FDFApp
                         If String_IsNullOrEmpty(ownerPassword) Then
                             reader = New iTextSharp.text.pdf.PdfReader(PDFStream)
                         Else
-                            reader = New iTextSharp.text.pdf.PdfReader(PDFStream, DefaultEncoding.GetBytes(ownerPassword))
+                            reader = New iTextSharp.text.pdf.PdfReader(PDFStream, _defaultEncoding.GetBytes(ownerPassword))
                         End If
                     End If
                 End If
@@ -893,7 +903,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -901,8 +911,8 @@ Namespace FDFApp
         ''' Merges FDF Data with PDF Form and returns Byte array, allows encryption and permissions
         ''' </summary>
         ''' <param name="PDFStream">Original PDF Form Stream</param>
-        ''' <param name="OpenPassword">Open PDF password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">Permissions</param>
         ''' <param name="Flatten">Flatten</param>
         ''' <param name="EncryptionStrength">Encryption strength</param>
@@ -919,7 +929,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFStream)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFStream, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFStream, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -930,14 +940,19 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(PDFStream) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -954,7 +969,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -976,7 +991,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -1010,7 +1025,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -1019,8 +1034,8 @@ Namespace FDFApp
         ''' </summary>
         ''' <param name="FDFDocument">FDFDoc_Class with data</param>
         ''' <param name="PDFForm">Original PDF Form Bytes</param>
-        ''' <param name="OpenPassword">Open PDF password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">Permissions</param>
         ''' <param name="Flatten">Flatten</param>
         ''' <param name="EncryptionStrength">Encryption strength</param>
@@ -1036,7 +1051,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -1047,14 +1062,17 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(PDFForm) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                     Flatten = False
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(FDFDocument, reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -1071,7 +1089,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -1112,7 +1130,7 @@ Namespace FDFApp
                         End If
                     End If
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 1)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
 
                 Try
@@ -1186,15 +1204,15 @@ Namespace FDFApp
                         End If
                     Next
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 2)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
                 Try
                     PDF_iTextSharp_SetSubmitButtonURLs(stamper, reader)
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 3)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 4)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
         End Sub
@@ -1237,7 +1255,7 @@ Namespace FDFApp
                         End If
                     End If
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 1)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
 
                 Try
@@ -1311,15 +1329,15 @@ Namespace FDFApp
                         End If
                     Next
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 2)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
                 Try
                     PDF_iTextSharp_SetSubmitButtonURLs(stamper, reader)
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 3)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.Set_PDF_Fields_Merge", 4)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
         End Sub
@@ -1340,7 +1358,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -1374,7 +1392,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -1404,70 +1422,16 @@ Namespace FDFApp
                     formFile = _FDF(0).FileName & ""
                 End If
             End If
-            'Dim reader As New iTextSharp.text.pdf.PdfReader(formFile)
-            Dim reader As iTextSharp.text.pdf.PdfReader
-            If String_IsNullOrEmpty(ownerPassword) Then
-                reader = New iTextSharp.text.pdf.PdfReader(formFile)
-            Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
-            End If
-            Dim MemStream As New MemoryStream
-            Try
-                If Not reader Is Nothing Then
-                    If removeExtendedRights Or RemoveUsageRights Then
-                        reader.RemoveUsageRights()
-                    End If
-                End If
-                Dim stamper As iTextSharp.text.pdf.PdfStamper
-                If preserveExtendedRights Or PreserveUsageRights Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
-                    Flatten = False
-                Else
 
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
-                End If
-                'Dim stamper As New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
-                Set_PDF_Fields_Merge(reader, stamper)
-                stamper.FormFlattening = Flatten
-                stamper.Writer.CloseStream = False
-                stamper.Close()
-                If Not MemStream Is Nothing Then
-                    'PDFData = GetUsedBytesOnly(MemStream)
-                    'If MemStream.CanSeek Then MemStream.Position = 0
-                    Return GetUsedBytesOnly(MemStream, True)
-                Else
-                    'stamper.Close()
-                    Return Nothing
-                End If
-                Return Nothing
-            Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
-                Return Nothing
-            End Try
-        End Function
-#End Region
-        ''' <summary>
-        ''' Merges FDF Data with PDF Form and returns Byte array, allows encryption and permissions
-        ''' </summary>
-        ''' <param name="PDFForm">Original PDF Form Bytes</param>
-        ''' <param name="OpenPassword">Open PDF password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
-        ''' <param name="Permissions">Permissions</param>
-        ''' <param name="Flatten">Flatten</param>
-        ''' <param name="EncryptionStrength">Encryption strength</param>
-        ''' <returns>Byte array containing merged FDF Data and PDF</returns>
-        ''' <param name="ownerPassword">Owner password for Original password protected documents</param>
-        ''' <remarks></remarks>
-        Public Function PDFMergeFDF2Buf(ByVal PDFForm As Byte(), ByVal OpenPassword As String, ByVal ModificationPassword As String, ByVal Permissions As Integer, Optional ByVal Flatten As Boolean = False, Optional ByVal EncryptionStrength As EncryptionStrength = EncryptionStrength.STRENGTH128BITS, Optional ByVal ownerPassword As String = "") As Byte()
             Dim reader As iTextSharp.text.pdf.PdfReader
-            If PDFForm.Length = 0 Then
+            If formFile.Length = 0 Then
                 Return Nothing
                 Exit Function
             Else
                 If String_IsNullOrEmpty(ownerPassword) Then
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -1485,7 +1449,6 @@ Namespace FDFApp
 
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -1502,7 +1465,71 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+            End Try
+        End Function
+#End Region
+        ''' <summary>
+        ''' Merges FDF Data with PDF Form and returns Byte array, allows encryption and permissions
+        ''' </summary>
+        ''' <param name="PDFForm">Original PDF Form Bytes</param>
+        ''' <param name="OpenPassword">New Open PDF password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
+        ''' <param name="Permissions">Permissions</param>
+        ''' <param name="Flatten">Flatten</param>
+        ''' <param name="EncryptionStrength">Encryption strength</param>
+        ''' <returns>Byte array containing merged FDF Data and PDF</returns>
+        ''' <param name="ownerPassword">Owner password for Original password protected documents</param>
+        ''' <remarks></remarks>
+        Public Function PDFMergeFDF2Buf(ByVal PDFForm As Byte(), ByVal OpenPassword As String, ByVal ModificationPassword As String, ByVal Permissions As Integer, Optional ByVal Flatten As Boolean = False, Optional ByVal EncryptionStrength As EncryptionStrength = EncryptionStrength.STRENGTH128BITS, Optional ByVal ownerPassword As String = "") As Byte()
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            If PDFForm.Length = 0 Then
+                Return Nothing
+                Exit Function
+            Else
+                If String_IsNullOrEmpty(ownerPassword) Then
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
+                Else
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
+                End If
+            End If
+            Dim MemStream As New MemoryStream
+            Try
+                If Not reader Is Nothing Then
+                    If RemoveUsageRights Then
+                        reader.RemoveUsageRights()
+                    End If
+                End If
+                Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(PDFForm) Then
+                    reader.RemoveUsageRights()
+                End If
+                If PreserveUsageRights And Flatten = False Then
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                    Flatten = False
+                Else
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                End If
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
+                Set_PDF_Fields_Merge(reader, stamper)
+                stamper.FormFlattening = Flatten
+                stamper.Writer.CloseStream = False
+                stamper.Close()
+                If Not MemStream Is Nothing Then
+                    'If MemStream.CanSeek Then MemStream.Position = 0
+                    If Flatten Then
+                        Return RemoveUsageRights_PDF(GetUsedBytesOnly(MemStream, True))
+                    Else
+                        Return GetUsedBytesOnly(MemStream, True)
+                    End If
+                Else
+                    Return Nothing
+                End If
+                Return Nothing
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -1535,7 +1562,7 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -1569,7 +1596,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -1579,7 +1606,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(formFile)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             Catch ex As Exception
                 Return Nothing
@@ -1594,10 +1621,9 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
-                If PreserveUsageRights Then
+                If HasUsageRights_PDF(formFile) And PreserveUsageRights Then
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
                 Dim form As iTextSharp.text.pdf.AcroFields
@@ -1607,7 +1633,6 @@ Namespace FDFApp
                 fields = form.Fields
                 Try
                     If Not form.Fields(fieldname) Is Nothing Then
-
                         ' NEW
                         Dim submitBtn As iTextSharp.text.pdf.PushbuttonField = form.GetNewPushbuttonFromField(fieldname) ' new PushbuttonField(writer,
                         Dim submitField As iTextSharp.text.pdf.PdfFormField = submitBtn.Field
@@ -1627,7 +1652,9 @@ Namespace FDFApp
                         stamper.Writer.CloseStream = False
                         stamper.Close()
                         ' END NEW
-
+                        If MemStream.CanSeek Then
+                            MemStream.Position = 0
+                        End If
                     End If
                 Catch ex As Exception
 
@@ -1645,7 +1672,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(formFile)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             Catch ex As Exception
                 Return Nothing
@@ -1660,10 +1687,9 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
-                If PreserveUsageRights Then
+                If HasUsageRights_PDF(formFile) And PreserveUsageRights Then
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
                 Dim form As iTextSharp.text.pdf.AcroFields
@@ -1694,7 +1720,9 @@ Namespace FDFApp
                         stamper.Close()
                         ' END NEW
 
-
+                        If MemStream.CanSeek Then
+                            MemStream.Position = 0
+                        End If
                     End If
                 Catch ex As Exception
 
@@ -1715,7 +1743,7 @@ Namespace FDFApp
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(formFile)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             Catch ex As Exception
                 Return Nothing
@@ -1730,10 +1758,9 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
-                If PreserveUsageRights Then
+                If HasUsageRights_PDF(formFile) And PreserveUsageRights Then
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
                 Dim form As iTextSharp.text.pdf.AcroFields
@@ -1765,6 +1792,9 @@ Namespace FDFApp
 
                         stamper.Writer.CloseStream = False
                         stamper.Close()
+                        If MemStream.CanSeek Then
+                            MemStream.Position = 0
+                        End If
                     End If
                 Catch ex As Exception
 
@@ -1780,8 +1810,8 @@ Namespace FDFApp
         ''' Merges FDF Data with PDF Form and returns Byte array, allows encryption and permissions
         ''' </summary>
         ''' <param name="FDFDocument">FDFDoc_Class with data</param>
-        ''' <param name="OpenPassword">Open PDF password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">Permissions</param>
         ''' <param name="PDFFormPath">Original PDF Form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -1803,9 +1833,12 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
+            If HasUsageRights_PDF(formFile) Then
+                reader.RemoveUsageRights()
+            End If
             Try
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
@@ -1814,13 +1847,15 @@ Namespace FDFApp
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(FDFDocument, reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -1839,7 +1874,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -1847,8 +1882,8 @@ Namespace FDFApp
         ''' Merges FDF Data and PDF Form with password protection and outputs to a file
         ''' </summary>
         ''' <param name="newPDFFile">New PDF file</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">Permissions</param>
         ''' <param name="PDFFormPath">Original PDF Form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -1871,7 +1906,7 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
 
 
@@ -1886,13 +1921,15 @@ Namespace FDFApp
                 Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
 
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
+
                     Flatten = False
                 Else
 
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -1925,7 +1962,7 @@ Namespace FDFApp
                 Return True
             Catch ex As Exception
                 'IOPerm.RevertAssert()
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -1933,8 +1970,8 @@ Namespace FDFApp
         ''' Merges FDF Data and PDF Form and outputs to a file
         ''' </summary>
         ''' <param name="newPDFFile">New PDF file</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">Permissions</param>
         ''' <param name="PDFFormPath">Original PDF Form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -1957,10 +1994,13 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
                         reader.RemoveUsageRights()
@@ -1970,13 +2010,15 @@ Namespace FDFApp
                 Dim myFileStream As New System.IO.FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
 
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
+
                     Flatten = False
                 Else
 
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -2012,7 +2054,7 @@ Namespace FDFApp
                 Return True
             Catch ex As Exception
                 'IOPerm.RevertAssert()
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -2058,7 +2100,7 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File(1)", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Dim xStream As New MemoryStream
@@ -2069,34 +2111,41 @@ Namespace FDFApp
             Dim stamper As iTextSharp.text.pdf.PdfStamper
             stamper = New iTextSharp.text.pdf.PdfStamper(reader, xStream)
             Try
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 stamper.Writer.CloseStream = False
                 stamper.FormFlattening = Flatten
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File(2)", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
 
             Try
-                Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
-                If Not FileStrem Is Nothing Then
-                    'If xStream.CanSeek Then xStream.Position = 0
-                    With FileStrem
-                        .Write(GetUsedBytesOnly(xStream), 0, GetUsedBytesOnly(xStream).Length)
-                    End With
-                    FileStrem.Close()
-                    FileStrem.Dispose()
-                    xStream.Close()
-                    xStream.Dispose()
-                    copyStream.Close()
-                    copyStream.Dispose()
-                    Return True
-                Else
-                    Return False
-                End If
+                Dim b() As Byte = GetUsedBytesOnly(xStream)
+                System.IO.File.WriteAllBytes(newPDFFile, b)
+                xStream.Close()
+                xStream.Dispose()
+                copyStream.Close()
+                copyStream.Dispose()
+                Return True
+                'Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
+                'If Not FileStrem Is Nothing Then
+                '    'If xStream.CanSeek Then xStream.Position = 0
+                '    With FileStrem
+                '        .Write(GetUsedBytesOnly(xStream), 0, GetUsedBytesOnly(xStream).Length)
+                '    End With
+                '    FileStrem.Close()
+                '    FileStrem.Dispose()
+                '    xStream.Close()
+                '    xStream.Dispose()
+                '    copyStream.Close()
+                '    copyStream.Dispose()
+                '    Return True
+                'Else
+                '    Return False
+                'End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File(3)", 3)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -2134,14 +2183,14 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
             Catch ex As Exception
                 ''File.Delete(newPDFFile & ".tmp")
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             If MemStream.CanSeek Then
@@ -2151,12 +2200,12 @@ Namespace FDFApp
             Dim stamper As New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
             Try
 
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
                 stamper.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2172,7 +2221,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2193,7 +2242,6 @@ Namespace FDFApp
             If PreserveUsageRights Then
                 copy = New iTextSharp.text.pdf.PdfCopyFields(copyStream, "\0")
             Else
-
                 copy = New iTextSharp.text.pdf.PdfCopyFields(copyStream)
             End If
             Try
@@ -2216,30 +2264,32 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File(1)", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
             If copyStream.CanSeek Then
                 copyStream.Position = 0
             End If
             reader = New iTextSharp.text.pdf.PdfReader(copyStream.GetBuffer)
             Try
-                Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
-                If Not FileStrem Is Nothing Then
-                    'If copyStream.CanSeek Then
-                    '    copyStream.Position = 0
-                    'End If
-                    FileStrem.Write(GetUsedBytesOnly(copyStream), 0, GetUsedBytesOnly(copyStream).Length)
-                    FileStrem.Close()
-                    FileStrem.Dispose()
-                    copyStream.Close()
-                    copyStream.Dispose()
-                    Return True
-                Else
-                    Return False
+                'Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
+                'If Not FileStrem Is Nothing Then
+                If copyStream.CanSeek Then
+                    copyStream.Position = 0
                 End If
+                '    FileStrem.Write(GetUsedBytesOnly(copyStream), 0, GetUsedBytesOnly(copyStream).Length)
+                Dim b() As Byte = GetUsedBytesOnly(copyStream)
+                System.IO.File.WriteAllBytes(newPDFFile, b)
+                'FileStrem.Close()
+                '    FileStrem.Dispose()
+                copyStream.Close()
+                copyStream.Dispose()
+                Return True
+                'Else
+                '    Return False
+                'End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
 
@@ -2286,27 +2336,28 @@ Namespace FDFApp
                         MemStream.Position = 0
                     End If
                 Catch ex As Exception
-                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 1)
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                     Return Nothing
                 End Try
-                Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
-               
-                If Not FileStrem Is Nothing Then
-                    'If MemStream.CanSeek Then MemStream.Position = 0
-                    Dim b() As Byte = GetUsedBytesOnly(MemStream, True)
-                    FileStrem.Write(b, 0, b.Length)
-                    MemStream.Close()
-                    MemStream.Dispose()
-                    FileStrem.Close()
-                    FileStrem.Dispose()
-                    MemStream = Nothing
-                    FileStrem = Nothing
-                    Return True
-                Else
-                    Return False
-                End If
+                'Dim FileStrem As New FileStream(newPDFFile, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite)
+
+                'If Not FileStrem Is Nothing Then
+                If MemStream.CanSeek Then MemStream.Position = 0
+                Dim b() As Byte = GetUsedBytesOnly(MemStream)
+                System.IO.File.WriteAllBytes(newPDFFile, b)
+                '    FileStrem.Write(b, 0, b.Length)
+                MemStream.Close()
+                MemStream.Dispose()
+                'FileStrem.Close()
+                '    FileStrem.Dispose()
+                MemStream = Nothing
+                '    FileStrem = Nothing
+                Return True
+                'Else
+                'Return False
+                'End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
 
@@ -2340,14 +2391,14 @@ Namespace FDFApp
                 Next
                 copy.Writer.CloseStream = False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
             Try
                 If Not MemStream Is Nothing Then
@@ -2357,7 +2408,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2390,14 +2441,14 @@ Namespace FDFApp
                 Next
                 copy.Writer.CloseStream = False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2409,7 +2460,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2437,6 +2488,20 @@ Namespace FDFApp
                 m.Close()
                 m.Dispose()
             End If
+            Return newBytes
+        End Function
+        Public Function GetUsedBytesOnly(ByRef b() As Byte) As Byte()
+            Dim bytes As Byte() = b
+            Dim i As Integer = 0
+            For i = bytes.Length - 1 To 1 Step -1
+                If bytes(i) <> 0 Then
+                    Exit For
+                End If
+            Next
+            Dim newBytes As Byte() = New Byte(i - 1) {}
+            Array.Copy(bytes, newBytes, i)
+            ReDim bytes(0)
+            bytes = Nothing
             Return newBytes
         End Function
         ''' <summary>
@@ -2470,7 +2535,7 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2521,7 +2586,7 @@ Namespace FDFApp
                     ctr += 1
                 Next
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2537,7 +2602,7 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
             Catch ex As Exception
                 copy.Writer.CloseStream = False
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2589,7 +2654,7 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2597,7 +2662,7 @@ Namespace FDFApp
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2609,7 +2674,7 @@ Namespace FDFApp
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2661,7 +2726,7 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2669,7 +2734,7 @@ Namespace FDFApp
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2684,7 +2749,7 @@ Namespace FDFApp
                 'IOPerm.RevertAssert()
             Catch ex As Exception
                 'IOPerm.RevertAssert()
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 FileStream.Close()
                 Return False
             End Try
@@ -2721,14 +2786,14 @@ Namespace FDFApp
             Catch ex As Exception
                 'File.Delete(newPDFFile & ".tmp")
 
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2742,7 +2807,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2775,14 +2840,14 @@ Namespace FDFApp
                 Next
                 copy.Writer.CloseStream = False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2797,7 +2862,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2842,7 +2907,7 @@ Namespace FDFApp
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2856,7 +2921,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2897,14 +2962,14 @@ Namespace FDFApp
                 copy.Writer.CloseStream = False
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
             Try
                 copy.Close()
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
 
             Try
@@ -2919,7 +2984,7 @@ Namespace FDFApp
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFConcatenateForms2Buf", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -2928,8 +2993,8 @@ Namespace FDFApp
         ''' <summary>
         ''' Merges PDF Document and FDF Data and outputs to a stream
         ''' </summary>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFFormPath">Original blank PDF Form Path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -2951,7 +3016,7 @@ Namespace FDFApp
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -2961,6 +3026,9 @@ Namespace FDFApp
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
                     Flatten = False
@@ -2968,7 +3036,7 @@ Namespace FDFApp
 
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
                 Dim fields As iTextSharp.text.pdf.AcroFields
 
@@ -3084,23 +3152,24 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
         ''' <summary>
         ''' Merges PDF Document with FDF Data and outputs to a byte array
         ''' </summary>
-        ''' <param name="OpenPassword">PDF Open Password</param>
-        ''' <param name="ModificationPassword">PDF Modify Password</param>
-        ''' <param name="Permissions">PDF Permissions</param>
+        ''' <param name="OpenPassword">New PDF Open Password</param>
+        ''' <param name="ModificationPassword">New PDF Modify Password</param>
+        ''' <param name="Permissions">New PDF Permissions</param>
         ''' <param name="PDFFormPath">Original Blank PDF Form path</param>
         ''' <param name="Flatten">Flatten</param>
         ''' <param name="EncryptionStrength">Encryption Strength</param>
-        ''' <param name="ownerPassword">Owner password for Original password protected documents</param>
+        ''' <param name="ownerPassword">Owner password for blank/original password protected documents</param>
         ''' <returns>byte array</returns>
         ''' <remarks></remarks>
         Public Function PDFMergeFDF2Buf(ByVal OpenPassword As String, ByVal ModificationPassword As String, ByVal Permissions As Integer, Optional ByVal PDFFormPath As String = "", Optional ByVal Flatten As Boolean = False, Optional ByVal EncryptionStrength As EncryptionStrength = EncryptionStrength.STRENGTH128BITS, Optional ByVal ownerPassword As String = "") As Byte()
+            ' EDITED 2012-12-15 @ 4:30PM EST NK
             Dim formFile As String = PDFFormPath
             If formFile = "" Then
                 If _FDF(0).FileName = "" Then
@@ -3110,28 +3179,38 @@ Namespace FDFApp
                     formFile = _FDF(0).FileName & ""
                 End If
             End If
+
             Dim reader As iTextSharp.text.pdf.PdfReader
-            If String_IsNullOrEmpty(ownerPassword) Then
-                reader = New iTextSharp.text.pdf.PdfReader(formFile)
+            If formFile.Length = 0 Then
+                Return Nothing
+                Exit Function
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                If String_IsNullOrEmpty(ownerPassword) Then
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile)
+                Else
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
+                End If
             End If
             Dim MemStream As New MemoryStream
             Try
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
                         reader.RemoveUsageRights()
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
-                If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                If PreserveUsageRights And Flatten = False And HasUsageRights_PDF(formFile) = True Then
+                    'MemStream = New System.IO.MemoryStream(RemoveUsageRights_PDF(formFile))
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                     Flatten = False
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Set_PDF_Fields_Merge(reader, stamper)
                 stamper.FormFlattening = Flatten
                 stamper.Writer.CloseStream = False
@@ -3148,7 +3227,7 @@ Namespace FDFApp
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeFDF2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -3193,6 +3272,7 @@ Namespace FDFApp
         Public Sub ResetErrors()
             _FDFErrors.ResetErrors()
         End Sub
+
         ''' <summary>
         ''' Returns FDFErrors array
         ''' </summary>
@@ -3749,7 +3829,7 @@ Namespace FDFApp
                     FDFAddJSAction(FieldName, whichTrigger, theScript)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -3781,7 +3861,7 @@ Namespace FDFApp
                     FDFAddSubmitAction(FieldName, whichTrigger, URL)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -3819,7 +3899,7 @@ Namespace FDFApp
                     FDFAddSubmitAction(FieldName, whichTrigger, URL)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -3854,7 +3934,7 @@ Namespace FDFApp
                     FDFAddField(FieldName, (FieldValue))
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -3885,7 +3965,7 @@ Namespace FDFApp
                     FDFAddField(FieldName, (FieldValue))
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -3906,14 +3986,14 @@ Namespace FDFApp
                 Dim xdpFrm As New FDFDoc_Class
                 xdpFrm = XDPForm(FormName)
                 If Not xdpFrm.FormName Is Nothing Then
-                    If Not xdpFrm.struc_FDFFields.Count <= 0 Then
+                    If Not xdpFrm.struc_FDFFields Is Nothing Then
                         If xdpFrm.struc_FDFFields.Count >= 1 Then
-                            For Each _fld As FDFField In xdpFrm.struc_FDFFields
-                                If Not String_IsNullOrEmpty(_fld.FieldName) Then
-                                    If _fld.FieldName.ToLower = FieldName.ToLower Then
-                                        _fld.FieldValue.Clear()
-                                        _fld.FieldValue.Add((FieldValue))
-                                        _fld.FieldEnabled = FieldEnabled
+                            For _fld As Integer = 0 To xdpFrm.struc_FDFFields.Count - 1
+                                If Not String_IsNullOrEmpty(XDPForm(FormName).struc_FDFFields(_fld).FieldName) Then
+                                    If XDPForm(FormName).struc_FDFFields(_fld).FieldName.ToLower = FieldName.ToLower Then
+                                        XDPForm(FormName).struc_FDFFields(_fld).FieldValue.Clear()
+                                        XDPForm(FormName).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
+                                        XDPForm(FormName).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
                                         FoundField = True
                                         Exit Sub
                                     End If
@@ -3922,11 +4002,11 @@ Namespace FDFApp
                         End If
                     End If
                     If Not FoundField Then
-                        XDPAddField(FieldName, FieldValue, _FDF(_CurFDFDoc).FormName)
+                        XDPAddField(FieldName, FieldValue, XDPForm(FormName).FormName)
                     End If
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -3951,17 +4031,16 @@ Namespace FDFApp
                     Dim intx As Integer = -1
                     For Each _fdfdoc As FDFDoc_Class In _FDF
                         intx += 1
-                        If Not _fdfdoc.struc_FDFFields.Count <= 0 Then
+                        If Not _fdfdoc.struc_FDFFields Is Nothing Then
                             If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
-                                For Each _fld As FDFField In _fdfdoc.struc_FDFFields
-                                    If Not String_IsNullOrEmpty(_fld.FieldName) Then
-                                        If _fld.FieldName.ToLower = FieldName.ToLower Then
-                                            '_CurFDFDoc = intx
-                                            _fld.FieldValue.Clear()
-                                            _fld.FieldValue.Add((FieldValue))
-                                            _fld.FieldEnabled = FieldEnabled
+                                Dim inty As Integer = -1
+                                For fld As Integer = 0 To _FDF(intx).struc_FDFFields.Count - 1
+                                    If Not String_IsNullOrEmpty(_FDF(intx).struc_FDFFields(fld).FieldName) Then
+                                        If _FDF(intx).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                            _FDF(intx).struc_FDFFields(fld).FieldValue.Clear()
+                                            _FDF(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            _FDF(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
                                             FoundField = True
-                                            'Exit Sub
                                         End If
                                     End If
                                 Next
@@ -3987,7 +4066,7 @@ continue_setting_value:
                     XDPAddField(FieldName, FieldValue, _FDF(_CurFDFDoc).FormName)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -4015,15 +4094,15 @@ continue_setting_value:
                         Dim intX As Integer = -1
                         For Each _fdfdoc As FDFDoc_Class In _FDF
                             intX += 1
-                            If Not _fdfdoc.struc_FDFFields.Count <= 0 Then
-                                If _fdfdoc.struc_FDFFields.Count >= 1 Then
-                                    For Each _fld As FDFField In _fdfdoc.struc_FDFFields
-                                        If Not String_IsNullOrEmpty(_fld.FieldName) Then
-                                            If _fld.FieldName.ToLower = FieldName.ToLower Then
-                                                If _fld.FieldNum = FieldNumber Then
-                                                    _fld.FieldValue.Clear()
-                                                    _fld.FieldValue.Add((FieldValue))
-                                                    _fld.FieldEnabled = FieldEnabled
+                            If Not _fdfdoc.struc_FDFFields Is Nothing Then
+                                If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                    For fld As Integer = 0 To _FDF(intX).struc_FDFFields.Count - 1
+                                        If Not String_IsNullOrEmpty(_FDF(intX).struc_FDFFields(fld).FieldName) Then
+                                            If _FDF(intX).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                                If _FDF(intX).struc_FDFFields(fld).FieldNum = FieldNumber Then
+                                                    _FDF(intX).struc_FDFFields(fld).FieldValue.Clear()
+                                                    _FDF(intX).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                                    _FDF(intX).struc_FDFFields(fld).FieldEnabled = FieldEnabled
                                                     FoundField = True
                                                     Exit Sub
                                                 End If
@@ -4045,7 +4124,7 @@ continue_setting_value:
                     XDPAddField(FieldName, FieldValue, _FDF(_CurFDFDoc).FormName)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -4067,14 +4146,14 @@ continue_setting_value:
                 Dim xdpFrm As New FDFDoc_Class
                 xdpFrm = XDPForm(FormNumber)
                 If Not xdpFrm.FormName Is Nothing Then
-                    If Not xdpFrm.struc_FDFFields.Count <= 0 Then
+                    If Not xdpFrm.struc_FDFFields Is Nothing Then
                         If xdpFrm.struc_FDFFields.Count >= 1 Then
-                            For Each _fld As FDFField In xdpFrm.struc_FDFFields
-                                If Not String_IsNullOrEmpty(_fld.FieldName) Then
-                                    If _fld.FieldName.ToLower = FieldName.ToLower Then
-                                        _fld.FieldValue.Clear()
-                                        _fld.FieldValue.Add((FieldValue))
-                                        _fld.FieldEnabled = FieldEnabled
+                            For fld As Integer = 0 To XDPForm(FormNumber).struc_FDFFields.Count - 1
+                                If Not String_IsNullOrEmpty(XDPForm(FormNumber).struc_FDFFields(fld).FieldName) Then
+                                    If XDPForm(FormNumber).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                        XDPForm(FormNumber).struc_FDFFields(fld).FieldValue.Clear()
+                                        XDPForm(FormNumber).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                        XDPForm(FormNumber).struc_FDFFields(fld).FieldEnabled = FieldEnabled
                                         FoundField = True
                                         Exit Sub
                                     End If
@@ -4083,14 +4162,57 @@ continue_setting_value:
                         End If
                     End If
                     If Not FoundField Then
-                        XDPAddField(FieldName, FieldValue, _FDF(_CurFDFDoc).FormName)
+                        XDPAddField(FieldName, FieldValue, XDPForm(FormNumber).FormName)
                     End If
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
+        End Sub
+        ''' <summary>
+        ''' Set value of field in a Live-Cycle Form
+        ''' </summary>
+        ''' <param name="FieldName">Live-Cycle PDF Form Field Name</param>
+        ''' <param name="FieldValue">Live-Cycle PDF Form Field Value</param>
+        ''' <param name="FormLevel">Form level</param>
+        ''' <param name="FDFEmpty">Leave blank or set to false</param>
+        ''' <param name="FieldEnabled">Set to true to enable field</param>
+        ''' <remarks></remarks>
+        Public Sub XDPSetAllSubformValues(ByVal FieldName As String, ByVal FieldValue As String, ByVal FormLevel As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True)
+            Dim FoundField As Boolean
+            FoundField = False
+            Try
+                Dim xdpFrm As New FDFDoc_Class
+                'xdpFrm = XDPForm(FormNumber)
+                For Each xdpFrm In XDPGetAllForms_FormLevel(FormLevel)
+                    If Not xdpFrm.FormName Is Nothing Then
+                        If Not xdpFrm.struc_FDFFields Is Nothing Then
+                            If xdpFrm.struc_FDFFields.Count >= 1 Then
+                                If xdpFrm.FormLevel.StartsWith(FormLevel) Then
+                                    For fld As Integer = 0 To xdpFrm.struc_FDFFields.Count - 1
+                                        If Not String_IsNullOrEmpty(xdpFrm.struc_FDFFields(fld).FieldName) Then
+                                            If xdpFrm.struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                                XDPForm(xdpFrm.FormNumber).struc_FDFFields(fld).FieldValue.Clear()
+                                                XDPForm(xdpFrm.FormNumber).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                                XDPForm(xdpFrm.FormNumber).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                                FoundField = True
+                                            End If
+                                        End If
+                                    Next
+                                End If
+                            End If
+                        End If
+                        If Not FoundField Then
+                            XDPAddField(FieldName, FieldValue, XDPForm(xdpFrm.FormNumber).FormName)
+                        End If
+                    End If
+                Next
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Exit Sub
+            End Try
         End Sub
         Private Sub FDFSetValueByte(ByVal FieldName As String, ByVal FieldValue As Byte(), Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True)
             Dim FoundField As Boolean
@@ -4120,7 +4242,7 @@ continue_setting_value:
                     FDFAddField(FieldName, Me.FDFCheckChar(SB.ToString))
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
         End Sub
@@ -4161,7 +4283,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -4218,7 +4340,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -4279,7 +4401,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFSetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
 
@@ -4409,7 +4531,7 @@ continue_setting_value:
                 Next
                 Return Ds
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Ds
                 Exit Function
             End Try
@@ -4541,7 +4663,7 @@ continue_setting_value:
                 Next
                 Return Dr
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataRow", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Dr
                 Exit Function
             End Try
@@ -4673,11 +4795,279 @@ continue_setting_value:
                 Next
                 Return Dr
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataRow", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Dr
                 Exit Function
             End Try
         End Function
+
+        ''' <summary>
+        ''' Sets a datarow with values from PDF Form values
+        ''' </summary>
+        ''' <param name="Dr">Datarow to populate</param>
+        ''' <returns>Populated datarow</returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetDataRowFromValues(ByRef Dr As DataRow) As DataRow
+            Dim Fieldname As String
+
+            Dim DsFld As DataColumn
+            Try
+                For Each DsFld In Dr.Table.Columns
+                    FoundField = False
+                    Fieldname = DsFld.ColumnName & ""
+                    'For curfdfdoc As Integer = 0 To _FDF.Count - 1
+                    If DsFld.AutoIncrement = False Then
+                        If Not Me.XDPGetValue(Fieldname) Is Nothing Then
+                            If Not DsFld.DataType Is Nothing Then
+                                'Dim xfld As FDFApp.FDFDoc_Class.FDFField() = Me.XDPGetFields(Fieldname)
+                                'If Not xfld Is Nothing And xfld(0).FieldEnabled = True Then
+                                Select Case LCase(DsFld.DataType.ToString & "")
+                                    Case "system.dbnull"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.sbyte"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CByte(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.empty"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.object"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname)
+                                    Case "system.string"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.char"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.character"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.boolean"
+                                        Dr(Fieldname) = CBool(Me.XDPGetValue(Fieldname)) + 0
+                                    Case "system.datetime"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDate(IIf(IsDate(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0))
+                                        End If
+
+                                    Case "system.date"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDate(IIf(IsDate(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0))
+                                        End If
+                                    Case "system.time"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDate(IIf(IsDate(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0))
+                                        End If
+                                    Case "system.single"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CSng(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.byte"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CByte(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.double"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDbl(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.int16"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.int32"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.int64"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.uint16"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.uint32"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.uint64"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.decimal"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                End Select
+                            End If
+                        End If
+                        'End If
+                    End If
+                    'Next
+                Next
+                Return Dr
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Dr
+                Exit Function
+            End Try
+        End Function
+        ''' <summary>
+        ''' Sets datarow values with PDF Form field values, and excludes Auto Increment field
+        ''' </summary>
+        ''' <param name="Dr">Datarow to populate</param>
+        ''' <param name="AutoIncrementField">Datarow column name to exclude</param>
+        ''' <returns>Populated datarow</returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetDataRowFromValues(ByVal Dr As DataRow, ByVal AutoIncrementField As String) As DataRow
+            Dim Fieldname As String
+            Dim DsFld As DataColumn
+            Try
+                For Each DsFld In Dr.Table.Columns
+                    FoundField = False
+                    Fieldname = DsFld.ColumnName & ""
+                    If Fieldname.ToLower <> AutoIncrementField.ToLower Then
+                        If Not DsFld.DataType Is Nothing Then
+                            If Not Me.XDPGetValue(Fieldname) Is Nothing Then
+                                'Dim xfld As FDFApp.FDFDoc_Class.FDFField() = Me.XDPGetFields()
+                                'If Not xfld Is Nothing And xfld(0).FieldEnabled = True Then
+                                Select Case LCase(DsFld.DataType.ToString & "")
+                                    Case "system.dbnull"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.sbyte"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CByte(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.empty"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.object"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname)
+                                    Case "system.string"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.char"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.character"
+                                        Dr(Fieldname) = Me.XDPGetValue(Fieldname) & ""
+                                    Case "system.boolean"
+                                        Dr(Fieldname) = CBool(Me.XDPGetValue(Fieldname)) + 0
+                                    Case "system.datetime"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDate(IIf(IsDate(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0))
+                                        End If
+
+                                    Case "system.date"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDate(IIf(IsDate(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0))
+                                        End If
+                                    Case "system.time"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDate(IIf(IsDate(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0))
+                                        End If
+                                    Case "system.single"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CSng(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.byte"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CByte(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.double"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CDbl(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.int16"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.int32"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.int64"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.uint16"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.uint32"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.uint64"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                    Case "system.decimal"
+                                        If Me.XDPGetValue(Fieldname) = "" Then
+                                            Dr(Fieldname) = System.DBNull.Value
+                                        Else
+                                            Dr(Fieldname) = CInt(IIf(IsNumeric(Me.XDPGetValue(Fieldname)), Me.XDPGetValue(Fieldname), 0) + 0)
+                                        End If
+                                End Select
+                            End If
+                        End If
+                    End If
+                    'End If
+                Next
+                Return Dr
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Dr
+                Exit Function
+            End Try
+        End Function
+
         ''' <summary>
         ''' Sets FDF Data values from Dataset values
         ''' </summary>
@@ -4759,7 +5149,7 @@ continue_setting_value:
                 FDFData = FDFSavetoStr(FDFType.FDF, True)
                 Return FDFData
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -4784,7 +5174,7 @@ continue_setting_value:
                 objConn.Close()
                 Return objDS
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.GetDataFromExcel", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -4812,35 +5202,35 @@ continue_setting_value:
                             Fieldname = xField.FieldName & ""
                             If Not xField.DisplayName.Count <= 0 Or Not xField.DisplayValue.Count <= 0 And xField.FieldValue.Count <= 0 Then
                                 If xField.DisplayName(0).Length > 0 Then
-                                    ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td>"
-                                    ReturnString &= Chr(10) & "<select id=""" & Fieldname & """ name=""" & Fieldname & """ runat=""" & runat & """>"
+                                    ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td>"
+                                    ReturnString &= Environment.NewLine & "<select id=""" & Fieldname & """ name=""" & Fieldname & """ runat=""" & runat & """>"
                                     If xField.DisplayName.Count > 1 Then
                                         If xField.DisplayName.Count = xField.DisplayValue.Count Then
                                             For intX As Integer = 0 To xField.DisplayName.Count - 1
-                                                ReturnString &= Chr(10) & "<option value=""" & xField.DisplayValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
+                                                ReturnString &= Environment.NewLine & "<option value=""" & xField.DisplayValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
                                             Next
                                         ElseIf xField.DisplayName.Count = xField.FieldValue.Count Then
                                             For intX As Integer = 0 To xField.DisplayName.Count - 1
-                                                ReturnString &= Chr(10) & "<option value=""" & xField.FieldValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
+                                                ReturnString &= Environment.NewLine & "<option value=""" & xField.FieldValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
                                             Next
                                         ElseIf xField.DisplayName.Count > 1 And (xField.DisplayValue.Count <= 1 Or xField.FieldValue.Count <= 1) Then
                                             For intX As Integer = 0 To xField.DisplayName.Count - 1
-                                                ReturnString &= Chr(10) & "<option value=""" & xField.DisplayName(intX) & """>" & xField.DisplayName(intX) & "</option>"
+                                                ReturnString &= Environment.NewLine & "<option value=""" & xField.DisplayName(intX) & """>" & xField.DisplayName(intX) & "</option>"
                                             Next
                                         End If
                                     End If
                                 ElseIf xField.FieldValue.Count > 1 Then
                                     If xField.DisplayName.Count = xField.DisplayValue.Count Then
                                         For intX As Integer = 0 To xField.DisplayName.Count - 1
-                                            ReturnString &= Chr(10) & "<option value=""" & xField.DisplayValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
+                                            ReturnString &= Environment.NewLine & "<option value=""" & xField.DisplayValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
                                         Next
                                     ElseIf xField.DisplayName.Count = xField.FieldValue.Count Then
                                         For intX As Integer = 0 To xField.DisplayName.Count - 1
-                                            ReturnString &= Chr(10) & "<option value=""" & xField.FieldValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
+                                            ReturnString &= Environment.NewLine & "<option value=""" & xField.FieldValue(intX) & """>" & xField.DisplayName(intX) & "</option>"
                                         Next
                                     ElseIf xField.FieldValue.Count > 1 And (xField.DisplayName.Count <= 1 Or xField.DisplayValue.Count <= 1) Then
                                         For intX As Integer = 0 To xField.DisplayName.Count - 1
-                                            ReturnString &= Chr(10) & "<option value=""" & xField.FieldValue(intX) & """>" & xField.FieldValue(intX) & "</option>"
+                                            ReturnString &= Environment.NewLine & "<option value=""" & xField.FieldValue(intX) & """>" & xField.FieldValue(intX) & "</option>"
                                         Next
                                     End If
                                 Else
@@ -4850,14 +5240,14 @@ continue_setting_value:
                                         FieldValue = ""
                                     End If
                                     If FieldValue.Length > 255 Then
-                                        ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
+                                        ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
                                     ElseIf InStr(FieldValue & "", Chr(10)) Or InStr(FieldValue & "", Chr(13)) Or InStr(FieldValue & "", vbCrLf) Or InStr(FieldValue & "", vbNewLine) Then
-                                        ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
+                                        ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
                                     Else
-                                        ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                                        ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                                     End If
                                 End If
-                                ReturnString &= Chr(10) & "</select></td></tr>"
+                                ReturnString &= Environment.NewLine & "</select></td></tr>"
                             Else
                                 If Not xField.FieldValue.Count <= 0 Then
                                     FieldValue = CStr(xField.FieldValue(0)) & ""
@@ -4866,23 +5256,23 @@ continue_setting_value:
                                 End If
                                 If Not String_IsNullOrEmpty(xField.FieldName) Then
                                     If FieldValue.Length > 255 Then
-                                        ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
+                                        ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
                                     ElseIf InStr(FieldValue & "", Chr(10)) Or InStr(FieldValue & "", Chr(13)) Or InStr(FieldValue & "", vbCrLf) Or InStr(FieldValue & "", vbNewLine) Then
-                                        ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
+                                        ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""10"" cols=""50"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
                                     Else
-                                        ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                                        ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                                     End If
                                 End If
                             End If
                         Next
                     End If
                 Next
-                ReturnString &= Chr(10) & "<tr colspan=2><td><input type=""submit"" id=""submit"" name=""submit"" value=""Submit"" runat=""" & runat & """>   <input type=""reset"" id=""reset"" name=""reset"" value=""Reset"" runat=""" & runat & """></td></tr>"
-                ReturnString &= Chr(10) & "</table>"
-                ReturnString &= Chr(10) & "</form>"
+                ReturnString &= Environment.NewLine & "<tr colspan=2><td><input type=""submit"" id=""submit"" name=""submit"" value=""Submit"" runat=""" & runat & """>   <input type=""reset"" id=""reset"" name=""reset"" value=""Reset"" runat=""" & runat & """></td></tr>"
+                ReturnString &= Environment.NewLine & "</table>"
+                ReturnString &= Environment.NewLine & "</form>"
                 Return ReturnString
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -4916,34 +5306,34 @@ continue_setting_value:
                     Select Case DsFld.DataType.ToString.ToLower
                         Case "system.string"
                             If DsFld.MaxLength > 255 Then
-                                ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""20"" cols=""70"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
+                                ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""20"" cols=""70"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
                             Else
-                                ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                                ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                             End If
                         Case "system.char"
-                            ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                            ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                         Case "system.boolean"
-                            ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><select id=""" & Fieldname & """ name=""" & Fieldname & """ runat=""" & runat & """>" & IIf(FieldValue.ToLower = "true", "<option SELECTED>True</option><option>False</option>", "<option>True</option><option SELECTED>False</option>") & "</select>" & """></td></tr>"
+                            ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><select id=""" & Fieldname & """ name=""" & Fieldname & """ runat=""" & runat & """>" & IIf(FieldValue.ToLower = "true", "<option SELECTED>True</option><option>False</option>", "<option>True</option><option SELECTED>False</option>") & "</select>" & """></td></tr>"
                         Case "system.integer", "system.int16", "system.int32", "system.int64", "system.long", "system.single", "system.byte", "system.bit", "system.short", "system.decimal" Or "system.double"
-                            ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                            ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                         Case "system.binary"
-                            ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""file"" id=""" & Fieldname & """ name=""" & Fieldname & """ runat=""" & runat & """></td></tr>"
+                            ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""file"" id=""" & Fieldname & """ name=""" & Fieldname & """ runat=""" & runat & """></td></tr>"
                         Case "system.datetime", "system.date", "system.time"
-                            ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                            ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                         Case Else
                             If DsFld.MaxLength > 255 Then
-                                ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""20"" cols=""70"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
+                                ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><textarea id=""" & Fieldname & """ rows=""20"" cols=""70"" name=""" & Fieldname & """ runat=""" & runat & """>" & FieldValue & "</textarea></td></tr>"
                             Else
-                                ReturnString &= Chr(10) & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
+                                ReturnString &= Environment.NewLine & "<tr><td>" & Fieldname & "</td><td><input type=""text"" id=""" & Fieldname & """ name=""" & Fieldname & """ value=""" & FieldValue & "" & """ runat=""" & runat & """></td></tr>"
                             End If
                     End Select
                 Next
-                ReturnString &= Chr(10) & "<tr colspan=2><td><input type=""submit"" id=""submit"" name=""submit"" value=""Submit"" runat=""" & runat & """>   <input type=""reset"" id=""reset"" name=""reset"" value=""Reset"" runat=""" & runat & """></td></tr>"
-                ReturnString &= Chr(10) & "</table>"
-                ReturnString &= Chr(10) & "</form>"
+                ReturnString &= Environment.NewLine & "<tr colspan=2><td><input type=""submit"" id=""submit"" name=""submit"" value=""Submit"" runat=""" & runat & """>   <input type=""reset"" id=""reset"" name=""reset"" value=""Reset"" runat=""" & runat & """></td></tr>"
+                ReturnString &= Environment.NewLine & "</table>"
+                ReturnString &= Environment.NewLine & "</form>"
                 Return ReturnString
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5016,7 +5406,7 @@ continue_setting_value:
                 Return True
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
                 Exit Function
             End Try
@@ -5102,7 +5492,7 @@ continue_setting_value:
                 Return True
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
                 Exit Function
             End Try
@@ -5189,7 +5579,94 @@ continue_setting_value:
                 FDFData = FDFSavetoStr(FDFType.FDF, True)
                 Return FDFData
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetValuesFromDataSet", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+        End Function
+        ''' <summary>
+        ''' Sets FDF Data from Datarow
+        ''' </summary>
+        ''' <param name="Dr">Datarow with data</param>
+        ''' <param name="OptionNames">Option names</param>
+        ''' <returns>FDF Data</returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValuesFromDataRow(ByVal Dr As DataRow, Optional ByVal OptionNames() As String = Nothing) As String
+            Dim FieldValue As String = ""
+            Dim Fieldname As String = ""
+            Dim FieldTypes As String = ""
+            Dim FieldEnabled As Boolean = True
+            Dim DsFld As DataColumn
+            Dim fldCnt As Integer = 0
+            Dim Options As String = "", bFoundOption As Boolean = False
+            Dim ReturnString As String = ""
+            Try
+                For Each DsFld In Dr.Table.Columns
+                    FoundField = False
+                    Fieldname = DsFld.ColumnName & ""
+                    If Not IsDBNull(Dr(Fieldname)) Then
+                        FieldValue = CStr(Dr(Fieldname)) & ""
+                    Else
+                        FieldValue = ""
+                    End If
+                    If Not DsFld.DataType Is Nothing Then
+                        FieldTypes = DsFld.DataType.ToString & ""
+                        ReturnString = ReturnString & Fieldname & ";" & FieldValue & ";" & FieldTypes & vbNewLine
+                    Else
+                        FieldTypes = "UNKNOWN"
+                        ReturnString = ReturnString & Fieldname & ";" & FieldValue & ";" & FieldTypes & vbNewLine
+                    End If
+
+                    FieldEnabled = True
+                    If True = True Then 'Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
+                        For Each _fld As FDFField In XDPGetFields()
+                            If _fld.FieldName = Fieldname Then
+                                _fld.FieldValue.Clear()
+                                _fld.FieldValue.Add(FieldValue)
+                                _fld.FieldEnabled = FieldEnabled
+                                If Not OptionNames Is Nothing Then
+                                    For Each Options In OptionNames
+                                        If Options = Fieldname Then
+                                            bFoundOption = True
+                                        End If
+                                    Next
+                                End If
+                                If bFoundOption Then
+                                    _fld.FieldType = FieldType.FldOption
+                                    bFoundOption = False
+                                Else
+                                    _fld.FieldType = FieldType.FldTextual
+                                End If
+                                FoundField = True
+                                Return Nothing
+                                Exit Function
+                            Else
+                                bFoundOption = False
+                                FoundField = False
+                            End If
+                        Next
+                    End If
+                    If Not FoundField Then
+                        If Not OptionNames Is Nothing Then
+                            For Each Options In OptionNames
+                                If Options = Fieldname Then
+                                    bFoundOption = True
+                                End If
+                            Next
+                        End If
+                        If bFoundOption Then
+                            FDFAddField(Fieldname, FieldValue, FieldType.FldOption, FieldEnabled)
+                            bFoundOption = False
+                        Else
+                            FDFAddField(Fieldname, FieldValue, FieldType.FldTextual, FieldEnabled)
+                        End If
+                    End If
+                Next
+
+                FDFData = FDFSavetoStr(FDFType.FDF, True)
+                Return FDFData
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5218,7 +5695,7 @@ continue_setting_value:
                     Exit Sub
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFAddRemoveField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
         End Sub
@@ -5264,7 +5741,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFNextFieldName", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5305,7 +5782,7 @@ continue_setting_value:
                 Return Nothing
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5336,7 +5813,7 @@ continue_setting_value:
                 Return Nothing
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5370,7 +5847,7 @@ continue_setting_value:
                 Return Nothing
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5418,7 +5895,54 @@ continue_setting_value:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Gets value of Live-Cycle Form Field 
+        ''' </summary>
+        ''' <param name="FieldName">Field name</param>
+        ''' <param name="xmlFormLevel">Live-Cycle Form Name</param>
+        ''' <param name="CaseSensitive">If true, must match case</param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetValue_FormLevel(ByVal FieldName As String, ByVal xmlFormLevel As String, Optional ByVal CaseSensitive As Boolean = False) As String
+            Dim xField As FDFField
+            Dim FoundField As Boolean
+            FoundField = False
+            Dim xdpFrm As New FDFDoc_Class
+            xdpFrm = XDPForm_FormLevel(xmlFormLevel)
+            Try
+                If Not xdpFrm.struc_FDFFields.Count <= 0 Then
+                    If xdpFrm.struc_FDFFields.Count >= 1 Then
+                        For Each xField In xdpFrm.struc_FDFFields
+                            If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                If CaseSensitive = True Then
+                                    If xField.FieldName & "" = FieldName Then
+                                        Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                        Exit Function
+                                    End If
+                                Else
+                                    If LCase(xField.FieldName) & "" = LCase(FieldName) Then
+                                        Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                        Exit Function
+                                    End If
+                                End If
+                            End If
+                        Next
+                    Else
+                        Return Nothing
+                        Exit Function
+                    End If
+                Else
+                    Return Nothing
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5472,7 +5996,7 @@ continue_setting_value:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5520,7 +6044,7 @@ continue_setting_value:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5564,7 +6088,7 @@ continue_setting_value:
                 Next
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5602,7 +6126,7 @@ continue_setting_value:
                     Exit Function
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5640,7 +6164,7 @@ continue_setting_value:
                     Exit Function
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -5724,7 +6248,7 @@ continue_setting_value:
                 End If
             Catch ex As Exception
                 Return FieldValues
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetValues", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
 
@@ -5806,7 +6330,7 @@ continue_setting_value:
                 End If
             Catch ex As Exception
                 Return FieldValues
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetValues", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
 
@@ -5892,7 +6416,7 @@ continue_setting_value:
                 End If
             Catch ex As Exception
                 Return FieldValues
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetValues", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
 
@@ -5936,7 +6460,7 @@ continue_setting_value:
                 Return _ExportFields.ToArray
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetFields", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return _ExportFields.ToArray
                 Exit Function
             End Try
@@ -5989,7 +6513,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetOnImportJavaScript", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -6044,7 +6568,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetHideAction", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -6095,7 +6619,7 @@ continue_setting_value:
                     End If
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetImportDataAction", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -6203,7 +6727,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddJSAction", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -6254,7 +6778,7 @@ continue_setting_value:
 
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetResetFormAction", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -6309,7 +6833,7 @@ continue_setting_value:
 
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSetURIAction", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
 
@@ -6335,7 +6859,7 @@ continue_setting_value:
                     _FDF(_CurFDFDoc).struc_DocScript.Add(_fa)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddDocJavaScript", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -6362,7 +6886,7 @@ continue_setting_value:
                 End If
                 Return strScripts & ""
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.GetDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
@@ -6379,7 +6903,7 @@ continue_setting_value:
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocOnImportJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -6394,7 +6918,7 @@ continue_setting_value:
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -6411,7 +6935,7 @@ continue_setting_value:
                 End If
                 Return False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -6428,7 +6952,7 @@ continue_setting_value:
                 End If
                 Return ""
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -6445,7 +6969,7 @@ continue_setting_value:
                 End If
                 Return False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -6462,7 +6986,7 @@ continue_setting_value:
                 End If
                 Return False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -6479,7 +7003,7 @@ continue_setting_value:
                 End If
                 Return False
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.HasDocJavaScripts", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -7197,7 +7721,7 @@ continue_setting_value:
                 Array.Sort(_FDF(_CurFDFDoc).struc_FDFActions.ToArray)
             Catch ex As Exception
 
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddSubmitAction", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -7240,7 +7764,7 @@ continue_setting_value:
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -7276,7 +7800,7 @@ continue_setting_value:
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -7297,7 +7821,7 @@ continue_setting_value:
                             If _FDF(_CurFDFDoc).struc_FDFFields.Count >= 1 Then
                                 For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
                                     If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                        If FieldName.ToLower = xField.FieldName.ToLower Then
+                                        If FieldName = xField.FieldName Then
                                             xField.FieldValue.Clear()
                                             xField.FieldValue.Add(FieldValue)
                                             xField.FieldEnabled = FieldEnabled
@@ -7313,14 +7837,14 @@ continue_setting_value:
                     If blnFound = True Then
                         Exit Sub
                     Else
-                        If Not FDFGetValue(FieldName) Is Nothing And Not ReplaceField Then Exit Sub
+                        If Not FDFGetValue(FieldName, True) Is Nothing And Not ReplaceField Then Exit Sub
                         Dim xField As New FDFField
                         xField.FieldName = FieldName
                         xField.FieldType = FieldType
                         Dim FldVals() As String, FldVal As String = "", MultiVal As String = ""
                         Select Case FieldType
                             Case FieldType.FldMultiSelect
-                                If FieldValue.Split("|").Length > 0 Then
+                                If FieldValue.Split("|").Length > 1 Then
                                     FldVals = FieldValue.Split("|")
                                     For Each FldVal In FldVals
                                         MultiVal &= "(" & FldVal & ")"
@@ -7341,7 +7865,7 @@ continue_setting_value:
                         _FDF(_CurFDFDoc).struc_FDFFields.Add(xField)
                     End If
                 ElseIf Not FieldName = "" Then
-                    If Not FDFGetValue(FieldName) Is Nothing And ReplaceField = False Then Exit Sub
+                    If Not FDFGetValue(FieldName, True) Is Nothing And ReplaceField = False Then Exit Sub
                     Dim xField As New FDFField
                     xField.FieldName = FieldName
                     xField.FieldType = FieldType
@@ -7352,7 +7876,57 @@ continue_setting_value:
                 Dim x As Integer
                 x = 0
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+        End Sub
+        Public Sub FDFRemoveField(ByVal FieldName As String)
+            Try
+                For cur As Integer = 0 To _FDF.Count - 1
+                    If Not _FDF(cur).struc_FDFFields.Count <= 0 Then
+                        Dim blnFound As Boolean = False
+                        If Not _FDF(cur).struc_FDFFields.Count <= 0 Then
+                            If _FDF(cur).struc_FDFFields.Count >= 1 Then
+                                Dim i As Integer = -1
+                                For Each xField In _FDF(cur).struc_FDFFields
+                                    i += 1
+                                    If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                        If FieldName = xField.FieldName Then
+                                            _FDF(cur).struc_FDFFields.RemoveAt(i)
+                                            blnFound = True
+                                            Exit For
+                                        End If
+                                    End If
+                                Next
+                            End If
+                        End If
+                    End If
+                Next
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+        End Sub
+        Public Sub FDFRemoveField(ByVal FieldName As String, ByVal cur As Integer)
+            Try
+                If Not _FDF(cur).struc_FDFFields.Count <= 0 Then
+                    Dim blnFound As Boolean = False
+                    If Not _FDF(cur).struc_FDFFields.Count <= 0 Then
+                        If _FDF(cur).struc_FDFFields.Count >= 1 Then
+                            Dim i As Integer = -1
+                            For Each xField In _FDF(cur).struc_FDFFields
+                                i += 1
+                                If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                    If FieldName = xField.FieldName Then
+                                        _FDF(cur).struc_FDFFields.RemoveAt(i)
+                                        blnFound = True
+                                        Exit For
+                                    End If
+                                End If
+                            Next
+                        End If
+                    End If
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -7373,7 +7947,7 @@ continue_setting_value:
                             If _FDF(_CurFDFDoc).struc_FDFFields.Count >= 1 Then
                                 For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
                                     If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                        If FieldName.ToLower = xField.FieldName.ToLower Then
+                                        If FieldName = xField.FieldName Then
                                             xField.FieldValue.Clear()
                                             xField.FieldValue.AddRange(FieldValue)
                                             xField.FieldEnabled = FieldEnabled
@@ -7389,7 +7963,7 @@ continue_setting_value:
                     If blnFound = True Then
                         Exit Sub
                     Else
-                        If Not FDFGetValue(FieldName) Is Nothing And Not ReplaceField Then Exit Sub
+                        If Not FDFGetValue(FieldName, True) Is Nothing And Not ReplaceField Then Exit Sub
                         Dim _fld As New FDFField
                         _fld.FieldName = FieldName
                         _fld.FieldType = FieldType
@@ -7413,7 +7987,7 @@ continue_setting_value:
                         _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                     End If
                 ElseIf Not FieldName = "" Then
-                    If Not FDFGetValue(FieldName) Is Nothing And Not ReplaceField Then Exit Sub
+                    If Not FDFGetValue(FieldName, True) Is Nothing And Not ReplaceField Then Exit Sub
                     Dim _fld As New FDFField
                     _fld.FieldName = FieldName
                     _fld.FieldType = FieldType
@@ -7428,7 +8002,7 @@ continue_setting_value:
                 End If
 
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -7458,7 +8032,7 @@ continue_setting_value:
                     _FDFObjects.Add(_f)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetObject", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
             End Try
         End Sub
@@ -7498,7 +8072,7 @@ continue_setting_value:
                     Return xOutput & ""
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetChanges", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -7552,7 +8126,7 @@ continue_setting_value:
                     Exit Function
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.OpenFile", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -7665,7 +8239,7 @@ continue_setting_value:
                 End Select
                 Return retString
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteHead", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
@@ -7691,7 +8265,7 @@ continue_setting_value:
                 End Select
                 Return retString
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
@@ -8038,10 +8612,10 @@ continue_setting_value:
                         retString = retString.Substring(0, intX + 8)
 
                     Case FDFType.XML
-                        retString = "<fields>" & WriteXMLFormFields() & "</fields>"
-                        Dim intX As Integer = InStrRev(retString, "</fields>", -1, CompareMethod.Text)
-                        retString = retString.Substring(0, intX + 8)
-
+                        retString = "<root>" & WriteXMLFormFields() & "</root>"
+                        Dim intX As Integer = InStrRev(retString, "</root>", -1, CompareMethod.Text)
+                        retString = retString.Substring(0, intX + 6)
+                        'retString = retString.Trim()
                     Case FDFType.XDP
                         retString = WriteXDPFormFields()
                 End Select
@@ -8049,7 +8623,7 @@ continue_setting_value:
                 Return retString
                 'Return retString.Trim(" ".ToCharArray) & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteFields", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
             Return ""
@@ -8097,7 +8671,7 @@ continue_setting_value:
                 End Select
                 Return retString
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteEnd", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
@@ -8278,7 +8852,7 @@ continue_setting_value:
                 Next
                 Return OutString
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.ReadStream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -8289,7 +8863,7 @@ continue_setting_value:
                 str = _defaultEncoding.GetString(bytearray)
                 Return str
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.ByteArray2String", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -8308,7 +8882,7 @@ continue_setting_value:
                 Next
                 Return OutString.ToCharArray
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.ByteArray2CharArray", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -8323,7 +8897,7 @@ continue_setting_value:
                 outStream.Write(Bytes, 0, StreamLength)
                 Return outStream
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.WriteBytes", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -8339,7 +8913,7 @@ continue_setting_value:
                 InStream.Close()
                 Return bytearray
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.WriteBytes", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -8429,9 +9003,10 @@ continue_setting_value:
                     'PDFData = input.ReadToEnd
                     Dim wClient As New Net.WebClient
                     Dim strPDF As New MemoryStream
-                    bytes = wClient.DownloadData(PDFData)
+                    bytes = GetUsedBytesOnly(wClient.DownloadData(PDFData))
                     PDFData = _defaultEncoding.GetString(bytes)
-                    'bytes = DefaultEncoding.GetBytes(PDFData)
+
+                    'bytes = _defaultEncoding.GetBytes(PDFData)
                 ElseIf File.Exists(PDFData) Then
                     PDFFileName = PDFData
                     'PDFFile = Me.OpenFile(PDFData)
@@ -8454,10 +9029,12 @@ continue_setting_value:
 
                 Try
                     Dim reader As iTextSharp.text.pdf.PdfReader
-                    If Not String_IsNullOrEmpty(PDFFileName) Then
-                        reader = New iTextSharp.text.pdf.PdfReader(PDFFileName)
-                    Else
+                    If Not bytes Is Nothing Then
                         reader = New iTextSharp.text.pdf.PdfReader(bytes)
+                    Else
+                        'If Not String_IsNullOrEmpty(PDFFileName) Then
+                        reader = New iTextSharp.text.pdf.PdfReader(PDFFileName)
+                        'End If
                     End If
                     Dim xfaFrm As New iTextSharp.text.pdf.XfaForm(reader)
                     Dim isXFA As Boolean = False
@@ -8502,8 +9079,8 @@ continue_setting_value:
         ''' <remarks></remarks>
         Public Function Determine_Type(ByVal PDFData As Byte()) As FDFType
             'Dim Data As String = ReadBytes(PDFData, False)
-            Dim data As String = DefaultEncoding.GetString(PDFData)
-            'Dim data As New StringBuilder(DefaultEncoding.GetString(PDFData))
+            Dim data As String = _defaultEncoding.GetString(PDFData)
+            'Dim data As New StringBuilder(_defaultEncoding.GetString(PDFData))
             If data.ToString.StartsWith("%FDF") Then
                 Return FDFType.FDF
             ElseIf data.ToString.StartsWith("%PDF") Then
@@ -8546,14 +9123,14 @@ continue_setting_value:
         ''' <remarks></remarks>
         Public Function Determine_Type(ByVal PDFData As Byte(), ByVal ownerPassword As String) As FDFType
             'Dim Data As String = ReadBytes(PDFData, False)
-            Dim data As String = DefaultEncoding.GetString(PDFData)
+            Dim data As String = _defaultEncoding.GetString(PDFData)
             'Dim data As New StringBuilder(PDFData ))
             If data.ToString.StartsWith("%FDF") Then
                 Return FDFType.FDF
             ElseIf data.ToString.StartsWith("%PDF") Then
                 Try
                     Dim reader As iTextSharp.text.pdf.PdfReader
-                    If Not String.IsNullOrEmpty(ownerPassword) Then
+                    If Not String_IsNullOrEmpty(ownerPassword) Then
                         reader = New iTextSharp.text.pdf.PdfReader(PDFData, _defaultEncoding.GetBytes(ownerPassword))
                     Else
                         reader = New iTextSharp.text.pdf.PdfReader(PDFData)
@@ -8641,7 +9218,7 @@ continue_setting_value:
                 'GC.Collect()
                 Return OutString
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.ReadStream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return OutString
                 Exit Function
             End Try
@@ -8660,7 +9237,7 @@ continue_setting_value:
                 'GC.Collect()
                 Return OutString
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.ReadBytes_New", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return OutString
                 Exit Function
             End Try
@@ -8697,7 +9274,7 @@ continue_setting_value:
                     End Select
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSave", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
             Dim bAns As Boolean = False
@@ -8711,7 +9288,7 @@ continue_setting_value:
                         bAns = True
                         Return True
                     Catch Ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex.Message, "FDFDoc.FDFSave", 1)
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                         Return False
                     End Try
                     Return True
@@ -8719,7 +9296,7 @@ continue_setting_value:
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSave", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
         End Function
@@ -8752,7 +9329,7 @@ continue_setting_value:
                         Exit Function
                 End Select
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSaveatoFile", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
 
@@ -8760,26 +9337,27 @@ continue_setting_value:
             Try
                 If strFDFData <> "" Then
                     Try
-                        Dim myFileStream As New System.IO.FileStream(FileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                        'Dim myFileStream As New System.IO.FileStream(FileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
                         Try
                             PDFData = _defaultEncoding.GetBytes(strFDFData)
-                            With myFileStream
-                                .Write(PDFData, 0, PDFData.Length)
-                            End With
+                            System.IO.File.WriteAllBytes(FileName, PDFData)
+                            'With myFileStream
+                            '    .Write(PDFData, 0, PDFData.Length)
+                            'End With
                         Catch ex As Exception
-                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                         Finally
-                            If Not myFileStream Is Nothing Then
-                                With myFileStream
-                                    .Close()
-                                    .Dispose()
-                                End With
-                            End If
+                            'If Not myFileStream Is Nothing Then
+                            '    With myFileStream
+                            '        .Close()
+                            '        .Dispose()
+                            '    End With
+                            'End If
                         End Try
                         Return True
 
                     Catch Ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoFile", 1)
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                         Return False
                     End Try
                 Else
@@ -8787,7 +9365,7 @@ continue_setting_value:
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSavetoFile", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
         End Function
@@ -8840,7 +9418,7 @@ continue_setting_value:
                 End If
                 Return _defaultEncoding.GetBytes(strFDFData)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -8877,7 +9455,7 @@ continue_setting_value:
                         Exit Function
                 End Select
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSaveatoFile", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
 
@@ -8885,26 +9463,27 @@ continue_setting_value:
             Try
                 If strFDFData <> "" Then
                     Try
-                        Dim myFileStream As New System.IO.FileStream(FileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                        Try
-                            PDFData = _defaultEncoding.GetBytes(strFDFData)
-                            With myFileStream
-                                .Write(PDFData, 0, PDFData.Length)
-                            End With
-                        Catch ex As Exception
-                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                        Finally
-                            If Not myFileStream Is Nothing Then
-                                With myFileStream
-                                    .Close()
-                                    .Dispose()
-                                End With
-                            End If
-                        End Try
+                        'Dim myFileStream As New System.IO.FileStream(FileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                        'Try
+                        PDFData = _defaultEncoding.GetBytes(strFDFData)
+                        System.IO.File.WriteAllBytes(FileName, PDFData)
+                        '    With myFileStream
+                        '        .Write(PDFData, 0, PDFData.Length)
+                        '    End With
+                        'Catch ex As Exception
+                        '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        'Finally
+                        '    If Not myFileStream Is Nothing Then
+                        '        With myFileStream
+                        '            .Close()
+                        '            .Dispose()
+                        '        End With
+                        '    End If
+                        'End Try
                         Return True
 
                     Catch Ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoFile", 1)
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                         Return False
                     End Try
                 Else
@@ -8912,7 +9491,7 @@ continue_setting_value:
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFSavetoFile", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Function
             End Try
         End Function
@@ -8976,7 +9555,7 @@ continue_setting_value:
                 Return _defaultEncoding.GetBytes(strFDFData)
                 'Return GetUsedBytesOnly(MemStream,true)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9044,7 +9623,7 @@ continue_setting_value:
                 End If
                 Return pdfStream
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9065,7 +9644,7 @@ continue_setting_value:
                 Return _defaultEncoding.GetBytes(strFDFData)
                 'Return GetUsedBytesOnly(MemStream,true)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toFDF", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9081,7 +9660,7 @@ continue_setting_value:
             Try
                 Return PDFExportByte()
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toPDF", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -9098,7 +9677,7 @@ continue_setting_value:
             Try
                 Return PDFExportByte(preserveExtendedRights, removeExtendedRights)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toPDF", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -9112,9 +9691,9 @@ continue_setting_value:
             Dim strFDFData As String = ""
             Try
 
-                Return DefaultEncoding.GetBytes(XDPExportString())
+                Return _defaultEncoding.GetBytes(XDPExportString())
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toXDP", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9129,9 +9708,9 @@ continue_setting_value:
             Dim strFDFData As String = ""
             Try
 
-                Return DefaultEncoding.GetBytes(XFDFExportString())
+                Return _defaultEncoding.GetBytes(XFDFExportString())
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toXFDF", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9146,9 +9725,9 @@ continue_setting_value:
             Dim strFDFData As String = ""
             Try
 
-                Return DefaultEncoding.GetBytes(XMLExportString())
+                Return _defaultEncoding.GetBytes(XMLExportString())
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.ToXML", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9165,7 +9744,7 @@ continue_setting_value:
 
                 Return PDFExportByte()
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toXPDF", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9183,7 +9762,7 @@ continue_setting_value:
 
                 Return PDFExportByte(preserveExtendedRights, removeExtendedRights)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toXPDF", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9200,7 +9779,7 @@ continue_setting_value:
 
                 Return PDFExportByte()
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toXFA", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -9217,7 +9796,7 @@ continue_setting_value:
 
                 Return PDFExportByte(preserveExtendedRights, removeExtendedRights)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.toXFA", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -9275,7 +9854,7 @@ continue_setting_value:
                 End If
                 Return New MemoryStream(_defaultEncoding.GetBytes(strFDFData))
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -9297,7 +9876,7 @@ continue_setting_value:
                     Exit Function
                 End If
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
             Return Nothing
@@ -9319,7 +9898,7 @@ continue_setting_value:
                     Exit Function
                 End If
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
             Return Nothing
@@ -9406,7 +9985,7 @@ continue_setting_value:
                 End If
                 Return strFDFData & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.FDFSavetoBuf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
@@ -9578,6 +10157,7 @@ continue_setting_value:
                             _CurFDFDoc = _FDF.Count - 1
                             _PDF.FileName = bstrFileName
                             Try
+                                'ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & bstrFormName
                                 ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & bstrFormName
                             Catch ex As Exception
                                 ParentFormName = bstrFormName
@@ -9604,6 +10184,7 @@ continue_setting_value:
             Catch ex As Exception
                 ParentFormName = bstrFormName
             End Try
+            _f.FormLevel = ParentFormName
             _FDF.Add(_f)
             _CurFDFDoc = _FDF.Count - 1
             Exit Sub
@@ -9658,7 +10239,7 @@ continue_setting_value:
                                 Else
                                     _CurFDFDoc = _FDF.Count - 1
                                     Try
-                                        ParentFormName = _FDF(IIf(_CurFDFDoc > 0, _CurFDFDoc - 1, _CurFDFDoc)).FormLevel.TrimEnd("/") & "/" & SubFormName
+                                        ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & SubFormName 'ParentFormName = _FDF(IIf(_CurFDFDoc > 0, _CurFDFDoc - 1, _CurFDFDoc)).FormLevel.TrimEnd("/") & "/" & SubFormName
                                     Catch ex As Exception
                                         ParentFormName = SubFormName
                                     End Try
@@ -9678,6 +10259,45 @@ continue_setting_value:
                             _FDF.Add(_f)
                             _CurFDFDoc = _FDF.Count - 1
                             Return _CurFDFDoc
+                        End If
+                    End If
+                End If
+            End If
+            Return Nothing
+        End Function
+        Public Function XDPAddSubForm3D(ByRef XDPDoc As FDFDoc_Class, ByVal SubFormName As String, ByVal PDFFilePath As String) As Integer
+            Dim _f As New FDFDoc_Class
+            If _FDF.Count >= 1 Then
+                If Not XDPDoc.DocType = Nothing Then
+                    If XDPDoc.DocType = FDFDocType.XDPForm Then
+                        If Not String_IsNullOrEmpty(SubFormName) Then
+                            Dim ParentFormName As String = ""
+                            Try
+                                If _FDF.Count <= 0 Then
+                                    _CurFDFDoc = _FDF.Count - 1
+                                    ParentFormName = SubFormName
+                                Else
+                                    _CurFDFDoc = _FDF.Count - 1
+                                    Try
+                                        ParentFormName = _FDF(IIf(_CurFDFDoc > 0, _CurFDFDoc - 1, _CurFDFDoc)).FormLevel.TrimEnd("/") & "/" & SubFormName
+                                    Catch ex As Exception
+                                        ParentFormName = SubFormName
+                                    End Try
+
+                                End If
+                                _f.FileName = PDFFilePath
+                                _PDF.FileName = PDFFilePath
+                                _f.FormName = SubFormName
+                                _f.DocType = FDFDocType.XDPForm
+                                _f.FormLevel = ParentFormName.ToString
+                                _f.FormLevel = _f.FormLevel.TrimStart("/")
+                                _f.FormLevel = _f.FormLevel.TrimEnd("/")
+                                _f.FormLevel = _f.FormLevel.Replace("//", "/")
+                            Catch ex As Exception
+
+                            End Try
+                            XDPDoc.XDPSubForms.Add(_f)
+                            Return XDPDoc.FormNumber
                         End If
                     End If
                 End If
@@ -9744,8 +10364,8 @@ continue_setting_value:
                         If intFormNumber = XDPFDF Then
                             _CurFDFDoc = XDPFDF
                         End If
-                        Return _FDF(XDPFDF)
                     Next
+                    Return _FDF(intFormNumber)
                 Else
                     Return Nothing
                 End If
@@ -9778,6 +10398,33 @@ continue_setting_value:
                 Return _FDF(0)
             End Get
         End Property
+
+        ''' <summary>
+        ''' Gets XDP Form and subforms
+        ''' </summary>
+        ''' <param name="FormLevel">Form name</param>
+        ''' <value>XDP Form</value>
+        ''' <returns>XDP Form</returns>
+        ''' <remarks></remarks>
+        Public ReadOnly Property XDPForm_FormLevel(ByVal FormLevel As String) As FDFDoc_Class
+            Get
+                Dim TmpCurFDFDoc As Integer = 0
+                If _FDF.Count > 0 Then
+                    For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormLevel) Then
+                            If _FDF(XDPFDF).FormLevel.ToLower.StartsWith(FormLevel.ToLower) Then
+                                _CurFDFDoc = XDPFDF
+                                Return _FDF(XDPFDF)
+                            End If
+                        End If
+                    Next
+                Else
+                    Return Nothing
+                End If
+                Return _FDF(0)
+            End Get
+        End Property
+
         ''' <summary>
         ''' Gets or sets current XDP Form name
         ''' </summary>
@@ -9845,7 +10492,7 @@ continue_setting_value:
                 If _FDF.Count > 0 Then
                     For Each XDPFDF As FDFDoc_Class In _FDF
                         TmpCurFDFDoc += 1
-                        If XDPFDF.FileName.ToLower = FormName.ToLower Then
+                        If XDPFDF.FormName.ToLower = FormName.ToLower Then
                             _CurFDFDoc = TmpCurFDFDoc
                             Return _CurFDFDoc
                         End If
@@ -10032,7 +10679,7 @@ continue_setting_value:
                     _FDF(XDPFDF).struc_FDFFields.Add(_fld)
                 End Try
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -10201,7 +10848,7 @@ continue_setting_value:
                     _FDF(XDPFDF).struc_FDFFields.Add(_fld)
                 End Try
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -10320,7 +10967,7 @@ continue_setting_value:
                 Dim x As Integer
                 x = 0
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -10442,7 +11089,7 @@ contintue_here:
                 Dim x As Integer
                 x = 0
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -10556,7 +11203,7 @@ contintue_here:
                 Dim x As Integer
                 x = 0
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFAddField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -10604,7 +11251,7 @@ contintue_here:
                 End Try
                 Return fldNumber
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetLastFieldNumber", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Function
         ''' <summary>
@@ -10648,7 +11295,7 @@ contintue_here:
                     Return True
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.PDfForceDownload", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
                 Exit Function
             End Try
@@ -10708,7 +11355,7 @@ contintue_here:
                     Return True
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.PDfForceDownload", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
                 Exit Function
             End Try
@@ -10749,7 +11396,7 @@ contintue_here:
                     Return True
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.PDfForceDownload", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
                 Exit Function
             End Try
@@ -10885,11 +11532,11 @@ contintue_here:
                 End If
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
-        Private Function WriteXDPFormFields_OLD() As String
+        Private Function WriteXDPFormFields_OLD2() As String
             Dim retString As String = ""
             Try
                 If Not _FDF.Count <= 0 Then
@@ -10985,7 +11632,7 @@ contintue_here:
                 End If
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
@@ -11087,98 +11734,460 @@ contintue_here:
                 End If
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
         Public Function WriteXMLFormFields() As String
+
             '' SUBFORMS
             Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
             Dim retString As String = ""
+            Try
+                For FormIndex = 0 To _FDF.Count - 1
+                    _FDF(FormIndex).FormNumber = FormIndex
+                    _FDF(FormIndex).WrittenXDP = False
+                Next
+                FormIndex = 0
+            Catch ex As Exception
+                Err.Clear()
+            End Try
+            FormIndex = 0
             Try
                 For intForm As Integer = 0 To _FDF.Count - 1
                     Dim _f As FDFDoc_Class = _FDF(intForm)
                     _f.WrittenXDP = False
                     _FDF(intForm) = _f
                 Next
-                Dim PrevFormLevel As String = ""
+                Dim PrevFormLevel As String = "", PrevFormLevelSubform As String
                 Dim StartForm As String = ""
-                Dim frmName As String = ""
                 If Not _FDF.Count <= 0 Then
-
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        If PrevFormLevel = "" Or PrevFormLevel <> XDPDoc1.FormLevel Or String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-                            If Not XDPDoc1.struc_FDFFields.Count <= 0 And Not _FDF(FormIndex).WrittenXDP = True Then
-                                Try
-                                    frmName = XDPDoc1.FormName & ""
-                                    If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-                                        frmName = "form" & FormIndex + 1
-                                    End If
-                                    If Not String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-                                        frmName = XDPDoc1.FormName & ""
-                                    End If
-                                    If Not String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-                                        If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                            If Not XDPDoc1.FormName = "root" Then
-                                                retString &= "<" & frmName & ">"
-                                            End If
+                    For XDPDoc1 As Integer = 0 To _FDF.Count - 1
+                        '_FDF.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
+                        If PrevFormLevel = "" Or String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel) Or XDPDoc1 >= 0 Then
+                            If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(XDPDoc1).FormLevel).Length > 1) And _FDF(XDPDoc1).WrittenXDP = False Then
+                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormName & "") Then
+                                    _FDF(XDPDoc1).FormName = "form" & XDPDoc1 + 1
+                                End If
+                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel & "") Then
+                                    _FDF(XDPDoc1).FormLevel = _FDF(XDPDoc1).FormName & ""
+                                End If
+                                If (_FDF(XDPDoc1).FormLevel IsNot Nothing) And XDPDoc1 >= 0 Then
+                                    'If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 And _FDF(XDPDoc1).FormLevel IsNot Nothing) Or (XDPDoc1 > 0 And _FDF(XDPDoc1).FormName <> "form1") Or (_FDF(XDPDoc1).struc_FDFFields.Count > 0 And _FDF(XDPDoc1).FormName = "form1") And Not _FDF(XDPDoc1).FormName = "root" Then
+                                    Try
+                                        'If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
+                                            ' MODIFIED 2013-03-19
+                                            retString &= "<" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                            'retString &= "<" & (_fdf(XDPDoc1).FormName) & ">"
                                         End If
-                                    Else
-                                        If Not XDPDoc1.FormName = "root" Then
-                                            retString &= "<" & frmName & ">"
-                                        End If
-                                    End If
-                                    'retString &= "<" & XDPDoc1.FormName & ">"
-                                    StartForm = XDPDoc1.FormName
-                                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        'retString &= "<" & _fdf(XDPDoc1).FormName & ">"
+                                        StartForm = _FDF(XDPDoc1).FormName
+                                        If _FDF(XDPDoc1).struc_FDFFields.Count >= 1 Then  '_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                            For Each fld As FDFField In _FDF(XDPDoc1).struc_FDFFields
+                                                If Not fld.FieldName Is Nothing Then
+                                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                        If Not fld.ImageBase64 Is Nothing Then
+                                                            retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                            retString &= fld.ImageBase64
+                                                            retString &= "</" & fld.FieldName & ">"
+                                                        End If
+                                                    Else
+                                                        If fld.FieldValue.Count > 0 Then
+                                                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                            Else
+                                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                            End If
+                                                        End If
+                                                    End If
+                                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
                                                     If Not fld.ImageBase64 Is Nothing Then
-                                                        ' EDITED 2012-04-07 NK-INC NK - Removed XFA
                                                         retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
                                                     End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                End If
+                                            Next
+                                        End If
+                                        'End If
+                                        'For XDPDoc2 As Integer = (XDPDoc1 + 1) To _FDF.Count - 1
+                                        '    If Not _FDF(XDPDoc2).FormLevel.Contains(PrevFormLevelSubform & "/") Then
+                                        '        Exit For
+                                        '    Else
+                                        '        If Not _FDF(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "<" & ReplaceBracketsString(_FDF(XDPDoc2).FormName) & ">"
+                                        '            'retString &= "<" & (_fdf(XDPDoc2).FormName) & ">"
+                                        '        End If
+                                        '        If _FDF(XDPDoc2).struc_FDFFields.Count >= 1 Then  '_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        '            For Each fld As FDFField In _FDF(XDPDoc1).struc_FDFFields
+                                        '                If Not fld.FieldName Is Nothing Then
+                                        '                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                        If Not fld.ImageBase64 Is Nothing Then
+                                        '                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                            retString &= fld.ImageBase64
+                                        '                            retString &= "</" & fld.FieldName & ">"
+                                        '                        End If
+                                        '                    Else
+                                        '                        If fld.FieldValue.Count > 0 Then
+                                        '                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                        '                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                        '                            Else
+                                        '                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                        '                            End If
+                                        '                        End If
+                                        '                    End If
+                                        '                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                    If Not fld.ImageBase64 Is Nothing Then
+                                        '                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                        retString &= fld.ImageBase64
+                                        '                        retString &= "</" & fld.FieldName & ">"
+                                        '                    End If
+                                        '                End If
+                                        '            Next
+                                        '        End If
+
+                                        '        If Not _FDF(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc2).FormName) & ">"
+                                        '            _FDF(XDPDoc2).WrittenXDP = True
+                                        '            PrevFormLevelSubform = _FDF(XDPDoc2).FormLevel
+                                        '            'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
+                                        '        End If
+                                        '    End If
+                                        'Next
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        'If Subform1.struc_FDFFields.Count >= 1 Then	'_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        Try
+                                            If _FDF(XDPDoc1 + 1).FormLevel.Contains(_FDF(XDPDoc1).FormLevel & "/") Then
+                                                retString &= WriteXMLSubforms(_FDF(XDPDoc1).FormLevel & "/")
+                                            End If
+                                        Catch exSubforms As Exception
+                                            Err.Clear()
+                                        End Try
+
+                                        If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                            If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
+                                                retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                                _FDF(XDPDoc1).WrittenXDP = True
+                                                'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
+                                            End If
+                                        End If
+                                        PrevFormLevel = _FDF(XDPDoc1).FormLevel
+                                        PrevFormLevelSubform = _FDF(XDPDoc1).FormLevel
+                                        'retString &= "</" & _fdf(XDPDoc1).FormName & ">"
+                                    End Try
+                                End If
+                            End If
+                            FormIndex += 1
+                        End If
+                    Next
+                End If
+                Try
+                    For FormIndex = 0 To _FDF.Count - 1
+                        _FDF(FormIndex).WrittenXDP = True
+                    Next
+                    FormIndex = 0
+                Catch ex3 As Exception
+                    Err.Clear()
+                End Try
+                Return retString & ""
+            Catch Ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+                Return ""
+            End Try
+
+
+
+            '' XML ORIGINAL SUBFORMS
+            'Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
+            'Dim retString As String = ""
+            'Try
+            '    Try
+            '        For FormIndex = 0 To _FDF.Count - 1
+            '            _FDF(FormIndex).FormNumber = FormIndex
+            '            _FDF(FormIndex).WrittenXDP = False
+            '        Next
+            '    Catch ex As Exception
+            '        Err.Clear()
+            '    End Try
+            '    FormIndex = 0
+            '    Dim PrevFormLevel As String = ""
+            '    Dim StartForm As String = ""
+            '    Dim frmName As String = ""
+            '    If Not _FDF.Count <= 0 Then
+
+            '        For Each XDPDoc1 As FDFDoc_Class In _FDF
+            '            If PrevFormLevel = "" Or PrevFormLevel <> XDPDoc1.FormLevel Or String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
+            '                If Not XDPDoc1.struc_FDFFields.Count <= 0 And Not _FDF(FormIndex).WrittenXDP = True Then
+            '                    Try
+            '                        frmName = XDPDoc1.FormName & ""
+            '                        If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
+            '                            frmName = "form" & FormIndex + 1
+            '                        End If
+            '                        If Not String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
+            '                            frmName = XDPDoc1.FormName & ""
+            '                        End If
+            '                        If Not String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
+            '                            If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
+            '                                If Not XDPDoc1.FormName = "root" Then
+            '                                    retString &= "<" & ReplaceBracketsString(frmName) & ">"
+            '                                End If
+            '                            End If
+            '                        Else
+            '                            If Not XDPDoc1.FormName = "root" Then
+            '                                retString &= "<" & ReplaceBracketsString(frmName) & ">"
+            '                            End If
+            '                        End If
+            '                        'retString &= "<" & XDPDoc1.FormName & ">"
+            '                        StartForm = XDPDoc1.FormName
+            '                        If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
+            '                            For Each fld As FDFField In XDPDoc1.struc_FDFFields
+            '                                If Not fld.FieldName Is Nothing Then
+
+            '                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                        If Not fld.ImageBase64 Is Nothing Then
+            '                                            ' EDITED 2012-04-07 NK-INC NK - Removed XFA
+            '                                            retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                            retString &= fld.ImageBase64
+            '                                            retString &= "</" & fld.FieldName & ">"
+            '                                        End If
+            '                                    Else
+            '                                        If fld.FieldValue.Count > 0 Then
+            '                                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+            '                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+            '                                            Else
+            '                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+            '                                            End If
+            '                                        End If
+            '                                    End If
+            '                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                    If Not fld.ImageBase64 Is Nothing Then
+            '                                        ' EDITED 2012-04-07 NK-INC NK - Removed XFA
+            '                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                        retString &= fld.ImageBase64
+            '                                        retString &= "</" & fld.FieldName & ">"
+            '                                    End If
+            '                                End If
+            '                            Next
+            '                        End If
+            '                        retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
+            '                    Catch ex As Exception
+            '                        Throw New Exception(ex.Message, ex)
+            '                    Finally
+            '                        'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
+            '                        If Not String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
+            '                            If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
+            '                                If Not frmName = "root" Then
+            '                                    retString &= "</" & ReplaceBracketsString(frmName) & ">"
+            '                                End If
+            '                            End If
+            '                            PrevFormLevel = XDPDoc1.FormLevel
+            '                        Else
+            '                            If Not frmName = "root" Then
+            '                                retString &= "</" & ReplaceBracketsString(frmName) & ">"
+            '                            End If
+            '                        End If
+            '                        'retString &= "</" & XDPDoc1.FormName & ">"
+            '                    End Try
+            '                End If
+            '                FormIndex += 1
+            '            End If
+            '        Next
+            '    End If
+            '    Try
+            '        For FormIndex = 0 To _FDF.Count - 1
+            '            Dim _f3 As FDFDoc_Class = _FDF(FormIndex)
+            '            _f3.WrittenXDP = True
+            '            _FDF(FormIndex) = _f3
+            '        Next
+            '        FormIndex = 0
+            '    Catch ex3 As Exception
+            '        Err.Clear()
+            '    End Try
+            '    Return retString & ""
+            'Catch Ex As Exception
+            '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+            '    Return ""
+            'End Try
+        End Function
+        ' ADDED 2013-03-19
+        Private Function ReplaceBracketsString(ByVal str As String) As String
+            Dim s As String = str
+            Try
+                'str = System.Text.RegularExpressions.Regex.Replace(s, "\[(.*?)\]", String.Empty).Replace("[]", "")
+                Dim rx As New System.Text.RegularExpressions.Regex("\[(.*?)\]")
+                Dim m As System.Text.RegularExpressions.Match = rx.Match(str)
+                If m.Success Then
+                    str = str.Replace("[" & m.Groups(1).ToString() & "]", "")
+                End If
+                m = Nothing
+                rx = Nothing
+                Return str
+            Catch ex As Exception
+                Return s
+            End Try
+        End Function
+        ' ADDED 2013-03-20
+        Private Function GetNumberInBracketsString(ByVal str As String) As String
+            Dim s As String = str
+            Try
+                'Dim st As String = System.Text.RegularExpressions.Regex.Replace(s, "[\d+;]", String.Empty).Replace("[]", "")
+                Dim rx As New System.Text.RegularExpressions.Regex("\[(.*?)\]")
+                Dim m As System.Text.RegularExpressions.Match = rx.Match(str)
+                If m.Success Then
+                    Return m.Groups(1).ToString()
+                End If
+                Return ""
+            Catch ex As Exception
+                Return ""
+            End Try
+        End Function
+        Private Function WriteXDPFormFields() As String
+            '' SUBFORMS
+            Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
+            Dim retString As String = ""
+            Try
+                For FormIndex = 0 To _FDF.Count - 1
+                    _FDF(FormIndex).FormNumber = FormIndex
+                    _FDF(FormIndex).WrittenXDP = False
+                Next
+                FormIndex = 0
+            Catch ex As Exception
+                Err.Clear()
+            End Try
+            FormIndex = 0
+            Try
+                For intForm As Integer = 0 To _FDF.Count - 1
+                    Dim _f As FDFDoc_Class = _FDF(intForm)
+                    _f.WrittenXDP = False
+                    _FDF(intForm) = _f
+                Next
+                Dim PrevFormLevel As String = "", PrevFormLevelSubform As String
+                Dim StartForm As String = ""
+                If Not _FDF.Count <= 0 Then
+                    For XDPDoc1 As Integer = 0 To _FDF.Count - 1
+                        '_FDF.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
+                        If PrevFormLevel = "" Or String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel) Or XDPDoc1 >= 0 Then
+                            If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(XDPDoc1).FormLevel).Length > 1) And _FDF(XDPDoc1).WrittenXDP = False Then
+                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormName & "") Then
+                                    _FDF(XDPDoc1).FormName = "form" & XDPDoc1 + 1
+                                End If
+                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel & "") Then
+                                    _FDF(XDPDoc1).FormLevel = _FDF(XDPDoc1).FormName & ""
+                                End If
+                                If (_FDF(XDPDoc1).FormLevel IsNot Nothing) And XDPDoc1 >= 0 Then
+                                    'If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 And _FDF(XDPDoc1).FormLevel IsNot Nothing) Or (XDPDoc1 > 0 And _FDF(XDPDoc1).FormName <> "form1") Or (_FDF(XDPDoc1).struc_FDFFields.Count > 0 And _FDF(XDPDoc1).FormName = "form1") And Not _FDF(XDPDoc1).FormName = "root" Then
+                                    Try
+                                        'If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
+                                            ' MODIFIED 2013-03-19
+                                            retString &= "<" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                            'retString &= "<" & (_fdf(XDPDoc1).FormName) & ">"
+                                        End If
+                                        'retString &= "<" & _fdf(XDPDoc1).FormName & ">"
+                                        StartForm = _FDF(XDPDoc1).FormName
+                                        If _FDF(XDPDoc1).struc_FDFFields.Count >= 1 Then  '_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                            For Each fld As FDFField In _FDF(XDPDoc1).struc_FDFFields
+                                                If Not fld.FieldName Is Nothing Then
+                                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                        If Not fld.ImageBase64 Is Nothing Then
+                                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                            retString &= fld.ImageBase64
+                                                            retString &= "</" & fld.FieldName & ">"
+                                                        End If
+                                                    Else
+                                                        If fld.FieldValue.Count > 0 Then
+                                                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                            Else
+                                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                            End If
                                                         End If
                                                     End If
+                                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                    If Not fld.ImageBase64 Is Nothing Then
+                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                        retString &= fld.ImageBase64
+                                                        retString &= "</" & fld.FieldName & ">"
+                                                    End If
                                                 End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    ' EDITED 2012-04-07 NK-INC NK - Removed XFA
-                                                    retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
+                                            Next
+                                        End If
+                                        'End If
+                                        'For XDPDoc2 As Integer = (XDPDoc1 + 1) To _FDF.Count - 1
+                                        '    If Not _FDF(XDPDoc2).FormLevel.Contains(PrevFormLevelSubform & "/") Then
+                                        '        Exit For
+                                        '    Else
+                                        '        If Not _FDF(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "<" & ReplaceBracketsString(_FDF(XDPDoc2).FormName) & ">"
+                                        '            'retString &= "<" & (_fdf(XDPDoc2).FormName) & ">"
+                                        '        End If
+                                        '        If _FDF(XDPDoc2).struc_FDFFields.Count >= 1 Then  '_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        '            For Each fld As FDFField In _FDF(XDPDoc1).struc_FDFFields
+                                        '                If Not fld.FieldName Is Nothing Then
+                                        '                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                        If Not fld.ImageBase64 Is Nothing Then
+                                        '                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                            retString &= fld.ImageBase64
+                                        '                            retString &= "</" & fld.FieldName & ">"
+                                        '                        End If
+                                        '                    Else
+                                        '                        If fld.FieldValue.Count > 0 Then
+                                        '                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                        '                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                        '                            Else
+                                        '                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                        '                            End If
+                                        '                        End If
+                                        '                    End If
+                                        '                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                    If Not fld.ImageBase64 Is Nothing Then
+                                        '                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                        retString &= fld.ImageBase64
+                                        '                        retString &= "</" & fld.FieldName & ">"
+                                        '                    End If
+                                        '                End If
+                                        '            Next
+                                        '        End If
+
+                                        '        If Not _FDF(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc2).FormName) & ">"
+                                        '            _FDF(XDPDoc2).WrittenXDP = True
+                                        '            PrevFormLevelSubform = _FDF(XDPDoc2).FormLevel
+                                        '            'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
+                                        '        End If
+                                        '    End If
+                                        'Next
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        'If Subform1.struc_FDFFields.Count >= 1 Then	'_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        Try
+                                            If _FDF(XDPDoc1 + 1).FormLevel.Contains(_FDF(XDPDoc1).FormLevel & "/") Then
+                                                retString &= WriteXDPSubforms(_FDF(XDPDoc1).FormLevel & "/")
                                             End If
-                                        Next
-                                    End If
-                                    retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
-                                Catch ex As Exception
-                                    Throw New Exception(ex.Message, ex)
-                                Finally
-                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                    If Not String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-                                        If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                            If Not frmName = "root" Then
-                                                retString &= "</" & frmName & ">"
+                                        Catch exSubforms As Exception
+                                            Err.Clear()
+                                        End Try
+
+                                        If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                            If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
+                                                retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                                _FDF(XDPDoc1).WrittenXDP = True
+                                                'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
                                             End If
                                         End If
-                                        PrevFormLevel = XDPDoc1.FormLevel
-                                    Else
-                                        If Not frmName = "root" Then
-                                            retString &= "</" & frmName & ">"
-                                        End If
-                                    End If
-                                    'retString &= "</" & XDPDoc1.FormName & ">"
-                                End Try
+                                        PrevFormLevel = _FDF(XDPDoc1).FormLevel
+                                        PrevFormLevelSubform = _FDF(XDPDoc1).FormLevel
+                                        'retString &= "</" & _fdf(XDPDoc1).FormName & ">"
+                                    End Try
+                                End If
                             End If
                             FormIndex += 1
                         End If
@@ -11190,19 +12199,29 @@ contintue_here:
                         _f3.WrittenXDP = True
                         _FDF(FormIndex) = _f3
                     Next
+                    FormIndex = 0
                 Catch ex3 As Exception
                     Err.Clear()
                 End Try
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
         End Function
-        Private Function WriteXDPFormFields() As String
+        Private Function WriteXDPFormFields_OLD() As String
             '' SUBFORMS
             Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
             Dim retString As String = ""
+            Try
+                For FormIndex = 0 To _FDF.Count - 1
+                    _FDF(FormIndex).FormNumber = FormIndex
+                Next
+                FormIndex = 0
+            Catch ex As Exception
+                Err.Clear()
+            End Try
+            FormIndex = 0
             Try
                 For intForm As Integer = 0 To _FDF.Count - 1
                     Dim _f As FDFDoc_Class = _FDF(intForm)
@@ -11212,27 +12231,28 @@ contintue_here:
                 Dim PrevFormLevel As String = ""
                 Dim StartForm As String = ""
                 If Not _FDF.Count <= 0 Then
-
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        If PrevFormLevel = "" Or PrevFormLevel <> XDPDoc1.FormLevel Or String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-                            If XDPDoc1.struc_FDFFields.Count > 0 And Not _FDF(FormIndex).WrittenXDP = True Then
-
-                                If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-                                    XDPDoc1.FormName = "form" & FormIndex + 1
+                    For XDPDoc1 As Integer = 0 To _FDF.Count - 1
+                        '_FDF.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
+                        If PrevFormLevel = "" Or String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel) Then
+                            If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(XDPDoc1).FormLevel).Length > 1) And _FDF(FormIndex).WrittenXDP = False Then
+                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormName & "") Then
+                                    _FDF(XDPDoc1).FormName = "form" & FormIndex + 1
                                 End If
-                                If String_IsNullOrEmpty(XDPDoc1.FormLevel & "") Then
-                                    XDPDoc1.FormLevel = XDPDoc1.FormName & ""
+                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel & "") Then
+                                    _FDF(XDPDoc1).FormLevel = _FDF(XDPDoc1).FormName & ""
                                 End If
                                 Try
-                                    If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                        If Not XDPDoc1.FormName = "root" Then
-                                            retString &= "<" & XDPDoc1.FormName & ">"
+                                    If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not _FDF(XDPDoc1).FormName = "root" Then
+                                            ' MODIFIED 2013-03-19
+                                            retString &= "<" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                            'retString &= "<" & (_fdf(XDPDoc1).FormName) & ">"
                                         End If
                                     End If
-                                    'retString &= "<" & XDPDoc1.FormName & ">"
-                                    StartForm = XDPDoc1.FormName
-                                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
+                                    'retString &= "<" & _fdf(XDPDoc1).FormName & ">"
+                                    StartForm = _FDF(XDPDoc1).FormName
+                                    If _FDF(XDPDoc1).struc_FDFFields.Count >= 1 Then  '_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        For Each fld As FDFField In _FDF(XDPDoc1).struc_FDFFields
                                             If Not fld.FieldName Is Nothing Then
                                                 If fld.FieldType = FieldType.FldLiveCycleImage Then
                                                     If Not fld.ImageBase64 Is Nothing Then
@@ -11258,18 +12278,21 @@ contintue_here:
                                             End If
                                         Next
                                     End If
-                                    retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
+                                    retString &= WriteXDPSubforms(_FDF(XDPDoc1).FormLevel)
                                 Catch ex As Exception
                                     Throw New Exception(ex.Message, ex)
                                 Finally
-                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                    If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                        If Not XDPDoc1.FormName = "root" Then
-                                            retString &= "</" & XDPDoc1.FormName & ">"
+                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                    If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not _FDF(XDPDoc1).FormName = "root" Then
+                                            ' MODIFIED 2013-03-19
+                                            retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                            _FDF(XDPDoc1).WrittenXDP = True
+                                            'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
                                         End If
                                     End If
-                                    PrevFormLevel = XDPDoc1.FormLevel
-                                    'retString &= "</" & XDPDoc1.FormName & ">"
+                                    PrevFormLevel = _FDF(XDPDoc1).FormLevel
+                                    'retString &= "</" & _fdf(XDPDoc1).FormName & ">"
                                 End Try
                             End If
                             FormIndex += 1
@@ -11282,12 +12305,13 @@ contintue_here:
                         _f3.WrittenXDP = True
                         _FDF(FormIndex) = _f3
                     Next
+                    FormIndex = 0
                 Catch ex3 As Exception
                     Err.Clear()
                 End Try
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
         End Function
@@ -11373,40 +12397,65 @@ contintue_here:
                         _f3.WrittenXDP = True
                         _FDF(FormIndex) = _f3
                     Next
+                    FormIndex = 0
                 Catch ex3 As Exception
                     Err.Clear()
                 End Try
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
         End Function
+        
         Private Function WriteXDPSubforms(ByVal formLevel As String) As String
+
             Dim FormIndex As Integer, SubformIndex As Integer = 0
             Dim retString As String = ""
+            Dim blnFound As Boolean = False
+            Dim FormIndexSequence As Integer = 0
+            'Dim FormIndexSequence As Integer = 0
             Try
-                For Each Subform1 As FDFDoc_Class In _FDF
-                    If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                        Subform1.FormName = "subform" & "1"
+
+                If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+                Dim previousFormNumber As Integer = 0
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                    'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
+                    If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                        subForm1.FormName = "subform" & "1"
                     End If
+                    If (subForm1.FormLevel.StartsWith(formLevel)) Then
+                        If Not subForm1.WrittenXDP = True Then
+                            previousFormNumber = subForm1.FormNumber
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
 
-                    If (formLevel = Subform1.FormLevel) And FormIndex = -100 Then
-                        If Not _FDF(FormIndex).WrittenXDP = True Then
-                            If Not Subform1.struc_FDFFields.Count <= 0 Then
-                                If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                                    Subform1.FormName = "subform" & SubformIndex + 1
+                                If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                                    subForm1.FormName = "subform" & SubformIndex + 1
                                 End If
-                                If String_IsNullOrEmpty(Subform1.FormLevel & "") Then
-                                    Subform1.FormLevel = Subform1.FormName & ""
+                                If String_IsNullOrEmpty(subForm1.FormLevel & "") Then
+                                    subForm1.FormLevel = subForm1.FormName & ""
                                 End If
-                                If Not _FDF(FormIndex).WrittenXDP = True Then
-                                    If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                        retString &= "<" & Subform1.FormName & ">"
+
+                                If Not subForm1.WrittenXDP = True Then
+
+                                    If subForm1.FormNumber = FormIndexSequence + 1 Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    ElseIf subForm1.FormNumber = FormIndexSequence Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    Else
+                                        If FormIndexSequence = 0 Then
+                                            FormIndexSequence = subForm1.FormNumber
+                                        Else
+                                            Dim xit As Integer = 0
+                                            xit = 1
+                                            Exit For
+                                        End If
                                     End If
 
+                                    retString &= "<" & ReplaceBracketsString(subForm1.FormName) & ">"
+
                                     Try
-                                        For Each fld As FDFField In Subform1.struc_FDFFields
+                                        For Each fld As FDFField In subForm1.struc_FDFFields
                                             If Not fld.FieldName Is Nothing Then
                                                 If fld.FieldType = FieldType.FldLiveCycleImage Then
                                                     If Not fld.ImageBase64 Is Nothing Then
@@ -11431,113 +12480,1077 @@ contintue_here:
                                                 End If
                                             End If
                                         Next
-                                        retString &= WriteXDPSubforms(Subform1.FormLevel)
+                                        blnFound = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                        retString &= WriteXDPSubforms(subForm1.FormLevel & "/", FormIndexSequence)
                                     Catch ex As Exception
                                         Throw New Exception(ex.Message, ex)
                                     Finally
-                                        If Subform1.FormName = "Table4" Then
-                                            Dim str As String = ""
-                                        End If
-                                        If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                            retString &= "</" & Subform1.FormName & ">"
-                                        Else
-                                            retString = retString
-                                        End If
+                                        retString &= "</" & ReplaceBracketsString(subForm1.FormName) & ">"
+                                        retString = retString
+                                        'subForm1.WrittenXDP = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
                                     End Try
 
                                     'End If
                                 End If
                             End If
                             SubformIndex += 1
-                        End If
-                    ElseIf Not String_IsNullOrEmpty(Subform1.FormLevel & "") And Not Subform1.FormLevel = "" And Not Subform1.WrittenXDP = True Then
-                        Dim frms() As String = Subform1.FormLevel.Split("/")
-                        Dim curFrms() As String = formLevel.Split("/"), intFoundSubform As Integer = -1
-                        Try
-                            For intFrm As Integer = 0 To curFrms.Length
-                                If frms(intFrm) = curFrms(intFrm) Then
-                                    intFoundSubform += 1
-                                Else
-                                    Exit For
-                                End If
-                            Next
-                        Catch ex As Exception
-
-                        End Try
-
-                        If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not Subform1.WrittenXDP = True Then
-                            If Not Subform1.struc_FDFFields.Count <= 0 Then
-                                If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                                    Subform1.FormName = "subform" & SubformIndex + 1
-                                End If
-                                If String_IsNullOrEmpty(Subform1.FormLevel & "") Then
-                                    Subform1.FormLevel = Subform1.FormName & ""
-                                End If
-                                If Not _FDF(FormIndex).WrittenXDP = True Then
-                                    If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                        retString &= "<" & Subform1.FormName & ">"
-                                    End If
-
-                                    Try
-                                        For Each fld As FDFField In Subform1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                    If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                        retString &= fld.ImageBase64
-                                                        retString &= "</" & fld.FieldName & ">"
-                                                    End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
-                                                End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        Next
-                                        retString &= WriteXDPSubforms(Subform1.FormLevel)
-                                    Catch ex As Exception
-                                        Throw New Exception(ex.Message, ex)
-                                    Finally
-                                        If Subform1.FormName = "Table4" Then
-                                            Dim str As String = ""
-                                        End If
-                                        If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                            retString &= "</" & Subform1.FormName & ">"
-                                        Else
-                                            retString = retString
-                                        End If
-                                    End Try
-
-                                    'End If
-                                End If
+                        Else
+                            blnFound = False
+                            If previousFormNumber <> 0 And Not subForm1.FormNumber = previousFormNumber + 1 Then
+                                'Exit For
                             End If
-                            SubformIndex += 1
                         End If
+                    Else
+                        'Exit For
                     End If
                     FormIndex += 1
                 Next
                 Try
-                    
+
                 Catch ex3 As Exception
                     Err.Clear()
                 End Try
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+                Return ""
+            End Try
+
+
+            'Dim FormIndex As Integer, SubformIndex As Integer = 0
+            'Dim retString As String = ""
+            'Dim blnFound As Boolean = False
+            'Dim FormIndexSequence As Integer = 0
+            'Try
+            '    'For Each _fdf(Subform1). As FDFDoc_Class In _FDF
+            '    'For Each _fdf(Subform1). As FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel)
+            '    If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+            '    For Subform1 As Integer = 0 To _FDF.Count - 1
+            '        If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+            '            _FDF(Subform1).FormName = "subform" & "1"
+            '        End If
+            '        If (_FDF(Subform1).FormLevel.StartsWith(formLevel)) Then
+            '            blnFound = True
+            '            If Not _FDF(Subform1).WrittenXDP = True Then
+            '                If _FDF(Subform1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(Subform1).FormLevel).Length > 1 Then
+
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+            '                        _FDF(Subform1).FormName = "subform" & SubformIndex + 1
+            '                    End If
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
+            '                        _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
+            '                    End If
+
+            '                    If Not _FDF(FormIndex).WrittenXDP = True Then
+
+            '                        If _FDF(Subform1).FormNumber = FormIndexSequence + 1 Then
+            '                            FormIndexSequence = _FDF(Subform1).FormNumber
+            '                        Else
+            '                            If FormIndexSequence = 0 Then
+            '                                FormIndexSequence = _FDF(Subform1).FormNumber
+            '                            Else
+            '                                Exit For
+            '                            End If
+            '                        End If
+
+            '                        If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                            retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                        End If
+
+            '                        Try
+            '                            For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
+            '                                If Not fld.FieldName Is Nothing Then
+            '                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                        If Not fld.ImageBase64 Is Nothing Then
+            '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                            retString &= fld.ImageBase64
+            '                                            retString &= "</" & fld.FieldName & ">"
+            '                                        End If
+            '                                    Else
+            '                                        If fld.FieldValue.Count > 0 Then
+            '                                            If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+            '                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+            '                                            Else
+            '                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+            '                                            End If
+            '                                        End If
+            '                                    End If
+            '                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                    If Not fld.ImageBase64 Is Nothing Then
+            '                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                        retString &= fld.ImageBase64
+            '                                        retString &= "</" & fld.FieldName & ">"
+            '                                    End If
+            '                                End If
+            '                            Next
+            '                            retString &= WriteXDPSubforms(_FDF(Subform1).FormLevel & "/", FormIndexSequence)
+            '                        Catch ex As Exception
+            '                            Throw New Exception(ex.Message, ex)
+            '                        Finally
+            '                            If _FDF(Subform1).FormName = "Table4" Then
+            '                                Dim str As String = ""
+            '                            End If
+            '                            If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                                retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                            Else
+            '                                retString = retString
+            '                            End If
+            '                            _FDF(Subform1).WrittenXDP = True
+            '                        End Try
+
+            '                        'End If
+            '                    End If
+            '                End If
+            '                SubformIndex += 1
+            '            Else
+            '                blnFound = False
+            '            End If
+            '        ElseIf Not String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") And Not _FDF(Subform1).FormLevel = "" And Not _FDF(Subform1).WrittenXDP = True Then
+            '            Dim frms() As String = _FDF(Subform1).FormLevel.Split("/")
+            '            Dim curFrms() As String = formLevel.Split("/"), intFoundSubform As Integer = -1
+            '            Try
+            '                For intFrm As Integer = 0 To curFrms.Length - 1
+            '                    If intFrm < frms.Length Then
+            '                        If frms(intFrm) = curFrms(intFrm) Then
+            '                            intFoundSubform += 1
+            '                        Else
+            '                            Exit For
+            '                        End If
+            '                    Else
+            '                        Exit For
+            '                    End If
+            '                Next
+            '            Catch ex As Exception
+            '                Err.Clear()
+            '            End Try
+
+            '            If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not _FDF(Subform1).WrittenXDP = True Then
+            '                If Not _FDF(Subform1).struc_FDFFields.Count <= 0 Then
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+            '                        _FDF(Subform1).FormName = "subform" & SubformIndex + 1
+            '                    End If
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
+            '                        _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
+            '                    End If
+            '                    If Not _FDF(Subform1).WrittenXDP = True Then
+            '                        If _FDF(Subform1).FormNumber = FormIndexSequence + 1 Then
+            '                            FormIndexSequence = _FDF(Subform1).FormNumber
+            '                        Else
+            '                            If FormIndexSequence = 0 Then
+            '                                FormIndexSequence = _FDF(Subform1).FormNumber
+            '                            Else
+            '                                Exit For
+            '                            End If
+            '                        End If
+
+            '                        If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                            retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                        End If
+
+            '                        Try
+            '                            For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
+            '                                If Not fld.FieldName Is Nothing Then
+            '                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                        If Not fld.ImageBase64 Is Nothing Then
+            '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                            retString &= fld.ImageBase64
+            '                                            retString &= "</" & fld.FieldName & ">"
+            '                                        End If
+            '                                    Else
+            '                                        If fld.FieldValue.Count > 0 Then
+            '                                            If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+            '                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+            '                                            Else
+            '                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+            '                                            End If
+            '                                        End If
+            '                                    End If
+            '                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                    If Not fld.ImageBase64 Is Nothing Then
+            '                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                        retString &= fld.ImageBase64
+            '                                        retString &= "</" & fld.FieldName & ">"
+            '                                    End If
+            '                                End If
+            '                            Next
+            '                            retString &= WriteXDPSubforms(_FDF(Subform1).FormLevel, FormIndexSequence)
+            '                        Catch ex As Exception
+            '                            Throw New Exception(ex.Message, ex)
+            '                        Finally
+            '                            If _FDF(Subform1).FormName = "Table4" Then
+            '                                Dim str As String = ""
+            '                            End If
+            '                            If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                                retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                            Else
+            '                                retString = retString
+            '                            End If
+            '                            _FDF(Subform1).WrittenXDP = True
+            '                        End Try
+
+            '                        'End If
+            '                    End If
+            '                End If
+            '                SubformIndex += 1
+            '            End If
+            '        End If
+
+            '        FormIndex += 1
+            '    Next
+            '    Try
+
+            '    Catch ex3 As Exception
+            '        Err.Clear()
+            '    End Try
+            '    Return retString & ""
+            'Catch Ex As Exception
+            '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+            '    Return ""
+            'End Try
+
+        End Function
+        Private Function WriteXMLSubforms(ByVal formLevel As String, ByRef FormIndexSequence As Integer) As String
+            Dim FormIndex As Integer, SubformIndex As Integer = 0
+            Dim retString As String = ""
+            Dim blnFound As Boolean = False
+            'Dim FormIndexSequence As Integer = 0
+            Try
+
+                If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+                Dim previousFormNumber As Integer = 0
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                    'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
+                    If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                        subForm1.FormName = "subform" & "1"
+                    End If
+                    If (subForm1.FormLevel.StartsWith(formLevel)) Then
+                        If Not subForm1.WrittenXDP = True Then
+                            previousFormNumber = subForm1.FormNumber
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
+
+                                If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                                    subForm1.FormName = "subform" & SubformIndex + 1
+                                End If
+                                If String_IsNullOrEmpty(subForm1.FormLevel & "") Then
+                                    subForm1.FormLevel = subForm1.FormName & ""
+                                End If
+
+                                If Not subForm1.WrittenXDP = True Then
+
+                                    If subForm1.FormNumber = FormIndexSequence + 1 Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    ElseIf subForm1.FormNumber = FormIndexSequence Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    Else
+                                        If FormIndexSequence = 0 Then
+                                            FormIndexSequence = subForm1.FormNumber
+                                        Else
+                                            Dim xit As Integer = 0
+                                            xit = 1
+                                            Exit For
+                                        End If
+                                    End If
+
+                                    retString &= "<" & ReplaceBracketsString(subForm1.FormName) & ">"
+
+                                    Try
+                                        For Each fld As FDFField In subForm1.struc_FDFFields
+                                            If Not fld.FieldName Is Nothing Then
+                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                    If Not fld.ImageBase64 Is Nothing Then
+                                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                        retString &= fld.ImageBase64
+                                                        retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                Else
+                                                    If fld.FieldValue.Count > 0 Then
+                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                        Else
+                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                        End If
+                                                    End If
+                                                End If
+                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                If Not fld.ImageBase64 Is Nothing Then
+                                                    retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                    retString &= fld.ImageBase64
+                                                    retString &= "</" & fld.FieldName & ">"
+                                                End If
+                                            End If
+                                        Next
+                                        blnFound = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                        retString &= WriteXMLSubforms(subForm1.FormLevel & "/", FormIndexSequence)
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        retString &= "</" & ReplaceBracketsString(subForm1.FormName) & ">"
+                                        retString = retString
+                                        'subForm1.WrittenXDP = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                    End Try
+
+                                    'End If
+                                End If
+                            End If
+                            SubformIndex += 1
+                        Else
+                            blnFound = False
+                            If previousFormNumber <> 0 And Not subForm1.FormNumber = previousFormNumber + 1 Then
+                                'Exit For
+                            End If
+                        End If
+                    Else
+                        'Exit For
+                    End If
+                    FormIndex += 1
+                Next
+                Try
+
+                Catch ex3 As Exception
+                    Err.Clear()
+                End Try
+                Return retString & ""
+            Catch Ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
 
         End Function
+        Private Function WriteXMLSubforms(ByVal formLevel As String) As String
+
+            Dim FormIndex As Integer, SubformIndex As Integer = 0
+            Dim retString As String = ""
+            Dim blnFound As Boolean = False
+            Dim FormIndexSequence As Integer = 0
+            'Dim FormIndexSequence As Integer = 0
+            Try
+
+                If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+                Dim previousFormNumber As Integer = 0
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                    'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
+                    If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                        subForm1.FormName = "subform" & "1"
+                    End If
+                    If (subForm1.FormLevel.StartsWith(formLevel)) Then
+                        If Not subForm1.WrittenXDP = True Then
+                            previousFormNumber = subForm1.FormNumber
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
+
+                                If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                                    subForm1.FormName = "subform" & SubformIndex + 1
+                                End If
+                                If String_IsNullOrEmpty(subForm1.FormLevel & "") Then
+                                    subForm1.FormLevel = subForm1.FormName & ""
+                                End If
+
+                                If Not subForm1.WrittenXDP = True Then
+
+                                    If subForm1.FormNumber = FormIndexSequence + 1 Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    ElseIf subForm1.FormNumber = FormIndexSequence Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    Else
+                                        If FormIndexSequence = 0 Then
+                                            FormIndexSequence = subForm1.FormNumber
+                                        Else
+                                            Dim xit As Integer = 0
+                                            xit = 1
+                                            Exit For
+                                        End If
+                                    End If
+
+                                    retString &= "<" & ReplaceBracketsString(subForm1.FormName) & ">"
+
+                                    Try
+                                        For Each fld As FDFField In subForm1.struc_FDFFields
+                                            If Not fld.FieldName Is Nothing Then
+                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                    If Not fld.ImageBase64 Is Nothing Then
+                                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                        retString &= fld.ImageBase64
+                                                        retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                Else
+                                                    If fld.FieldValue.Count > 0 Then
+                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                        Else
+                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                        End If
+                                                    End If
+                                                End If
+                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                If Not fld.ImageBase64 Is Nothing Then
+                                                    retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                    retString &= fld.ImageBase64
+                                                    retString &= "</" & fld.FieldName & ">"
+                                                End If
+                                            End If
+                                        Next
+                                        blnFound = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                        retString &= WriteXMLSubforms(subForm1.FormLevel & "/", FormIndexSequence)
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        retString &= "</" & ReplaceBracketsString(subForm1.FormName) & ">"
+                                        retString = retString
+                                        'subForm1.WrittenXDP = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                    End Try
+
+                                    'End If
+                                End If
+                            End If
+                            SubformIndex += 1
+                        Else
+                            blnFound = False
+                            If previousFormNumber <> 0 And Not subForm1.FormNumber = previousFormNumber + 1 Then
+                                'Exit For
+                            End If
+                        End If
+                    Else
+                        'Exit For
+                    End If
+                    FormIndex += 1
+                Next
+                Try
+
+                Catch ex3 As Exception
+                    Err.Clear()
+                End Try
+                Return retString & ""
+            Catch Ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+                Return ""
+            End Try
+
+
+            'Dim FormIndex As Integer, SubformIndex As Integer = 0
+            'Dim retString As String = ""
+            'Dim blnFound As Boolean = False
+            'Dim FormIndexSequence As Integer = 0
+            'Try
+            '    'For Each _fdf(Subform1). As FDFDoc_Class In _FDF
+            '    'For Each _fdf(Subform1). As FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel)
+            '    If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+            '    For Subform1 As Integer = 0 To _FDF.Count - 1
+            '        If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+            '            _FDF(Subform1).FormName = "subform" & "1"
+            '        End If
+            '        If (_FDF(Subform1).FormLevel.StartsWith(formLevel)) Then
+            '            blnFound = True
+            '            If Not _FDF(Subform1).WrittenXDP = True Then
+            '                If _FDF(Subform1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(Subform1).FormLevel).Length > 1 Then
+
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+            '                        _FDF(Subform1).FormName = "subform" & SubformIndex + 1
+            '                    End If
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
+            '                        _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
+            '                    End If
+
+            '                    If Not _FDF(FormIndex).WrittenXDP = True Then
+
+            '                        If _FDF(Subform1).FormNumber = FormIndexSequence + 1 Then
+            '                            FormIndexSequence = _FDF(Subform1).FormNumber
+            '                        Else
+            '                            If FormIndexSequence = 0 Then
+            '                                FormIndexSequence = _FDF(Subform1).FormNumber
+            '                            Else
+            '                                Exit For
+            '                            End If
+            '                        End If
+
+            '                        If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                            retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                        End If
+
+            '                        Try
+            '                            For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
+            '                                If Not fld.FieldName Is Nothing Then
+            '                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                        If Not fld.ImageBase64 Is Nothing Then
+            '                                            retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                            retString &= fld.ImageBase64
+            '                                            retString &= "</" & fld.FieldName & ">"
+            '                                        End If
+            '                                    Else
+            '                                        If fld.FieldValue.Count > 0 Then
+            '                                            If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+            '                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+            '                                            Else
+            '                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+            '                                            End If
+            '                                        End If
+            '                                    End If
+            '                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                    If Not fld.ImageBase64 Is Nothing Then
+            '                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                        retString &= fld.ImageBase64
+            '                                        retString &= "</" & fld.FieldName & ">"
+            '                                    End If
+            '                                End If
+            '                            Next
+            '                            retString &= WriteXMLSubforms(_FDF(Subform1).FormLevel & "/", FormIndexSequence)
+            '                        Catch ex As Exception
+            '                            Throw New Exception(ex.Message, ex)
+            '                        Finally
+            '                            If _FDF(Subform1).FormName = "Table4" Then
+            '                                Dim str As String = ""
+            '                            End If
+            '                            If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                                retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                            Else
+            '                                retString = retString
+            '                            End If
+            '                            _FDF(Subform1).WrittenXDP = True
+            '                        End Try
+
+            '                        'End If
+            '                    End If
+            '                End If
+            '                SubformIndex += 1
+            '            Else
+            '                blnFound = False
+            '            End If
+            '        ElseIf Not String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") And Not _FDF(Subform1).FormLevel = "" And Not _FDF(Subform1).WrittenXDP = True Then
+            '            Dim frms() As String = _FDF(Subform1).FormLevel.Split("/")
+            '            Dim curFrms() As String = formLevel.Split("/"), intFoundSubform As Integer = -1
+            '            Try
+            '                For intFrm As Integer = 0 To curFrms.Length - 1
+            '                    If intFrm < frms.Length Then
+            '                        If frms(intFrm) = curFrms(intFrm) Then
+            '                            intFoundSubform += 1
+            '                        Else
+            '                            Exit For
+            '                        End If
+            '                    Else
+            '                        Exit For
+            '                    End If
+            '                Next
+            '            Catch ex As Exception
+            '                Err.Clear()
+            '            End Try
+
+            '            If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not _FDF(Subform1).WrittenXDP = True Then
+            '                If Not _FDF(Subform1).struc_FDFFields.Count <= 0 Then
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+            '                        _FDF(Subform1).FormName = "subform" & SubformIndex + 1
+            '                    End If
+            '                    If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
+            '                        _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
+            '                    End If
+            '                    If Not _FDF(Subform1).WrittenXDP = True Then
+            '                        If _FDF(Subform1).FormNumber = FormIndexSequence + 1 Then
+            '                            FormIndexSequence = _FDF(Subform1).FormNumber
+            '                        Else
+            '                            If FormIndexSequence = 0 Then
+            '                                FormIndexSequence = _FDF(Subform1).FormNumber
+            '                            Else
+            '                                Exit For
+            '                            End If
+            '                        End If
+
+            '                        If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                            retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                        End If
+
+            '                        Try
+            '                            For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
+            '                                If Not fld.FieldName Is Nothing Then
+            '                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                        If Not fld.ImageBase64 Is Nothing Then
+            '                                            retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                            retString &= fld.ImageBase64
+            '                                            retString &= "</" & fld.FieldName & ">"
+            '                                        End If
+            '                                    Else
+            '                                        If fld.FieldValue.Count > 0 Then
+            '                                            If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+            '                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+            '                                            Else
+            '                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+            '                                            End If
+            '                                        End If
+            '                                    End If
+            '                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+            '                                    If Not fld.ImageBase64 Is Nothing Then
+            '                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+            '                                        retString &= fld.ImageBase64
+            '                                        retString &= "</" & fld.FieldName & ">"
+            '                                    End If
+            '                                End If
+            '                            Next
+            '                            retString &= WriteXMLSubforms(_FDF(Subform1).FormLevel, FormIndexSequence)
+            '                        Catch ex As Exception
+            '                            Throw New Exception(ex.Message, ex)
+            '                        Finally
+            '                            If _FDF(Subform1).FormName = "Table4" Then
+            '                                Dim str As String = ""
+            '                            End If
+            '                            If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+            '                                retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+            '                            Else
+            '                                retString = retString
+            '                            End If
+            '                            _FDF(Subform1).WrittenXDP = True
+            '                        End Try
+
+            '                        'End If
+            '                    End If
+            '                End If
+            '                SubformIndex += 1
+            '            End If
+            '        End If
+
+            '        FormIndex += 1
+            '    Next
+            '    Try
+
+            '    Catch ex3 As Exception
+            '        Err.Clear()
+            '    End Try
+            '    Return retString & ""
+            'Catch Ex As Exception
+            '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+            '    Return ""
+            'End Try
+
+        End Function
+        Private Function WriteXDPSubforms(ByVal formLevel As String, ByRef FormIndexSequence As Integer) As String
+            Dim FormIndex As Integer, SubformIndex As Integer = 0
+            Dim retString As String = ""
+            Dim blnFound As Boolean = False
+            'Dim FormIndexSequence As Integer = 0
+            Try
+
+                If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+                Dim previousFormNumber As Integer = 0
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                    'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
+                    If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                        subForm1.FormName = "subform" & "1"
+                    End If
+                    If (subForm1.FormLevel.StartsWith(formLevel)) Then
+                        If Not subForm1.WrittenXDP = True Then
+                            previousFormNumber = subForm1.FormNumber
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
+
+                                If String_IsNullOrEmpty(subForm1.FormName & "") Then
+                                    subForm1.FormName = "subform" & SubformIndex + 1
+                                End If
+                                If String_IsNullOrEmpty(subForm1.FormLevel & "") Then
+                                    subForm1.FormLevel = subForm1.FormName & ""
+                                End If
+
+                                If Not subForm1.WrittenXDP = True Then
+
+                                    If subForm1.FormNumber = FormIndexSequence + 1 Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    ElseIf subForm1.FormNumber = FormIndexSequence Then
+                                        FormIndexSequence = subForm1.FormNumber
+                                    Else
+                                        If FormIndexSequence = 0 Then
+                                            FormIndexSequence = subForm1.FormNumber
+                                        Else
+                                            Dim xit As Integer = 0
+                                            xit = 1
+                                            Exit For
+                                        End If
+                                    End If
+
+                                    retString &= "<" & ReplaceBracketsString(subForm1.FormName) & ">"
+
+                                    Try
+                                        For Each fld As FDFField In subForm1.struc_FDFFields
+                                            If Not fld.FieldName Is Nothing Then
+                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                    If Not fld.ImageBase64 Is Nothing Then
+                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                        retString &= fld.ImageBase64
+                                                        retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                Else
+                                                    If fld.FieldValue.Count > 0 Then
+                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                        Else
+                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                        End If
+                                                    End If
+                                                End If
+                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                If Not fld.ImageBase64 Is Nothing Then
+                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                    retString &= fld.ImageBase64
+                                                    retString &= "</" & fld.FieldName & ">"
+                                                End If
+                                            End If
+                                        Next
+                                        blnFound = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                        retString &= WriteXDPSubforms(subForm1.FormLevel & "/", FormIndexSequence)
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        retString &= "</" & ReplaceBracketsString(subForm1.FormName) & ">"
+                                        retString = retString
+                                        'subForm1.WrittenXDP = True
+                                        _FDF(subForm1.FormNumber).WrittenXDP = True
+                                    End Try
+
+                                    'End If
+                                End If
+                            End If
+                            SubformIndex += 1
+                        Else
+                            blnFound = False
+                            If previousFormNumber <> 0 And Not subForm1.FormNumber = previousFormNumber + 1 Then
+                                'Exit For
+                            End If
+                        End If
+                    Else
+                        'Exit For
+                    End If
+                    FormIndex += 1
+                Next
+                Try
+
+                Catch ex3 As Exception
+                    Err.Clear()
+                End Try
+                Return retString & ""
+            Catch Ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+                Return ""
+            End Try
+
+        End Function
+        'Private Function WriteXDPSubforms(ByVal formLevel As String, ByVal formNumber As Integer) As String
+        '    Dim FormIndex As Integer, SubformIndex As Integer = formNumber
+        '    Dim retString As String = ""
+        '    Try
+        '        'For Each _fdf(Subform1). As FDFDoc_Class In _FDF
+        '        'For Each _fdf(Subform1). As FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel)
+        '        If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
+        '        For Subform1 As Integer = formNumber To _FDF.Count - 1
+        '            If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+        '                _FDF(Subform1).FormName = "subform" & "1"
+        '            End If
+        '            If (_FDF(Subform1).FormLevel.StartsWith(formLevel & "/")) Then
+        '                If Not _FDF(FormIndex).WrittenXDP = True Then
+        '                    If _FDF(Subform1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(Subform1).FormLevel).Length > 1 Then
+        '                        If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+        '                            _FDF(Subform1).FormName = "subform" & SubformIndex + 1
+        '                        End If
+        '                        If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
+        '                            _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
+        '                        End If
+        '                        If Not _FDF(FormIndex).WrittenXDP = True Then
+        '                            If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+        '                                retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+        '                            End If
+
+        '                            Try
+        '                                For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
+        '                                    If Not fld.FieldName Is Nothing Then
+        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                            If Not fld.ImageBase64 Is Nothing Then
+        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                                retString &= fld.ImageBase64
+        '                                                retString &= "</" & fld.FieldName & ">"
+        '                                            End If
+        '                                        Else
+        '                                            If fld.FieldValue.Count > 0 Then
+        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                                Else
+        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                                End If
+        '                                            End If
+        '                                        End If
+        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                        If Not fld.ImageBase64 Is Nothing Then
+        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                            retString &= fld.ImageBase64
+        '                                            retString &= "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                Next
+        '                                retString &= WriteXDPSubforms(_FDF(Subform1).FormLevel, Subform1)
+        '                            Catch ex As Exception
+        '                                Throw New Exception(ex.Message, ex)
+        '                            Finally
+        '                                If _FDF(Subform1).FormName = "Table4" Then
+        '                                    Dim str As String = ""
+        '                                End If
+        '                                If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+        '                                    retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+        '                                Else
+        '                                    retString = retString
+        '                                End If
+        '                                _FDF(Subform1).WrittenXDP = True
+        '                            End Try
+
+        '                            'End If
+        '                        End If
+        '                    End If
+        '                    SubformIndex += 1
+        '                End If
+        '                'ElseIf Not String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") And Not _FDF(Subform1).FormLevel = "" And Not _FDF(Subform1).WrittenXDP = True Then
+        '                '    Dim frms() As String = _FDF(Subform1).FormLevel.Split("/")
+        '                '    Dim curFrms() As String = formLevel.Split("/"), intFoundSubform As Integer = -1
+        '                '    Try
+        '                '        For intFrm As Integer = 0 To curFrms.Length - 1
+        '                '            If intFrm < frms.Length Then
+        '                '                If frms(intFrm) = curFrms(intFrm) Then
+        '                '                    intFoundSubform += 1
+        '                '                Else
+        '                '                    Exit For
+        '                '                End If
+        '                '            Else
+        '                '                Exit For
+        '                '            End If
+        '                '        Next
+        '                '    Catch ex As Exception
+        '                '        Err.Clear()
+        '                '    End Try
+
+        '                '    If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not _FDF(Subform1).WrittenXDP = True Then
+        '                '        If Not _FDF(Subform1).struc_FDFFields.Count <= 0 Then
+        '                '            If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
+        '                '                _FDF(Subform1).FormName = "subform" & SubformIndex + 1
+        '                '            End If
+        '                '            If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
+        '                '                _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
+        '                '            End If
+        '                '            If Not _FDF(FormIndex).WrittenXDP = True Then
+        '                '                If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+        '                '                    retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+        '                '                End If
+
+        '                '                Try
+        '                '                    For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
+        '                '                        If Not fld.FieldName Is Nothing Then
+        '                '                            If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                '                                If Not fld.ImageBase64 Is Nothing Then
+        '                '                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                '                                    retString &= fld.ImageBase64
+        '                '                                    retString &= "</" & fld.FieldName & ">"
+        '                '                                End If
+        '                '                            Else
+        '                '                                If fld.FieldValue.Count > 0 Then
+        '                '                                    If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                '                                        retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                '                                    Else
+        '                '                                        retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                '                                    End If
+        '                '                                End If
+        '                '                            End If
+        '                '                        ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                '                            If Not fld.ImageBase64 Is Nothing Then
+        '                '                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                '                                retString &= fld.ImageBase64
+        '                '                                retString &= "</" & fld.FieldName & ">"
+        '                '                            End If
+        '                '                        End If
+        '                '                    Next
+        '                '                    retString &= WriteXDPSubforms(_FDF(Subform1).FormLevel)
+        '                '                Catch ex As Exception
+        '                '                    Throw New Exception(ex.Message, ex)
+        '                '                Finally
+        '                '                    If _FDF(Subform1).FormName = "Table4" Then
+        '                '                        Dim str As String = ""
+        '                '                    End If
+        '                '                    If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
+        '                '                        retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
+        '                '                    Else
+        '                '                        retString = retString
+        '                '                    End If
+        '                '                    _FDF(Subform1).WrittenXDP = True
+        '                '                End Try
+
+        '                '                'End If
+        '                '            End If
+        '                '        End If
+        '                '        SubformIndex += 1
+        '                '           End If
+        '            Else
+        '                Exit For
+        '            End If
+        '            FormIndex += 1
+        '        Next
+        '        Try
+
+        '        Catch ex3 As Exception
+        '            Err.Clear()
+        '        End Try
+        '        Return retString & ""
+        '    Catch Ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+        '        Return ""
+        '    End Try
+
+        'End Function
+        'Private Function WriteXDPSubformsGood(ByVal formLevel As String, ByVal formIndex As Integer) As String
+        '    Dim SubformIndex As Integer = formIndex ',FormIndex As Integer, 
+        '    Dim retString As String = ""
+        '    Try
+        '        'For Each Subform1 As FDFDoc_Class In _FDF
+        '        For Each subform1 As FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel)
+        '            If String_IsNullOrEmpty(subform1.FormName & "") Then
+        '                subform1.FormName = "subform" & "1"
+        '            End If
+        '            If (formLevel = subform1.FormLevel) And formIndex = -100 Then
+        '                If Not _FDF(formIndex).WrittenXDP = True Then
+        '                    If Not subform1.struc_FDFFields.Count <= 0 Then
+        '                        If String_IsNullOrEmpty(subform1.FormName & "") Then
+        '                            subform1.FormName = "subform" & SubformIndex + 1
+        '                        End If
+        '                        If String_IsNullOrEmpty(subform1.FormLevel & "") Then
+        '                            subform1.FormLevel = subform1.FormName & ""
+        '                        End If
+        '                        If Not _FDF(formIndex).WrittenXDP = True Then
+        '                            '_f3.WrittenXDP = True
+        '                            'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
+        '                            If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
+        '                                retString &= "<" & subform1.FormName & ">"
+        '                            End If
+
+        '                            Try
+        '                                For Each fld As FDFField In subform1.struc_FDFFields
+        '                                    If Not fld.FieldName Is Nothing Then
+        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                            If Not fld.ImageBase64 Is Nothing Then
+        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                                retString &= fld.ImageBase64
+        '                                                retString &= "</" & fld.FieldName & ">"
+        '                                            End If
+        '                                        Else
+        '                                            If fld.FieldValue.Count > 0 Then
+        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                                Else
+        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                                End If
+        '                                            End If
+        '                                        End If
+        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                        If Not fld.ImageBase64 Is Nothing Then
+        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                            retString &= fld.ImageBase64
+        '                                            retString &= "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                Next
+        '                                retString &= WriteXDPSubforms(subform1.FormLevel)
+        '                            Catch ex As Exception
+        '                                Throw New Exception(ex.Message, ex)
+        '                            Finally
+        '                                If subform1.FormName = "Table4" Then
+        '                                    Dim str As String = ""
+        '                                End If
+        '                                If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
+        '                                    retString &= "</" & subform1.FormName & ">"
+        '                                Else
+        '                                    retString = retString
+        '                                End If
+        '                            End Try
+
+        '                            'End If
+        '                        End If
+        '                    End If
+        '                    SubformIndex += 1
+        '                End If
+        '            ElseIf Not String_IsNullOrEmpty(subform1.FormLevel & "") And Not subform1.FormLevel = "" And Not subform1.WrittenXDP = True Then
+        '                Dim SubForms() As String = formLevel.Split("/")
+        '                If subform1.FormLevel.StartsWith(formLevel) Then
+        '                    If SubformIndex = 0 Or SubformIndex = subform1.FormNumber - 1 Then
+        '                        SubformIndex = subform1.FormNumber
+        '                    Else
+        '                        Return retString
+        '                    End If
+        '                    If Not subform1.struc_FDFFields.Count <= 0 Then
+        '                        If String_IsNullOrEmpty(subform1.FormName & "") Then
+        '                            subform1.FormName = "subform" & SubformIndex + 1
+        '                        End If
+        '                        If String_IsNullOrEmpty(subform1.FormLevel & "") Then
+        '                            subform1.FormLevel = subform1.FormName & ""
+        '                        End If
+        '                        If Not _FDF(formIndex).WrittenXDP = True Then
+        '                            If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
+        '                                retString &= "<" & subform1.FormName & ">"
+        '                            End If
+
+        '                            Try
+        '                                For Each fld As FDFField In subform1.struc_FDFFields
+        '                                    If Not fld.FieldName Is Nothing Then
+        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                            If Not fld.ImageBase64 Is Nothing Then
+        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                                retString &= fld.ImageBase64
+        '                                                retString &= "</" & fld.FieldName & ">"
+        '                                            End If
+        '                                        Else
+        '                                            If fld.FieldValue.Count > 0 Then
+        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                                Else
+        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                                End If
+        '                                            End If
+        '                                        End If
+        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                        If Not fld.ImageBase64 Is Nothing Then
+        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                            retString &= fld.ImageBase64
+        '                                            retString &= "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                Next
+        '                                retString &= WriteXDPSubforms(subform1.FormLevel, SubformIndex)
+        '                            Catch ex As Exception
+        '                                Throw New Exception(ex.Message, ex)
+        '                            Finally
+        '                                If subform1.FormName = "Table4" Then
+        '                                    Dim str As String = ""
+        '                                End If
+        '                                If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
+        '                                    retString &= "</" & subform1.FormName & ">"
+        '                                Else
+        '                                    retString = retString
+        '                                End If
+        '                            End Try
+
+        '                            'End If
+        '                        End If
+        '                    End If
+        '                    SubformIndex += 1
+        '                End If
+        '            End If
+        '            formIndex += 1
+        '        Next
+        '        Try
+        '            For formIndex = 0 To _FDF.Count - 1
+        '                _FDF(formIndex).WrittenXDP = True
+        '            Next
+        '        Catch ex3 As Exception
+        '            Err.Clear()
+        '        End Try
+        '        Return retString & ""
+        '    Catch Ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+        '        Return ""
+        '    End Try
+
+        'End Function
+
         Private Function WriteXDPSubforms_3D_Works_Good(ByVal formLevel As String) As String
             Dim FormIndex As Integer, SubformIndex As Integer = 0
             Dim retString As String = ""
@@ -11673,16 +13686,15 @@ contintue_here:
                 Next
                 Try
                     For FormIndex = 0 To _FDF.Count - 1
-                        Dim _f3 As FDFDoc_Class = _FDF(FormIndex)
-                        _f3.WrittenXDP = True
-                        _FDF(FormIndex) = _f3
+                        _FDF(FormIndex).WrittenXDP = True
                     Next
+                    FormIndex = 0
                 Catch ex3 As Exception
                     Err.Clear()
                 End Try
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
 
@@ -11757,12 +13769,13 @@ contintue_here:
                         _f3.WrittenXDP = True
                         _FDF(FormIndex) = _f3
                     Next
+                    FormIndex = 0
                 Catch ex3 As Exception
                     Err.Clear()
                 End Try
                 Return retString & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
 
@@ -11770,8 +13783,8 @@ contintue_here:
         ''' <summary>
         ''' Merges XDP Live-Cycle form with data to Byte array
         ''' </summary>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFFormPath">Live-Cycle form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -11794,18 +13807,25 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If Not reader Is Nothing Then
                     If RemoveUsageRights Then
                         reader.RemoveUsageRights()
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                     Flatten = False
                 Else
 
@@ -11815,7 +13835,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -11856,7 +13876,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -11874,7 +13894,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -11933,7 +13953,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -11960,7 +13980,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12017,7 +14037,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12026,8 +14046,8 @@ contintue_here:
         ''' Merges FDF Data and PDF form to byte array
         ''' </summary>
         ''' <param name="PDFForm">Original Blank PDF Form Bytes</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="Flatten">Flatten</param>
         ''' <param name="EncryptionStrength">Encryption strength</param>
@@ -12039,7 +14059,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12050,8 +14070,14 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(PDFForm) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
@@ -12098,7 +14124,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12107,8 +14133,8 @@ contintue_here:
         ''' Merges FDF Data and PDF form to byte array
         ''' </summary>
         ''' <param name="PDFForm">Original Blank PDF Form URL or Local File Path</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="Flatten">Flatten</param>
         ''' <param name="EncryptionStrength">Encryption strength</param>
@@ -12120,7 +14146,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12130,9 +14156,14 @@ contintue_here:
                         reader.RemoveUsageRights()
                     End If
                 End If
+                If HasUsageRights_PDF(PDFForm) Then
+                    reader.RemoveUsageRights()
+                End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
@@ -12142,7 +14173,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -12179,7 +14210,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12200,7 +14231,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12258,7 +14289,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12267,8 +14298,8 @@ contintue_here:
         ''' Merges FDF Data and PDF form to stream
         ''' </summary>
         ''' <param name="PDFForm">Original Blank PDF Form Stream</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="Flatten">Flatten</param>
         ''' <param name="EncryptionStrength">Encryption strength</param>
@@ -12283,7 +14314,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12294,8 +14325,13 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(PDFForm) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
@@ -12305,7 +14341,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -12342,7 +14378,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12350,8 +14386,8 @@ contintue_here:
         ''' <summary>
         ''' Merges FDF Data and PDF form to byte array
         ''' </summary>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFForm">Original Blank PDF Form Stream</param>
         ''' <param name="Flatten">Flatten</param>
@@ -12367,7 +14403,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12378,8 +14414,13 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(PDFForm) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
@@ -12389,7 +14430,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -12426,7 +14467,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12455,7 +14496,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12512,7 +14553,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12546,14 +14587,14 @@ contintue_here:
                                     file.Put(iTextSharp.text.pdf.PdfName.F, New iTextSharp.text.pdf.PdfString(xAction.JavaScript_URL & ""))
                                 End If
                             Catch ex As Exception
-                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDF_iTextSharp_SetSubmitURLs", 1)
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                             End Try
                         End If
                         xCntr += 1
                     Next
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDF_iTextSharp_SetSubmitURLs", 2)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         Private Sub PDF_iTextSharp_AddCloseDocActionToButton(ByRef myPDFStamer As iTextSharp.text.pdf.PdfStamper, ByRef myPDFReader As iTextSharp.text.pdf.PdfReader, ByVal buttonName As String)
@@ -12590,7 +14631,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12647,7 +14688,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12655,8 +14696,8 @@ contintue_here:
         ''' <summary>
         ''' Merges XDP Live-Cycle form with data to stream
         ''' </summary>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFFormPath">Live-Cycle form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -12679,7 +14720,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12689,8 +14730,13 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
@@ -12700,7 +14746,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -12742,7 +14788,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -12750,8 +14796,8 @@ contintue_here:
         ''' Merges XDP Live-Cycle form with data to stream
         ''' </summary>
         ''' <param name="XDPData">XDP Data to merge</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFFormPath">Live-Cycle form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -12774,7 +14820,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12784,8 +14830,13 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+
                     Flatten = False
                 Else
 
@@ -12795,7 +14846,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -12828,7 +14879,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -12856,7 +14907,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12909,7 +14960,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12938,7 +14989,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -12991,7 +15042,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -12999,8 +15050,8 @@ contintue_here:
         ''' <summary>
         ''' Merges XDP Live-Cycle form with data and outputs to a file
         ''' </summary>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFFormPath">Live-Cycle form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -13023,7 +15074,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -13035,8 +15086,13 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
+
                     Flatten = False
                 Else
 
@@ -13046,7 +15102,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -13104,7 +15160,7 @@ contintue_here:
                 Return True
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
             Return True
@@ -13115,8 +15171,8 @@ contintue_here:
         ''' </summary>
         ''' <param name="XDPData">XDP data to merge</param>
         ''' <param name="newPDFFile">New file path</param>
-        ''' <param name="OpenPassword">Open PDF Password</param>
-        ''' <param name="ModificationPassword">Modify PDF Password</param>
+        ''' <param name="OpenPassword">New Open PDF Password</param>
+        ''' <param name="ModificationPassword">New Modify PDF Password</param>
         ''' <param name="Permissions">PDF Permissions</param>
         ''' <param name="PDFFormPath">Live-Cycle form path</param>
         ''' <param name="Flatten">Flatten</param>
@@ -13140,7 +15196,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -13152,8 +15208,13 @@ contintue_here:
                     End If
                 End If
                 Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) Then
+                    reader.RemoveUsageRights()
+                End If
                 If PreserveUsageRights And Flatten = False Then
-                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream, "\0", True)
+                    'stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, myFileStream)
+
                     Flatten = False
                 Else
 
@@ -13163,7 +15224,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -13221,7 +15282,7 @@ contintue_here:
                 Return True
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
             Return True
@@ -13251,7 +15312,7 @@ contintue_here:
             If String_IsNullOrEmpty(ownerPassword) Then
                 reader = New iTextSharp.text.pdf.PdfReader(formFile)
             Else
-                reader = New iTextSharp.text.pdf.PdfReader(formFile, DefaultEncoding.GetBytes(ownerPassword))
+                reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
             End If
             Dim MemStream As New MemoryStream
             Try
@@ -13274,7 +15335,7 @@ contintue_here:
                 If inputDataElement Is Nothing Then
                     Return Nothing
                 End If
-                'stamper.SetEncryption(EncryptionStrength, OpenPassword, ModificationPassword, Permissions)
+                'stamper.SetEncryption(CInt(EncryptionStrength), OpenPassword, ModificationPassword, Permissions)
                 Try
                     If (stamper.AcroFields.Fields.Count > 0) Then
                         Dim fields As iTextSharp.text.pdf.AcroFields = stamper.AcroFields
@@ -13332,7 +15393,7 @@ contintue_here:
 
                 Return True
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFMergeXDP2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
             Return True
@@ -13357,7 +15418,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13383,7 +15444,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -13404,7 +15465,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13430,7 +15491,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -13453,7 +15514,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13468,33 +15529,34 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        'PDFData = MemStream.GetBuffer
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
+                    'Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                    'Try
+                    If MemStream.CanSeek Then
+                        MemStream.Position = 0
+                    End If
+                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    '    'PDFData = MemStream.GetBuffer
+                    '    With myFileStream
+                    '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                    '    End With
+                    '    MemStream.Close()
+                    '    MemStream.Dispose()
+                    'Catch ex As Exception
+                    '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    'Finally
+                    '    If Not myFileStream Is Nothing Then
+                    '        With myFileStream
+                    '            .Close()
+                    '            .Dispose()
+                    '        End With
+                    '    End If
+                    'End Try
                     Return True
                 Else
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -13516,7 +15578,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13531,32 +15593,33 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
+                    'Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                    'Try
+                    If MemStream.CanSeek Then
+                        MemStream.Position = 0
+                    End If
+                    '    With myFileStream
+                    '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                    '    End With
+                    '    MemStream.Close()
+                    '    MemStream.Dispose()
+                    'Catch ex As Exception
+                    '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    'Finally
+                    '    If Not myFileStream Is Nothing Then
+                    '        With myFileStream
+                    '            .Close()
+                    '            .Dispose()
+                    '        End With
+                    '    End If
+                    'End Try
+                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
                     Return True
                 Else
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -13578,7 +15641,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13603,7 +15666,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -13624,7 +15687,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13646,7 +15709,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -13670,7 +15733,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13704,7 +15767,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -13726,7 +15789,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13761,7 +15824,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
 
@@ -13785,7 +15848,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13807,33 +15870,34 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        'PDFData = MemStream.GetBuffer
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
+                    'Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                    'Try
+                    If MemStream.CanSeek Then
+                        MemStream.Position = 0
+                    End If
+                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    '    'PDFData = MemStream.GetBuffer
+                    '    With myFileStream
+                    '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                    '    End With
+                    '    MemStream.Close()
+                    '    MemStream.Dispose()
+                    'Catch ex As Exception
+                    '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    'Finally
+                    '    If Not myFileStream Is Nothing Then
+                    '        With myFileStream
+                    '            .Close()
+                    '            .Dispose()
+                    '        End With
+                    '    End If
+                    'End Try
                     Return True
                 Else
                     Return False
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -13856,7 +15920,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13878,27 +15942,29 @@ contintue_here:
                 stamper.Writer.CloseStream = False
                 stamper.Close()
                 If Not MemStream Is Nothing Then
-                    Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
-                    Try
-                        If MemStream.CanSeek Then
-                            MemStream.Position = 0
-                        End If
-                        'PDFData = MemStream.GetBuffer
-                        With myFileStream
-                            .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
-                        End With
-                        MemStream.Close()
-                        MemStream.Dispose()
-                    Catch ex As Exception
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FileWrite", 1)
-                    Finally
-                        If Not myFileStream Is Nothing Then
-                            With myFileStream
-                                .Close()
-                                .Dispose()
-                            End With
-                        End If
-                    End Try
+
+                    'Dim myFileStream As New System.IO.FileStream(NewPDFPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None)
+                    'Try
+                    If MemStream.CanSeek Then
+                        MemStream.Position = 0
+                    End If
+                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    '    'PDFData = MemStream.GetBuffer
+                    '    With myFileStream
+                    '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
+                    '    End With
+                    '    MemStream.Close()
+                    '    MemStream.Dispose()
+                    'Catch ex As Exception
+                    '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    'Finally
+                    '    If Not myFileStream Is Nothing Then
+                    '        With myFileStream
+                    '            .Close()
+                    '            .Dispose()
+                    '        End With
+                    '    End If
+                    'End Try
                     Return True
                 Else
                     'IOPerm.RevertAssert()
@@ -13907,7 +15973,7 @@ contintue_here:
                 End If
             Catch ex As Exception
                 'IOPerm.RevertAssert()
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2File", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return False
             End Try
         End Function
@@ -13930,7 +15996,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -13962,7 +16028,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Buf", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -13984,7 +16050,7 @@ contintue_here:
                 If String_IsNullOrEmpty(ownerPassword) Then
                     reader = New iTextSharp.text.pdf.PdfReader(PDFForm)
                 Else
-                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, DefaultEncoding.GetBytes(ownerPassword))
+                    reader = New iTextSharp.text.pdf.PdfReader(PDFForm, _defaultEncoding.GetBytes(ownerPassword))
                 End If
             End If
             Dim MemStream As New MemoryStream
@@ -14016,7 +16082,7 @@ contintue_here:
                 End If
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFDoc.PDFFlatten2Stream", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
             End Try
         End Function
@@ -14074,7 +16140,7 @@ contintue_here:
 
                     FieldCount = 0
                     For Each FldName In FldNames
-                        For curDoc As Integer = 1 To _FDF.Count
+                        For curDoc As Integer = 0 To _FDF.Count - 1
                             If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
                                 For Each xField In _FDF(curDoc).struc_FDFFields
                                     If Not String_IsNullOrEmpty(xField.FieldName) Then
@@ -14092,7 +16158,7 @@ contintue_here:
                     Exit Function
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetFields", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return _ExportFields
                 Exit Function
             End Try
@@ -14127,22 +16193,67 @@ contintue_here:
                     Exit Function
                 Else
                     For curDoc As Integer = 0 To _FDF.Count - 1
-                        If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                            'ReDim Preserve _ExportForms(FormCount)
-                            '_ExportForms(FormCount) = _FDF(curDoc)
-                            _ExportForms.Add(_FDF(curDoc))
-                            FormCount += 1
-                        End If
+                        'If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                        'ReDim Preserve _ExportForms(FormCount)
+                        '_ExportForms(FormCount) = _FDF(curDoc)
+                        _ExportForms.Add(_FDF(curDoc))
+                        FormCount += 1
+                        'End If
                     Next
                     Return _ExportForms.ToArray
                     Exit Function
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.XDPGetForms", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return _ExportForms.ToArray
                 Exit Function
             End Try
         End Function
+        Public Function XDPGetAllForms_FormLevel(ByVal FormLevel As String) As FDFApp.FDFDoc_Class.FDFDoc_Class()
+            ' Inputs FormLevel
+            Dim FoundField As Boolean
+            Dim FormCount As Integer
+            FoundField = False
+            Dim _ExportForms As New System.Collections.Generic.List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            Try
+                If Not FormLevel Is Nothing And Not String.IsNullOrEmpty(FormLevel & "") Then
+                    For curDoc As Integer = 0 To _FDF.Count - 1
+                        'If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                        If Not _FDF(curDoc).FormLevel Is Nothing Then
+                            If _FDF(curDoc).FormLevel.ToLower.StartsWith(FormLevel.ToLower) Then
+                                'ReDim Preserve _ExportForms(FormCount)
+                                '_ExportForms(FormCount) = _FDF(curDoc)
+                                If _FDF(curDoc).WrittenXDP = False Then
+                                    _ExportForms.Add(_FDF(curDoc))
+                                    FormCount += 1
+                                End If
+                            ElseIf _ExportForms.Count > 0 Then
+                                Exit For
+                            End If
+                        End If
+                        'End If
+                    Next
+                    Return _ExportForms.ToArray
+                    Exit Function
+                Else
+                    For curDoc As Integer = 0 To _FDF.Count - 1
+                        'If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                        'ReDim Preserve _ExportForms(FormCount)
+                        '_ExportForms(FormCount) = _FDF(curDoc)
+                        _ExportForms.Add(_FDF(curDoc))
+                        FormCount += 1
+                        'End If
+                    Next
+                    Return _ExportForms.ToArray
+                    Exit Function
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return _ExportForms.ToArray
+                Exit Function
+            End Try
+        End Function
+        
         ''' <summary>
         ''' Get FDFDoc_Class object
         ''' </summary>
@@ -14204,18 +16315,18 @@ contintue_here:
                     Exit Function
                 Else
                     For curDoc As Integer = 0 To _FDF.Count - 1
-                        If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                            'ReDim Preserve _ExportForms(FormCount)
-                            '_ExportForms(FormCount) = _FDF(curDoc)
-                            _ExportForms.Add(_FDF(curDoc))
-                            FormCount += 1
-                        End If
+                        'If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                        'ReDim Preserve _ExportForms(FormCount)
+                        '_ExportForms(FormCount) = _FDF(curDoc)
+                        _ExportForms.Add(_FDF(curDoc))
+                        FormCount += 1
+                        'End If
                     Next
                     Return _ExportForms.ToArray
                     Exit Function
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.XDPGetForms", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return _ExportForms.ToArray
                 Exit Function
             End Try
@@ -14683,7 +16794,22 @@ contintue_here:
         ''' <returns>Returns the PDF without usage rights enabled</returns>
         ''' <remarks></remarks>
         Public Function RemoveUsageRights_PDF(ByVal PDFFile As String) As Byte()
+            Dim _tempBytes() As Byte = Nothing
             Try
+                If Not HasUsageRights_PDF(PDFFile) Then
+                    If Not IsValidUrl(PDFFile) Then
+                        If System.IO.File.Exists(PDFFile) Then
+                            _tempBytes = System.IO.File.ReadAllBytes(PDFFile)
+                        End If
+                    Else
+                        Dim c As New WebClient
+                        _tempBytes = c.DownloadData(PDFFile)
+                        c.Dispose()
+                    End If
+                End If
+                If Not _tempBytes Is Nothing Then
+                    Return _tempBytes
+                End If
                 Dim reader As New iTextSharp.text.pdf.PdfReader(PDFFile)
                 If Not reader Is Nothing Then
                     reader.RemoveUsageRights()
@@ -14717,6 +16843,9 @@ contintue_here:
         Public Function RemoveUsageRights_PDF(ByVal PDFFile As Byte()) As Byte()
             Dim _tempBytes() As Byte = PDFFile
             Try
+                If Not HasUsageRights_PDF(PDFFile) Then
+                    Return _tempBytes
+                End If
                 Dim reader As New iTextSharp.text.pdf.PdfReader(PDFFile)
                 If Not reader Is Nothing Then
                     reader.RemoveUsageRights()
@@ -14744,6 +16873,9 @@ contintue_here:
                     PDFFile.Position = 0
                 End If
                 PDFFile.Read(_tempBytes, 0, PDFFile.Length)
+                If Not HasUsageRights_PDF(PDFFile) Then
+                    Return _tempBytes
+                End If
                 Dim reader As New iTextSharp.text.pdf.PdfReader(_tempBytes)
                 If Not reader Is Nothing Then
                     reader.RemoveUsageRights()
@@ -14952,7 +17084,7 @@ contintue_here:
                 Dim x As Integer
                 x = 0
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -15047,7 +17179,7 @@ contintue_here:
                 Dim x As Integer
                 x = 0
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
 
@@ -15169,7 +17301,7 @@ contintue_here:
                     End If
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -15289,7 +17421,7 @@ contintue_here:
                     End If
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -15495,7 +17627,7 @@ contintue_here:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetImageBase64", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15549,7 +17681,7 @@ contintue_here:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetImageBase64", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15597,7 +17729,7 @@ contintue_here:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetImageBase64", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15641,7 +17773,7 @@ contintue_here:
                 Next
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetImageBase64", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15683,7 +17815,7 @@ contintue_here:
                 Return Nothing
                 Exit Function
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15731,7 +17863,7 @@ contintue_here:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15785,7 +17917,7 @@ contintue_here:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15833,7 +17965,7 @@ contintue_here:
                     Return Nothing
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -15927,7 +18059,7 @@ contintue_here:
                     _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -16014,7 +18146,7 @@ contintue_here:
                     _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
 
@@ -16125,7 +18257,7 @@ contintue_here:
                     _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
         ''' <summary>
@@ -16237,7 +18369,7 @@ contintue_here:
                     _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.XDP_Add_ImageField", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
 #End Region
@@ -16270,7 +18402,7 @@ contintue_here:
                 Next
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFDoc.FDFGetValue", 1)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
                 Exit Function
             End Try
@@ -16371,6 +18503,11 @@ contintue_here:
         Public Sub New()
             Initialize()
         End Sub
+        Public Sub Initialize(ByVal _encoding As System.Text.Encoding)
+            Initialize()
+            _defaultEncoding = _encoding
+            '_FDFErrors.ThrowErrors = ThrowErrors
+        End Sub
         Public Sub Initialize()
             Try
                 _CurFDFDoc = 0
@@ -16383,13 +18520,319 @@ contintue_here:
 
             End Try
 
-		End Sub
+        End Sub
 
 #End Region
+#Region "PDFEMail"
+        Private Function PDFMergeFDF2Email(ByVal defaultMailMessage As System.Net.Mail.MailMessage, ByVal attachment_name As String, ByVal ds As DataSet) As System.Net.Mail.MailMessage()
+            Dim lstMsg As New List(Of System.Net.Mail.MailMessage)
+            For Each dr As DataRow In ds.Tables(0).Rows
+                Dim msg As New System.Net.Mail.MailMessage
+                msg = defaultMailMessage
+                For Each dc As DataColumn In dr.Table.Columns
+                    msg.Body = msg.Body.Replace("[" & dc.ColumnName & "]", CStr(dr(dc.ColumnName)))
+                    msg.Body = msg.Body.Replace("<" & dc.ColumnName & ">", CStr(dr(dc.ColumnName)))
+                    msg.Body = msg.Body.Replace("(" & dc.ColumnName & ")", CStr(dr(dc.ColumnName)))
 
+                    msg.Subject = msg.Subject.Replace("[" & dc.ColumnName & "]", CStr(dr(dc.ColumnName)))
+                    msg.Subject = msg.Subject.Replace("<" & dc.ColumnName & ">", CStr(dr(dc.ColumnName)))
+                    msg.Subject = msg.Subject.Replace("(" & dc.ColumnName & ")", CStr(dr(dc.ColumnName)))
+
+                    attachment_name = attachment_name.Replace("[" & dc.ColumnName & "]", CStr(dr(dc.ColumnName)))
+                    attachment_name = attachment_name.Replace("<" & dc.ColumnName & ">", CStr(dr(dc.ColumnName)))
+                    attachment_name = attachment_name.Replace("(" & dc.ColumnName & ")", CStr(dr(dc.ColumnName)))
+                Next
+                Dim fdfdoc As New FDFApp.FDFDoc_Class, fdfapp As New FDFApp.FDFApp_Class
+                fdfdoc = fdfapp.FDFCreate
+                fdfdoc.FDFSetFile(FDFGetFile)
+                fdfdoc.FDFSetValuesFromDataRow(dr)
+                Dim att As New System.Net.Mail.Attachment(PDFMergeFDF2Stream(FDFGetFile, False, ""), attachment_name)
+                msg.Attachments.Add(att)
+                lstMsg.Add(msg)
+            Next
+            Return lstMsg.ToArray
+        End Function
+        Private Function PDFMergeXDP2Email(ByVal defaultMailMessage As System.Net.Mail.MailMessage, ByVal attachment_name As String, ByVal ds As DataSet) As System.Net.Mail.MailMessage()
+            Dim lstMsg As New List(Of System.Net.Mail.MailMessage)
+            For Each dr As DataRow In ds.Tables(0).Rows
+                Dim msg As New System.Net.Mail.MailMessage
+                msg = defaultMailMessage
+                For Each dc As DataColumn In dr.Table.Columns
+                    msg.Body = msg.Body.Replace("[" & dc.ColumnName & "]", CStr(dr(dc.ColumnName)))
+                    msg.Body = msg.Body.Replace("<" & dc.ColumnName & ">", CStr(dr(dc.ColumnName)))
+                    msg.Body = msg.Body.Replace("(" & dc.ColumnName & ")", CStr(dr(dc.ColumnName)))
+
+                    msg.Subject = msg.Subject.Replace("[" & dc.ColumnName & "]", CStr(dr(dc.ColumnName)))
+                    msg.Subject = msg.Subject.Replace("<" & dc.ColumnName & ">", CStr(dr(dc.ColumnName)))
+                    msg.Subject = msg.Subject.Replace("(" & dc.ColumnName & ")", CStr(dr(dc.ColumnName)))
+
+                    attachment_name = attachment_name.Replace("[" & dc.ColumnName & "]", CStr(dr(dc.ColumnName)))
+                    attachment_name = attachment_name.Replace("<" & dc.ColumnName & ">", CStr(dr(dc.ColumnName)))
+                    attachment_name = attachment_name.Replace("(" & dc.ColumnName & ")", CStr(dr(dc.ColumnName)))
+                Next
+                Dim fdfdoc As New FDFApp.FDFDoc_Class, fdfapp As New FDFApp.FDFApp_Class
+                fdfdoc = fdfapp.FDFCreate
+                fdfdoc.FDFSetFile(FDFGetFile)
+                fdfdoc.FDFSetValuesFromDataRow(dr)
+                Dim att As New System.Net.Mail.Attachment(PDFMergeXDP2Stream(FDFGetFile, False, ""), attachment_name)
+                msg.Attachments.Add(att)
+                lstMsg.Add(msg)
+            Next
+            Return lstMsg.ToArray
+        End Function
+#End Region
         Protected Overrides Sub Finalize()
             MyBase.Finalize()
         End Sub
+
+        'Public Function CompareTo(ByVal other As FDFDoc_Class) As Integer Implements System.IComparable(Of FDFDoc_Class).CompareTo
+
+        'End Function
+
+        'Public Function CompareTo1(ByVal obj As Object) As Integer Implements System.IComparable.CompareTo
+
+        'End Function
+
+        'Public Function CompareTo2(ByVal other As FDFDoc_Class) As Integer Implements System.IComparable(Of FDFDoc_Class).CompareTo
+
+        'End Function
+#Region "ADD HIDDEN FIELD"
+        Public Function PDFAddHiddenField(ByVal formFile As Stream, ByVal fieldName As String, ByVal ownerPassword As String) As Byte()
+            If formFile.CanSeek Then
+                formFile.Position = 0
+            End If
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            Try
+                If String_IsNullOrEmpty(ownerPassword) Then
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile)
+                Else
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
+                End If
+            Catch ex As Exception
+                Return Nothing
+            End Try
+            Dim MemStream As New MemoryStream
+            'Dim pdfStamper As New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+            'Dim pdfStamper As iTextSharp.text.pdf.PdfStamper
+            Try
+                If Not reader Is Nothing Then
+                    If RemoveUsageRights Then
+                        reader.RemoveUsageRights()
+                    End If
+                End If
+                Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) And PreserveUsageRights Then
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                Else
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                End If
+                Dim form As iTextSharp.text.pdf.AcroFields
+                form = stamper.AcroFields
+                'form.SetFields(fdfReader)
+                Dim fields As Hashtable
+                fields = form.Fields
+                Try
+                    If form.Fields(fieldName) Is Nothing Then
+                        'http://stackoverflow.com/questions/1848930/how-to-add-a-form-field-to-an-existing-pdf-with-itextsharp
+                        'http://kuujinbo.info/iTextInAction2Ed/index.aspx?ch=Chapter13&ex=AddJavaScriptToForm
+                        Dim field As iTextSharp.text.pdf.PdfFormField = iTextSharp.text.pdf.PdfFormField.CreateTextField(stamper.Writer, True, False, 5000)
+                        field.Flags = iTextSharp.text.pdf.PdfFormField.FLAGS_HIDDEN
+                        'field.Action = iTextSharp.text.pdf.PdfAction.JavaScript("alert('test');", stamper.Writer)
+                        field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}", stamper.Writer))
+                        'if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}
+                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
+                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.K, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
+                        field.SetWidget(New iTextSharp.text.Rectangle(0, 0, 100, 30), iTextSharp.text.pdf.PdfAnnotation.HIGHLIGHT_NONE)
+                        field.FieldName = fieldName
+                        'add the field here, the second param is the page you want it on
+                        stamper.AddAnnotation(field, 1)
+                        'stamper.Close()
+                        'stamper.AcroFields.ReplacePushbuttonField(fieldname, submitField)
+                        'stamper.Writer.CloseStream = False
+                        'stamper.Close()
+                        ' END NEW
+
+
+                    End If
+                Catch ex As Exception
+
+                End Try
+                stamper.Writer.CloseStream = False
+                stamper.Close()
+                If MemStream.CanSeek Then
+                    MemStream.Position = 0
+                End If
+                'If MemStream.CanSeek Then MemStream.Position = 0
+                Return GetUsedBytesOnly(MemStream, True)
+                'Return MemStream.GetBuffer
+            Catch ex As Exception
+                Return Nothing
+            End Try
+        End Function
+        Public Function PDFAddHiddenField(ByVal formFile As String, ByVal fieldName As String, ByVal ownerPassword As String) As Byte()
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            Try
+                If String_IsNullOrEmpty(ownerPassword) Then
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile)
+                Else
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
+                End If
+            Catch ex As Exception
+                Return Nothing
+            End Try
+            Dim MemStream As New MemoryStream
+            'Dim pdfStamper As New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+            'Dim pdfStamper As iTextSharp.text.pdf.PdfStamper
+            Try
+                If Not reader Is Nothing Then
+                    If RemoveUsageRights Then
+                        reader.RemoveUsageRights()
+                    End If
+                End If
+                Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) And PreserveUsageRights Then
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                Else
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                End If
+                Dim form As iTextSharp.text.pdf.AcroFields
+                form = stamper.AcroFields
+                'form.SetFields(fdfReader)
+                Dim fields As Hashtable
+                fields = form.Fields
+                Try
+                    If form.Fields(fieldName) Is Nothing Then
+                        'http://stackoverflow.com/questions/1848930/how-to-add-a-form-field-to-an-existing-pdf-with-itextsharp
+                        'http://kuujinbo.info/iTextInAction2Ed/index.aspx?ch=Chapter13&ex=AddJavaScriptToForm
+                        Dim field As iTextSharp.text.pdf.PdfFormField = iTextSharp.text.pdf.PdfFormField.CreateTextField(stamper.Writer, True, False, 5000)
+                        field.Flags = iTextSharp.text.pdf.PdfFormField.FLAGS_HIDDEN
+                        field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}", stamper.Writer))
+                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.K, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
+                        field.SetWidget(New iTextSharp.text.Rectangle(0, 0, 100, 30), iTextSharp.text.pdf.PdfAnnotation.HIGHLIGHT_NONE)
+                        field.FieldName = fieldName
+                        'add the field here, the second param is the page you want it on
+                        stamper.AddAnnotation(field, 1)
+
+
+
+                    End If
+                Catch ex As Exception
+
+                End Try
+                stamper.Writer.CloseStream = False
+                stamper.Close()
+                If MemStream.CanSeek Then
+                    MemStream.Position = 0
+                End If
+                'If MemStream.CanSeek Then MemStream.Position = 0
+                Return GetUsedBytesOnly(MemStream, True)
+                'Return MemStream.GetBuffer
+            Catch ex As Exception
+                Return Nothing
+            End Try
+        End Function
+        Public Function PDFAddHiddenField(ByVal formFile() As Byte, ByVal fieldName As String, ByVal ownerPassword As String) As Byte()
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            Try
+                If String_IsNullOrEmpty(ownerPassword) Then
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile)
+                Else
+                    reader = New iTextSharp.text.pdf.PdfReader(formFile, _defaultEncoding.GetBytes(ownerPassword))
+                End If
+            Catch ex As Exception
+                Return Nothing
+            End Try
+            Dim MemStream As New MemoryStream
+            'Dim pdfStamper As New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+            'Dim pdfStamper As iTextSharp.text.pdf.PdfStamper
+            Try
+                If Not reader Is Nothing Then
+                    If RemoveUsageRights Then
+                        reader.RemoveUsageRights()
+                    End If
+                End If
+                Dim stamper As iTextSharp.text.pdf.PdfStamper
+                If HasUsageRights_PDF(formFile) And PreserveUsageRights Then
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
+                Else
+                    stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
+                End If
+                Dim form As iTextSharp.text.pdf.AcroFields
+                form = stamper.AcroFields
+                'form.SetFields(fdfReader)
+                Dim fields As Hashtable
+                fields = form.Fields
+                Try
+                    If form.Fields(fieldName) Is Nothing Then
+                        'http://stackoverflow.com/questions/1848930/how-to-add-a-form-field-to-an-existing-pdf-with-itextsharp
+                        'http://kuujinbo.info/iTextInAction2Ed/index.aspx?ch=Chapter13&ex=AddJavaScriptToForm
+                        Dim field As iTextSharp.text.pdf.PdfFormField = iTextSharp.text.pdf.PdfFormField.CreateTextField(stamper.Writer, True, False, 5000)
+                        field.Flags = iTextSharp.text.pdf.PdfFormField.FLAGS_HIDDEN
+                        'field.Action = iTextSharp.text.pdf.PdfAction.JavaScript("alert('test');", stamper.Writer)
+                        field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}", stamper.Writer))
+                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.K, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
+                        field.SetWidget(New iTextSharp.text.Rectangle(0, 0, 100, 30), iTextSharp.text.pdf.PdfAnnotation.HIGHLIGHT_NONE)
+                        field.FieldName = fieldName
+                        'add the field here, the second param is the page you want it on
+                        stamper.AddAnnotation(field, 1)
+
+
+
+                    End If
+                Catch ex As Exception
+
+                End Try
+                stamper.Writer.CloseStream = False
+                stamper.Close()
+                If MemStream.CanSeek Then
+                    MemStream.Position = 0
+                End If
+                'If MemStream.CanSeek Then MemStream.Position = 0
+                Return GetUsedBytesOnly(MemStream, True)
+                'Return MemStream.GetBuffer
+            Catch ex As Exception
+                Return Nothing
+            End Try
+        End Function
+#End Region
+#Region "XFA"
+        Public Function PDFisXFA(ByVal PDFBuffer As Byte()) As Boolean
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            'If String_IsNullOrEmpty(ownerPassword) Then
+            reader = New iTextSharp.text.pdf.PdfReader(PDFBuffer)
+            'Else
+            '    reader = New iTextSharp.text.pdf.PdfReader(PDFBuffer, _defaultEncoding.GetBytes(ownerPassword))
+            'End If
+            Dim xfaFrm As New iTextSharp.text.pdf.XfaForm(reader)
+
+            PDFisXFA = xfaFrm.XfaPresent
+            reader.Close()
+            reader = Nothing
+            xfaFrm = Nothing
+        End Function
+        Public Function PDFisXFADynamic(ByVal PDFBuffer As Byte()) As Boolean
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            'If String_IsNullOrEmpty(ownerPassword) Then
+            reader = New iTextSharp.text.pdf.PdfReader(PDFBuffer)
+            'Else
+            '    reader = New iTextSharp.text.pdf.PdfReader(PDFBuffer, _defaultEncoding.GetBytes(ownerPassword))
+            'End If
+            Dim xfaFrm As New iTextSharp.text.pdf.XfaForm(reader)
+            Dim isXFAPDF As Boolean = xfaFrm.XfaPresent
+            If isXFAPDF Then
+                Dim form As iTextSharp.text.pdf.AcroFields = reader.AcroFields
+                If form.Fields.Count <= 0 Then
+                    PDFisXFADynamic = True
+                Else
+                    PDFisXFADynamic = False
+                End If
+            End If
+            reader.Close()
+            reader = Nothing
+            xfaFrm = Nothing
+        End Function
+#End Region
+
     End Class
 
 End Namespace
