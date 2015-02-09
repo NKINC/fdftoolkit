@@ -1,3 +1,4 @@
 D:\DATA\CODEPLEX.COM\Projects\FDFToolkit.net\bin\FDFApp.dll
 D:\DATA\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Release\ResolveAssemblyReference.cache
 D:\DATA\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Release\FDFApp.dll
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\itextsharp.xml

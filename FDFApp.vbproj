@@ -129,6 +129,13 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="bin\FDFApp.dll" />
+    <Content Include="bin\itextsharp.dll" />
+    <Content Include="MPL-1.1-FDFToolkit.net.txt" />
+    <Content Include="release_notes.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="bin\Debug Select\" />
     <Folder Include="My Project\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.VisualBasic.targets" />

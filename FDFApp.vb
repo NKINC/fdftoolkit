@@ -1575,8 +1575,14 @@ Namespace FDFApp
                             End While
                         End If
                     Case XmlNodeType.EndElement 'Display end of element.
-                        CurDepth = CurDepth - 1
-                        ReDim Preserve SubFormNames(CurDepth)
+                        'CurDepth = CurDepth - 1
+                        'ReDim Preserve SubFormNames(CurDepth)
+                        CurDepth = reader.Depth - 1
+                        If CurDepth <= 0 Then
+                            ReDim Preserve SubFormNames(0)
+                        Else
+                            ReDim Preserve SubFormNames(CurDepth)
+                        End If
                     Case XmlNodeType.Whitespace
 
                 End Select
@@ -1836,8 +1842,14 @@ FOUNDIMAGE:
                             End While
                         End If
                     Case XmlNodeType.EndElement 'Display end of element.
-                        CurDepth = CurDepth - 1
-                        ReDim Preserve SubFormNames(CurDepth)
+                        'CurDepth = CurDepth - 1
+                        'ReDim Preserve SubFormNames(CurDepth)
+                        CurDepth = reader.Depth - 1
+                        If CurDepth <= 0 Then
+                            ReDim Preserve SubFormNames(0)
+                        Else
+                            ReDim Preserve SubFormNames(CurDepth)
+                        End If
                     Case XmlNodeType.Whitespace
 
                 End Select
@@ -3803,276 +3815,10 @@ FOUNDIMAGE:
                     PDFFileName = FDFDox.XDPGetFile & ""
                 End If
             End If
-            '            FDF = FDF.Replace("<xfa:", "<")
-            '            FDF = FDF.Replace("</xfa:", "</")
-            '            FDF = FDF.Replace("xfa:", "")
-            '            FDF = FDF.Replace(":xfa", "")
-            '            FDFDox.DefaultEncoding = _defaultEncoding
-            '            Dim memFDF As New MemoryStream
-            '            'Dim strFDF As New StringReader(FDF)
-            '            'FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
-            '            'FDF = FDF.Trim
-            '            'memFDF.Write(Me.ExportByte(FDF), 0, Me.ExportByte(FDF).Length)
-            '            'memFDF.Position = 0
-            '            Dim ds As New DataSet
-            '            If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
-            '            FDFDox.DefaultEncoding = _defaultEncoding
-            '            Dim sr As New StreamReader(New MemoryStream(_defaultEncoding.GetBytes(FDF)), DefaultEncoding)
-            '            Dim reader As New System.Xml.XmlTextReader(sr)
-
-            '            Dim Name As String = "", Value As String = ""
-            '            Dim FormName As String = "", ContentType As String = "", Href As String = "", ImageFieldStr As String
-            '            Dim PreviousSubFormDepth As Integer = 0, PreviousSubFormName As String = "", SubFormNames As String() = {}, CurDepth As Integer = 0
-            '            Dim fldNum As Integer = -1
-            '            Do While (reader.Read())
-            '                Dim x As String = reader.Name & ""
-            '                Select Case reader.NodeType
-            '                    'Case XmlNodeType.Element 'Display beginning of element.
-            '                    Case XmlNodeType.Element
-            '                        Name = reader.Name
-            '                        If reader.HasAttributes Then 'If attributes exist
-            '                            While reader.MoveToNextAttribute()
-            '                                Select Case reader.Name.ToLower
-            '                                    Case "root"
-
-            '                                    Case "version=""1.0"" encoding=""UTF-8"
-
-            '                                    Case "version"
-
-            '                                    Case "standalone"
-
-            '                                    Case "xml"
-
-            '                                    Case "xmlns"
-
-            '                                    Case "encoding"
-
-            '                                    Case "pdf"
-            '                                    Case "xmlns:xdp"
-            '                                    Case "xmlns:xfa"
-            '                                    Case "xml:space"
-            '                                    Case "xmlns"
-
-            '                                    Case "contenttype"
-            '                                        ContentType = reader.Value & ""
-            '                                        reader.MoveToContent()
-            '                                        ImageFieldStr = reader.ReadElementContentAsString
-            '                                        If FDFDox.XDPGetValue(Name, False) Is Nothing Then
-            '                                            FDFDox.XDP_Add_ImageField(Name & "", FormName, TO_IMAGE_MIME_TYPES(ContentType), ImageFieldStr & "", False)
-            '                                        Else
-            '                                            If ImageFieldStr.Length > 0 Then
-            '                                                FDFDox.XDP_Add_ImageField(Name & "", FormName, TO_IMAGE_MIME_TYPES(ContentType), ImageFieldStr & "", False)
-            '                                            End If
-            '                                        End If
-            '                                        GoTo FOUNDIMAGE
-            '                                    Case "href"
-            '                                        Href = reader.Value & ""
-            '                                        FDFDox.FDFSetFile(PDFFileName)
-            '                                    Case Else
-            '                                        '     If reader.HasValue Then
-            '                                        'FDFDox.FDFAddField(Name, Value)
-            '                                        '     End If
-            '                                End Select
-            '                            End While
-            '                        End If
-
-            '                        CurDepth = reader.Depth
-            '                        If reader.HasValue Then
-            '                            'writer.Write(reader.Value)
-            '                            If Not String_IsNullOrEmpty(reader.Name) Then
-            '                                Name = reader.Name
-            '                            End If
-            '                            If Not String_IsNullOrEmpty(Name & "") Then
-            '                                Value = reader.Value & ""
-            '                                FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                            End If
-            '                        Else
-            '                            Dim hasNodes As Boolean = False
-            '                            If FormName = "" And Not String_IsNullOrEmpty(reader.Name) Then
-            '                                FormName = reader.Name
-            '                                ReDim Preserve SubFormNames(CurDepth)
-            '                                SubFormNames(CurDepth) = FormName
-            '                                FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                                PreviousSubFormDepth = CurDepth
-            '                            Else
-            '                                Dim tmpFormName As String = reader.Name
-            '                                ReDim Preserve SubFormNames(CurDepth)
-            '                                SubFormNames(CurDepth) = tmpFormName
-            '                                Dim xtr As New XmlDocument
-            '                                Try
-            '                                    xtr.LoadXml(FDF)
-            '                                    Dim myNode As XmlNode
-            '                                    Try
-            '                                        Dim strSubformsXXX As String = String.Join("/", SubFormNames)
-            '                                        Dim XmlNodeList2 As XmlNodeList = xtr.GetElementsByTagName("*")
-            '                                        For Each XmlNode2 As XmlNode In XmlNodeList2
-            '                                            For Each myNode In XmlNode2.ChildNodes
-            '                                                If myNode.NodeType = XmlNodeType.Element Then
-            '                                                    If myNode.Name = SubFormNames(SubFormNames.Length - 1) Then
-            '                                                        If myNode.HasChildNodes Then
-            '                                                            If myNode.ChildNodes.Count > 1 Then
-            '                                                                hasNodes = True
-            '                                                            Else
-            '                                                                If myNode.ChildNodes(0).NodeType = XmlNodeType.Element Then
-            '                                                                    hasNodes = True
-            '                                                                Else
-            '                                                                    hasNodes = False
-            '                                                                End If
-            '                                                            End If
-            '                                                            Exit For
-            '                                                        End If
-            '                                                    End If
-            '                                                    'Debug.Print(XmlNode2.Name & "=" & XmlNode2.Value)
-            '                                                End If
-            '                                            Next myNode
-            '                                            If hasNodes = True Then
-            '                                                Exit For
-            '                                            End If
-            '                                        Next XmlNode2
-            '                                        '     If hasNodes Then
-            '                                        'Dim docChild As New XmlDocument
-            '                                        'docChild.LoadXml(myNode.InnerXml)
-            '                                        'If docChild.HasChildNodes Then
-            '                                        '    Dim eleChild As XmlElement = docChild.FirstChild
-            '                                        '    If eleChild.HasChildNodes Then
-            '                                        '        If eleChild.ChildNodes.Count > 0 Then
-            '                                        '	  hasNodes = True
-            '                                        '        Else
-            '                                        '	  hasNodes = False
-            '                                        '        End If
-            '                                        '    End If
-            '                                        'End If
-            '                                        '     End If
-            '                                    Catch ex As Exception
-            '                                        hasNodes = False
-            '                                    End Try
-
-            '                                Catch ex As Exception
-
-            '                                End Try
-            '                                Try
-            '                                    If hasNodes And Not String_IsNullOrEmpty(tmpFormName) Then
-            '                                        ' PREVIOUS START
-            '                                        FormName = tmpFormName
-            '                                        'Name = reader.Name
-            '                                        ReDim Preserve SubFormNames(CurDepth)
-            '                                        SubFormNames(CurDepth) = FormName
-            '                                        FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                                        PreviousSubFormDepth = CurDepth
-            '                                        PreviousSubFormName = FormName
-            '                                        ' EDITED NK-INC 4/4/2012
-            '                                    ElseIf reader.HasValue Then
-            '                                        'ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth - 1) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = reader.Value & ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                    ElseIf String_IsNullOrEmpty(reader.Value & "") Then
-            '                                        'ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth - 1) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = reader.Value & ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                    ElseIf reader.IsEmptyElement Then
-            '                                        'ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                    Else
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                    End If
-            '                                Catch ex As Exception
-
-            '                                End Try
-            '                            End If
-            '                        End If
-            '                    Case XmlNodeType.Text 'Display the text in each element.
-            '                        'If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
-            '                        If CurDepth < PreviousSubFormDepth Then
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            PreviousSubFormDepth = CurDepth
-            '                            FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                        End If
-            '                        If reader.HasValue Then
-            '                            Value = reader.Value & ""
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            'EDITED 2012-04-07 NK-INC NK - ADDED REPLACE FIELD TRUE
-            '                            FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                        ElseIf Name.ToLower <> "xml" And Name.Length > 0 Then
-            '                            Value = reader.Value & ""
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
-            '                                FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                            Else
-            '                                FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                            End If
-            '                        End If
-            '                        PreviousSubFormName = SubFormNames(CurDepth - 1)
-            '                    Case XmlNodeType.Attribute
-            '                        If reader.HasAttributes Then 'If attributes exist
-            '                            While reader.MoveToNextAttribute()
-            '                                Select Case reader.Name.ToLower
-            '                                    Case "root"
-
-            '                                    Case "version=""1.0"" encoding=""UTF-8"
-
-            '                                    Case "version"
-
-            '                                    Case "standalone"
-
-            '                                    Case "xml"
-
-            '                                    Case "xmlns"
-
-            '                                    Case "encoding"
-
-            '                                    Case "pdf"
-            '                                    Case "xmlns:xdp"
-            '                                    Case "xmlns:xfa"
-            '                                    Case "xml:space"
-            '                                    Case "xmlns"
-
-            '                                    Case "href"
-            '                                        FDFDox.FDFSetFile(PDFFileName)
-            '                                    Case Else
-            '                                End Select
-            '                            End While
-            '                        End If
-            '                    Case XmlNodeType.EndElement 'Display end of element.
-            '                        CurDepth = CurDepth - 1
-            '                        ReDim Preserve SubFormNames(CurDepth)
-            '                    Case XmlNodeType.Whitespace
-
-            '                End Select
-            'FOUNDIMAGE:
-
-            '            Loop
-            '            Try
-            '                sr.Close()
-            '                sr.Dispose()
-            '            Catch ex As Exception
-            '                Err.Clear()
-            '            End Try
-
-
-            '            Return FDFDox
-            ' Updated 2009-04-09 - StringReader()
-            'If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
-            'If String_IsNullOrEmpty(PDFFileName) Then
-            '	If String_IsNullOrEmpty(FDFDox.XDPGetFile) Then
-            '		PDFFileName = FDFDox.XDPGetFile & ""
-            '	End If
-            'End If
             FDFDox.DefaultEncoding = _defaultEncoding
 
-            'PDFFileName = ""
             Dim memFDF As New MemoryStream
+            Dim previousFieldAdded As String = ""
             Try
 
                 FDF = FDF.Replace("<xfa:", "<")
@@ -4089,12 +3835,7 @@ FOUNDIMAGE:
                 FDF = FDF.Replace(Environment.NewLine & ">", ">")
                 FDF = FDF.Replace(Environment.NewLine & "/>", "/>")
 
-
                 Dim strFDF As New StringReader(FDF)
-                'FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
-                'FDF = FDF.Trim
-                'memFDF.Write(Me.ExportByte(FDF), 0, Me.ExportByte(FDF).Length)
-                'memFDF.Position = 0
                 Dim ds As New DataSet
                 If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
                 FDFDox.DefaultEncoding = _defaultEncoding
@@ -4114,10 +3855,9 @@ FOUNDIMAGE:
                         x = x
                     End If
                     Select Case reader.NodeType
-                        'Case XmlNodeType.Element 'Display beginning of element.
                         Case XmlNodeType.Element
                             Name = reader.Name
-                            If reader.HasAttributes Then 'If attributes exist
+                            If reader.HasAttributes Then
                                 While reader.MoveToNextAttribute()
                                     Select Case reader.Name.ToLower
                                         Case "root"
@@ -4171,13 +3911,15 @@ FOUNDIMAGE:
                                 Dim cTrip As String = "WholePage"
                             End If
                             If reader.HasValue Then
-                                'writer.Write(reader.Value)
                                 If Not String_IsNullOrEmpty(reader.Name) Then
                                     Name = reader.Name
                                 End If
                                 If Not String_IsNullOrEmpty(Name & "") Then
                                     Value = reader.Value & ""
                                     FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
+                                    previousFieldAdded = Name
+                                    Value = ""
+                                    Name = ""
                                 End If
                             Else
                                 Dim hasNodes As Boolean = False
@@ -4207,7 +3949,6 @@ FOUNDIMAGE:
                                                 Catch ex As Exception
                                                     Err.Clear()
                                                 End Try
-                                                'If myNodes.NodeType = XmlNodeType.Element Then
                                                 If myNodes.HasChildNodes And myNodes.NodeType = XmlNodeType.Element Then
                                                     hasNodes = True
                                                     Exit For
@@ -4226,9 +3967,6 @@ FOUNDIMAGE:
                                                                 End If
                                                                 Exit For
                                                             End If
-                                                            'End If
-                                                            'End If
-                                                            'Debug.Print(XmlNode2.Name & "=" & XmlNode2.Value)
                                                         ElseIf myNode.NodeType = XmlNodeType.Text Then
                                                             hasNodes = True
                                                             Exit For
@@ -4239,60 +3977,36 @@ FOUNDIMAGE:
                                                     Exit For
                                                 End If
                                             Next
-                                            'End If
-
-                                            'ElseIf myNodes.NodeType = XmlNodeType.Text Then
-                                            '    hasNodes = True
-                                            '    Exit For
-                                            'Next myNode
-                                            '     If hasNodes Then
-                                            'Dim docChild As New XmlDocument
-                                            'docChild.LoadXml(myNode.InnerXml)
-                                            'If docChild.HasChildNodes Then
-                                            '    Dim eleChild As XmlElement = docChild.FirstChild
-                                            '    If eleChild.HasChildNodes Then
-                                            '        If eleChild.ChildNodes.Count > 0 Then
-                                            '	  hasNodes = True
-                                            '        Else
-                                            '	  hasNodes = False
-                                            '        End If
-                                            '    End If
-                                            'End If
-                                            '     End If
                                         Catch ex As Exception
                                             hasNodes = False
                                             Err.Clear()
                                         End Try
 
                                     Catch ex As Exception
-
+                                        Err.Clear()
                                     End Try
                                     Try
                                         If hasNodes And Not String_IsNullOrEmpty(tmpFormName) Then
-                                            ' PREVIOUS START
                                             FormName = tmpFormName
-                                            'Name = reader.Name
                                             ReDim Preserve SubFormNames(CurDepth)
                                             SubFormNames(CurDepth) = FormName
                                             FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
                                             PreviousSubFormDepth = CurDepth
                                             PreviousSubFormName = FormName
-                                            ' EDITED NK-INC 4/4/2012
-                                        ElseIf (reader.HasValue Or String_IsNullOrEmpty(reader.Value & "")) And Not String_IsNullOrEmpty(Name & "") Then
+                                        ElseIf reader.HasValue And Not String_IsNullOrEmpty(Name & "") Then
                                             ReDim Preserve SubFormNames(PreviousSubFormDepth)
-                                            'SubFormNames(CurDepth - 1) = FormName
                                             Name = tmpFormName
                                             Value = reader.Value & ""
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-                                            FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
+                                            ReDim Preserve SubFormNames(PreviousSubFormDepth)
+                                            FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                            previousFieldAdded = Name
+                                            Value = ""
+                                            Name = ""
                                         ElseIf reader.IsEmptyElement Then
                                             ReDim Preserve SubFormNames(PreviousSubFormDepth)
-                                            'SubFormNames(CurDepth) = FormName
                                             Name = tmpFormName
                                             Value = ""
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
+                                            Name = ""
                                         Else
                                             ReDim Preserve SubFormNames(PreviousSubFormDepth)
                                         End If
@@ -4301,18 +4015,19 @@ FOUNDIMAGE:
                                     End Try
                                 End If
                             End If
-                        Case XmlNodeType.Text 'Display the text in each element.
-                            'If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
+                        Case XmlNodeType.Text
                             If CurDepth < PreviousSubFormDepth Then
                                 ReDim Preserve SubFormNames(CurDepth - 1)
                                 PreviousSubFormDepth = CurDepth
                                 FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
                             End If
-                            If reader.HasValue Then
+                            If reader.HasValue And Not String_IsNullOrEmpty(Name & "") Then
                                 Value = reader.Value & ""
                                 ReDim Preserve SubFormNames(CurDepth - 1)
-                                'EDITED 2012-04-07 NK-INC NK - ADDED REPLACE FIELD TRUE
                                 FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                previousFieldAdded = Name
+                                Value = ""
+                                Name = ""
                             ElseIf Name.ToLower <> "xml" And Name.Length > 0 Then
                                 Value = reader.Value & ""
                                 ReDim Preserve SubFormNames(CurDepth - 1)
@@ -4321,10 +4036,15 @@ FOUNDIMAGE:
                                 Else
                                     FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
                                 End If
+                                previousFieldAdded = Name
+                                Value = ""
+                                Name = ""
+                            ElseIf reader.HasValue And Name.Length <= 0 Then
+                                Value = reader.Value & ""
                             End If
                             PreviousSubFormName = SubFormNames(CurDepth - 1)
                         Case XmlNodeType.Attribute
-                            If reader.HasAttributes Then 'If attributes exist
+                            If reader.HasAttributes Then
                                 While reader.MoveToNextAttribute()
                                     Select Case reader.Name.ToLower
                                         Case "root"
@@ -4354,9 +4074,21 @@ FOUNDIMAGE:
                                     End Select
                                 End While
                             End If
-                        Case XmlNodeType.EndElement 'Display end of element.
-                            CurDepth = CurDepth - 1
-                            ReDim Preserve SubFormNames(CurDepth)
+                        Case XmlNodeType.EndElement
+                            If Not String_IsNullOrEmpty(reader.Name) And Not String_IsNullOrEmpty(Value) And String_IsNullOrEmpty(Name & "") Then
+                                Name = reader.Name
+                                ReDim Preserve SubFormNames(CurDepth - 1)
+                                FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                previousFieldAdded = Name
+                                Value = ""
+                                Name = ""
+                            End If
+                            CurDepth = reader.Depth - 1
+                            If CurDepth <= 0 Then
+                                ReDim Preserve SubFormNames(0)
+                            Else
+                                ReDim Preserve SubFormNames(CurDepth)
+                            End If
                         Case XmlNodeType.Whitespace
 
                     End Select
@@ -4371,6 +4103,7 @@ FOUNDIMAGE:
                     Err.Clear()
                 End Try
                 Return FDFDox
+
             Catch Ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return Nothing
@@ -4388,6 +4121,7 @@ FOUNDIMAGE:
 
             Dim PDFFileName As String = ""
             Dim memFDF As New MemoryStream
+            Dim previousFieldAdded As String = ""
             Try
 
                 FDF = FDF.Replace("<xfa:", "<")
@@ -4405,10 +4139,6 @@ FOUNDIMAGE:
                 FDF = FDF.Replace(Environment.NewLine & "/>", "/>")
 
                 Dim strFDF As New StringReader(FDF)
-                'FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
-                'FDF = FDF.Trim
-                'memFDF.Write(Me.ExportByte(FDF), 0, Me.ExportByte(FDF).Length)
-                'memFDF.Position = 0
                 Dim ds As New DataSet
                 If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
                 FDFDox.DefaultEncoding = _defaultEncoding
@@ -4428,10 +4158,9 @@ FOUNDIMAGE:
                         x = x
                     End If
                     Select Case reader.NodeType
-                        'Case XmlNodeType.Element 'Display beginning of element.
                         Case XmlNodeType.Element
                             Name = reader.Name
-                            If reader.HasAttributes Then 'If attributes exist
+                            If reader.HasAttributes Then
                                 While reader.MoveToNextAttribute()
                                     Select Case reader.Name.ToLower
                                         Case "root"
@@ -4485,13 +4214,15 @@ FOUNDIMAGE:
                                 Dim cTrip As String = "WholePage"
                             End If
                             If reader.HasValue Then
-                                'writer.Write(reader.Value)
                                 If Not String_IsNullOrEmpty(reader.Name) Then
                                     Name = reader.Name
                                 End If
                                 If Not String_IsNullOrEmpty(Name & "") Then
                                     Value = reader.Value & ""
                                     FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
+                                    previousFieldAdded = Name
+                                    Value = ""
+                                    Name = ""
                                 End If
                             Else
                                 Dim hasNodes As Boolean = False
@@ -4521,7 +4252,6 @@ FOUNDIMAGE:
                                                 Catch ex As Exception
                                                     Err.Clear()
                                                 End Try
-                                                'If myNodes.NodeType = XmlNodeType.Element Then
                                                 If myNodes.HasChildNodes And myNodes.NodeType = XmlNodeType.Element Then
                                                     hasNodes = True
                                                     Exit For
@@ -4540,9 +4270,6 @@ FOUNDIMAGE:
                                                                 End If
                                                                 Exit For
                                                             End If
-                                                            'End If
-                                                            'End If
-                                                            'Debug.Print(XmlNode2.Name & "=" & XmlNode2.Value)
                                                         ElseIf myNode.NodeType = XmlNodeType.Text Then
                                                             hasNodes = True
                                                             Exit For
@@ -4553,60 +4280,36 @@ FOUNDIMAGE:
                                                     Exit For
                                                 End If
                                             Next
-                                            'End If
-
-                                            'ElseIf myNodes.NodeType = XmlNodeType.Text Then
-                                            '    hasNodes = True
-                                            '    Exit For
-                                            'Next myNode
-                                            '     If hasNodes Then
-                                            'Dim docChild As New XmlDocument
-                                            'docChild.LoadXml(myNode.InnerXml)
-                                            'If docChild.HasChildNodes Then
-                                            '    Dim eleChild As XmlElement = docChild.FirstChild
-                                            '    If eleChild.HasChildNodes Then
-                                            '        If eleChild.ChildNodes.Count > 0 Then
-                                            '	  hasNodes = True
-                                            '        Else
-                                            '	  hasNodes = False
-                                            '        End If
-                                            '    End If
-                                            'End If
-                                            '     End If
                                         Catch ex As Exception
                                             hasNodes = False
                                             Err.Clear()
                                         End Try
 
                                     Catch ex As Exception
-
+                                        Err.Clear()
                                     End Try
                                     Try
                                         If hasNodes And Not String_IsNullOrEmpty(tmpFormName) Then
-                                            ' PREVIOUS START
                                             FormName = tmpFormName
-                                            'Name = reader.Name
                                             ReDim Preserve SubFormNames(CurDepth)
                                             SubFormNames(CurDepth) = FormName
                                             FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
                                             PreviousSubFormDepth = CurDepth
                                             PreviousSubFormName = FormName
-                                            ' EDITED NK-INC 4/4/2012
-                                        ElseIf reader.HasValue Or String_IsNullOrEmpty(reader.Value & "") Then
+                                        ElseIf reader.HasValue And Not String_IsNullOrEmpty(Name & "") Then
                                             ReDim Preserve SubFormNames(PreviousSubFormDepth)
-                                            'SubFormNames(CurDepth - 1) = FormName
                                             Name = tmpFormName
                                             Value = reader.Value & ""
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-                                            FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
+                                            ReDim Preserve SubFormNames(PreviousSubFormDepth)
+                                            FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                            previousFieldAdded = Name
+                                            Value = ""
+                                            Name = ""
                                         ElseIf reader.IsEmptyElement Then
                                             ReDim Preserve SubFormNames(PreviousSubFormDepth)
-                                            'SubFormNames(CurDepth) = FormName
                                             Name = tmpFormName
                                             Value = ""
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-                                            'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
+                                            Name = ""
                                         Else
                                             ReDim Preserve SubFormNames(PreviousSubFormDepth)
                                         End If
@@ -4615,8 +4318,7 @@ FOUNDIMAGE:
                                     End Try
                                 End If
                             End If
-                        Case XmlNodeType.Text 'Display the text in each element.
-                            'If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
+                        Case XmlNodeType.Text
                             If CurDepth < PreviousSubFormDepth Then
                                 ReDim Preserve SubFormNames(CurDepth - 1)
                                 PreviousSubFormDepth = CurDepth
@@ -4625,8 +4327,10 @@ FOUNDIMAGE:
                             If reader.HasValue And Not String_IsNullOrEmpty(Name & "") Then
                                 Value = reader.Value & ""
                                 ReDim Preserve SubFormNames(CurDepth - 1)
-                                'EDITED 2012-04-07 NK-INC NK - ADDED REPLACE FIELD TRUE
                                 FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                previousFieldAdded = Name
+                                Value = ""
+                                Name = ""
                             ElseIf Name.ToLower <> "xml" And Name.Length > 0 Then
                                 Value = reader.Value & ""
                                 ReDim Preserve SubFormNames(CurDepth - 1)
@@ -4635,10 +4339,15 @@ FOUNDIMAGE:
                                 Else
                                     FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
                                 End If
+                                previousFieldAdded = Name
+                                Value = ""
+                                Name = ""
+                            ElseIf reader.HasValue And Name.Length <= 0 Then
+                                Value = reader.Value & ""
                             End If
                             PreviousSubFormName = SubFormNames(CurDepth - 1)
                         Case XmlNodeType.Attribute
-                            If reader.HasAttributes Then 'If attributes exist
+                            If reader.HasAttributes Then
                                 While reader.MoveToNextAttribute()
                                     Select Case reader.Name.ToLower
                                         Case "root"
@@ -4668,9 +4377,21 @@ FOUNDIMAGE:
                                     End Select
                                 End While
                             End If
-                        Case XmlNodeType.EndElement 'Display end of element.
-                            CurDepth = CurDepth - 1
-                            ReDim Preserve SubFormNames(CurDepth)
+                        Case XmlNodeType.EndElement
+                            If Not String_IsNullOrEmpty(reader.Name) And Not String_IsNullOrEmpty(Value) And String_IsNullOrEmpty(Name & "") Then
+                                Name = reader.Name
+                                ReDim Preserve SubFormNames(CurDepth - 1)
+                                FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                previousFieldAdded = Name
+                                Value = ""
+                                Name = ""
+                            End If
+                            CurDepth = reader.Depth - 1
+                            If CurDepth <= 0 Then
+                                ReDim Preserve SubFormNames(0)
+                            Else
+                                ReDim Preserve SubFormNames(CurDepth)
+                            End If
                         Case XmlNodeType.Whitespace
 
                     End Select
@@ -4690,633 +4411,7 @@ FOUNDIMAGE:
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return Nothing
             End Try
-            '            ' Updated 2009-04-09 - StringReader()
-            '            'If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
-            '            Dim PDFFileName As String = ""
-            '            If String_IsNullOrEmpty(PDFFileName) Then
-            '                If String_IsNullOrEmpty(FDFDox.XDPGetFile) Then
-            '                    PDFFileName = FDFDox.XDPGetFile & ""
-            '                End If
-            '            End If
-            '            FDF = FDF.Replace("<xfa:", "<")
-            '            FDF = FDF.Replace("</xfa:", "</")
-            '            FDF = FDF.Replace("xfa:", "")
-            '            FDF = FDF.Replace(":xfa", "")
-            '            FDFDox.DefaultEncoding = _defaultEncoding
-            '            Dim memFDF As New MemoryStream
-            '            'Dim strFDF As New StringReader(FDF)
-            '            'FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
-            '            'FDF = FDF.Trim
-            '            'memFDF.Write(Me.ExportByte(FDF), 0, Me.ExportByte(FDF).Length)
-            '            'memFDF.Position = 0
-            '            Dim ds As New DataSet
-            '            If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
-            '            FDFDox.DefaultEncoding = _defaultEncoding
-            '            Dim sr As New StreamReader(New MemoryStream(_defaultEncoding.GetBytes(FDF)), DefaultEncoding)
-            '            Dim reader As New System.Xml.XmlTextReader(sr)
-
-            '            Dim Name As String = "", Value As String = ""
-            '            Dim FormName As String = "", ContentType As String = "", Href As String = "", ImageFieldStr As String
-            '            Dim PreviousSubFormDepth As Integer = 0, PreviousSubFormName As String = "", SubFormNames As String() = {}, CurDepth As Integer = 0
-            '            Dim fldNum As Integer = -1
-            '            Do While (reader.Read())
-            '                Dim x As String = reader.Name & ""
-            '                Select Case reader.NodeType
-            '                    'Case XmlNodeType.Element 'Display beginning of element.
-            '                    Case XmlNodeType.Element
-            '                        Name = reader.Name
-            '                        If reader.HasAttributes Then 'If attributes exist
-            '                            While reader.MoveToNextAttribute()
-            '                                Select Case reader.Name.ToLower
-            '                                    Case "root"
-
-            '                                    Case "version=""1.0"" encoding=""UTF-8"
-
-            '                                    Case "version"
-
-            '                                    Case "standalone"
-
-            '                                    Case "xml"
-
-            '                                    Case "xmlns"
-
-            '                                    Case "encoding"
-
-            '                                    Case "pdf"
-            '                                    Case "xmlns:xdp"
-            '                                    Case "xmlns:xfa"
-            '                                    Case "xml:space"
-            '                                    Case "xmlns"
-
-            '                                    Case "contenttype"
-            '                                        ContentType = reader.Value & ""
-            '                                        reader.MoveToContent()
-            '                                        ImageFieldStr = reader.ReadElementContentAsString
-            '                                        If FDFDox.XDPGetValue(Name, False) Is Nothing Then
-            '                                            FDFDox.XDP_Add_ImageField(Name & "", FormName, TO_IMAGE_MIME_TYPES(ContentType), ImageFieldStr & "", False)
-            '                                        Else
-            '                                            If ImageFieldStr.Length > 0 Then
-            '                                                FDFDox.XDP_Add_ImageField(Name & "", FormName, TO_IMAGE_MIME_TYPES(ContentType), ImageFieldStr & "", False)
-            '                                            End If
-            '                                        End If
-            '                                        GoTo FOUNDIMAGE
-            '                                    Case "href"
-            '                                        Href = reader.Value & ""
-            '                                        FDFDox.FDFSetFile(PDFFileName)
-            '                                    Case Else
-            '                                        '     If reader.HasValue Then
-            '                                        'FDFDox.FDFAddField(Name, Value)
-            '                                        '     End If
-            '                                End Select
-            '                            End While
-            '                        End If
-
-            '                        CurDepth = reader.Depth
-            '                        If CurDepth = 4 Then
-            '                            Dim testMe As Boolean
-            '                            testMe = True
-            '                        End If
-            '                        If reader.Name = "WholePage" Then
-            '                            Dim testMe As Boolean
-            '                            testMe = True
-            '                        End If
-            '                        If reader.HasValue Then
-            '                            'writer.Write(reader.Value)
-            '                            If Not String_IsNullOrEmpty(reader.Name) Then
-            '                                Name = reader.Name
-            '                            End If
-            '                            If Not String_IsNullOrEmpty(Name & "") Then
-            '                                Value = reader.Value & ""
-            '                                FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                            End If
-            '                        Else
-            '                            Dim hasNodes As Boolean = False
-            '                            If FormName = "" And Not String_IsNullOrEmpty(reader.Name) Then
-            '                                FormName = reader.Name
-            '                                ReDim Preserve SubFormNames(CurDepth)
-            '                                SubFormNames(CurDepth) = FormName
-            '                                FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                                PreviousSubFormDepth = CurDepth
-            '                            Else
-            '                                Dim tmpFormName As String = reader.Name
-            '                                ReDim Preserve SubFormNames(CurDepth)
-            '                                SubFormNames(CurDepth) = tmpFormName
-            '                                Dim xtr As New XmlDocument
-            '                                Try
-            '                                    xtr.LoadXml(FDF)
-            '                                    Dim myNode As XmlNode
-            '                                    Try
-            '                                        Dim strSubformsXXX As String = String.Join("/", SubFormNames)
-            '                                        Dim xmlNodeList1 As Xml.XmlNode = xtr.DocumentElement.SelectSingleNode("/" & strSubformsXXX) 'descendant::book[author/last-name='Austen']
-            '                                        'Dim XmlNodeList2 As XmlNodeList = xtr.GetElementsByTagName("*")
-            '                                        For Each XmlNode2 As XmlNode In xmlNodeList1.ChildNodes
-            '                                            For Each myNode In XmlNode2.ChildNodes
-            '                                                If myNode.NodeType = XmlNodeType.Element Then
-            '                                                    'If myNode.Name = SubFormNames(SubFormNames.Length - 1) Then
-            '                                                    '    If myNode.HasChildNodes Then
-            '                                                    '        If myNode.ChildNodes.Count > 1 Then
-            '                                                    '            hasNodes = True
-            '                                                    '        Else
-            '                                                    '            If myNode.ChildNodes(0).NodeType = XmlNodeType.Element Then
-            '                                                    '                hasNodes = True
-            '                                                    '            Else
-            '                                                    '                hasNodes = False
-            '                                                    '            End If
-            '                                                    '        End If
-            '                                                    '        Exit For
-            '                                                    '    End If
-            '                                                    'End If
-            '                                                    If SubFormNames.Length >= 2 Then
-            '                                                        Try
-            '                                                            Dim pNode As Xml.XmlElement = myNode.ParentNode
-            '                                                            'If myNode.Name = SubFormNames(SubFormNames.Length - 1) And pNode.Name = SubFormNames(SubFormNames.Length - 2) Then
-            '                                                            If myNode.HasChildNodes Then
-            '                                                                If myNode.ChildNodes.Count > 1 Then
-            '                                                                    hasNodes = True
-            '                                                                Else
-            '                                                                    If myNode.ChildNodes(0).NodeType = XmlNodeType.Element Then
-            '                                                                        hasNodes = True
-            '                                                                    Else
-            '                                                                        hasNodes = False
-            '                                                                    End If
-            '                                                                End If
-            '                                                                Exit For
-            '                                                            End If
-            '                                                            'End If
-            '                                                        Catch exParent As Exception
-            '                                                            Err.Clear()
-            '                                                        End Try
-            '                                                    Else
-            '                                                        'If myNode.Name = SubFormNames(SubFormNames.Length - 1) Then
-            '                                                        If myNode.HasChildNodes Then
-            '                                                            If myNode.ChildNodes.Count > 1 Then
-            '                                                                hasNodes = True
-            '                                                            Else
-            '                                                                If myNode.ChildNodes(0).NodeType = XmlNodeType.Element Then
-            '                                                                    hasNodes = True
-            '                                                                Else
-            '                                                                    hasNodes = False
-            '                                                                End If
-            '                                                            End If
-            '                                                            Exit For
-            '                                                            'End If
-            '                                                        End If
-            '                                                    End If
-            '                                                    'Debug.Print(XmlNode2.Name & "=" & XmlNode2.Value)
-            '                                                End If
-            '                                            Next myNode
-            '                                            If hasNodes = True Then
-            '                                                Exit For
-            '                                            End If
-            '                                        Next XmlNode2
-            '                                        '     If hasNodes Then
-            '                                        'Dim docChild As New XmlDocument
-            '                                        'docChild.LoadXml(myNode.InnerXml)
-            '                                        'If docChild.HasChildNodes Then
-            '                                        '    Dim eleChild As XmlElement = docChild.FirstChild
-            '                                        '    If eleChild.HasChildNodes Then
-            '                                        '        If eleChild.ChildNodes.Count > 0 Then
-            '                                        '	  hasNodes = True
-            '                                        '        Else
-            '                                        '	  hasNodes = False
-            '                                        '        End If
-            '                                        '    End If
-            '                                        'End If
-            '                                        '     End If
-            '                                    Catch ex As Exception
-            '                                        hasNodes = False
-            '                                    End Try
-
-            '                                Catch ex As Exception
-
-            '                                End Try
-            '                                Try
-            '                                    If hasNodes And Not String_IsNullOrEmpty(tmpFormName) Then
-            '                                        ' PREVIOUS START
-            '                                        FormName = tmpFormName
-            '                                        'Name = reader.Name
-            '                                        ReDim Preserve SubFormNames(CurDepth)
-            '                                        SubFormNames(CurDepth) = FormName
-            '                                        FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-
-            '                                        PreviousSubFormDepth = CurDepth
-            '                                        PreviousSubFormName = FormName
-            '                                        ' EDITED NK-INC 4/4/2012
-            '                                    ElseIf reader.HasValue Or String_IsNullOrEmpty(reader.Value & "") Then
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth - 1) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = reader.Value & ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'Dim subformnames2 As New System.Collections.Generic.List(Of String)
-            '                                        'For sfn As Integer = 0 To SubFormNames.Length - 1
-            '                                        '    If Not sfn = SubFormNames.Length - 1 Then
-            '                                        '        subformnames2.Add(SubFormNames(sfn))
-            '                                        '    End If
-            '                                        'Next
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                                    ElseIf reader.IsEmptyElement Then
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", (CurDepth), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'Dim subformnames2 As New System.Collections.Generic.List(Of String)
-            '                                        'For sfn As Integer = 0 To SubFormNames.Length - 1
-            '                                        '    If Not sfn = SubFormNames.Length - 1 Then
-            '                                        '        subformnames2.Add(SubFormNames(sfn))
-            '                                        '    End If
-            '                                        'Next
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", SubFormNames(SubFormNames.Length - 1), subformnames2.ToArray, FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                    Else
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                    End If
-            '                                Catch ex As Exception
-
-            '                                End Try
-            '                            End If
-            '                        End If
-            '                    Case XmlNodeType.Text 'Display the text in each element.
-            '                        'If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
-            '                        If CurDepth < PreviousSubFormDepth Then
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            PreviousSubFormDepth = CurDepth
-            '                            FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                        End If
-            '                        If reader.HasValue Then
-            '                            Value = reader.Value & ""
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            'EDITED 2012-04-07 NK-INC NK - ADDED REPLACE FIELD TRUE
-            '                            'FDFDox.XDPAddField(Name & "", Value & "", CurDepth, FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                            'FDFDox.XDPSetValue(Name & "", Value & "", CurDepth, False, True)
-            '                            Dim subformnames2 As New System.Collections.Generic.List(Of String)
-            '                            For sfn As Integer = 0 To SubFormNames.Length - 1
-            '                                If Not sfn = SubFormNames.Length - 1 Then
-            '                                    subformnames2.Add(SubFormNames(sfn))
-            '                                End If
-            '                            Next
-            '                            FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                        ElseIf Name.ToLower <> "xml" And Name.Length > 0 Then
-            '                            Value = reader.Value & ""
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            'If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
-            '                            '    FDFDox.XDPSetValue(Name & "", Value & "", CurDepth, False, True)
-            '                            'Else
-            '                            '    FDFDox.XDPSetValue(Name & "", Value & "", CurDepth, False, True)
-            '                            'End If
-            '                            Dim subformnames2 As New System.Collections.Generic.List(Of String)
-            '                            For sfn As Integer = 0 To SubFormNames.Length - 1
-            '                                If Not sfn = SubFormNames.Length - 1 Then
-            '                                    subformnames2.Add(SubFormNames(sfn))
-            '                                End If
-            '                            Next
-            '                            FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                        End If
-            '                        PreviousSubFormName = SubFormNames(CurDepth - 1)
-            '                    Case XmlNodeType.Attribute
-            '                        If reader.HasAttributes Then 'If attributes exist
-            '                            While reader.MoveToNextAttribute()
-            '                                Select Case reader.Name.ToLower
-            '                                    Case "root"
-
-            '                                    Case "version=""1.0"" encoding=""UTF-8"
-
-            '                                    Case "version"
-
-            '                                    Case "standalone"
-
-            '                                    Case "xml"
-
-            '                                    Case "xmlns"
-
-            '                                    Case "encoding"
-
-            '                                    Case "pdf"
-            '                                    Case "xmlns:xdp"
-            '                                    Case "xmlns:xfa"
-            '                                    Case "xml:space"
-            '                                    Case "xmlns"
-
-            '                                    Case "href"
-            '                                        FDFDox.FDFSetFile(PDFFileName)
-            '                                    Case Else
-            '                                End Select
-            '                            End While
-            '                        End If
-            '                    Case XmlNodeType.EndElement 'Display end of element.
-            '                        CurDepth = CurDepth - 1
-            '                        ReDim Preserve SubFormNames(CurDepth)
-            '                    Case XmlNodeType.Whitespace
-
-            '                End Select
-            'FOUNDIMAGE:
-
-            '            Loop
-            '            Try
-            '                sr.Close()
-            '                sr.Dispose()
-            '            Catch ex As Exception
-            '                Err.Clear()
-            '            End Try
-
-
-            '            Return FDFDox
-
-
-
-
-
-
-
-            '            ' Updated 2009-04-09 - StringReader()
-            '            'If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
-            '            'If String_IsNullOrEmpty(PDFFileName) Then
-            '            '	If String_IsNullOrEmpty(FDFDox.XDPGetFile) Then
-            '            '		PDFFileName = FDFDox.XDPGetFile & ""
-            '            '	End If
-            '            'End If
-            '            FDFDox.DefaultEncoding = _defaultEncoding
-
-            '            Dim PDFFileName As String = ""
-            '            Dim memFDF As New MemoryStream
-            '            FDF = FDF.Replace("<xfa:", "<")
-            '            FDF = FDF.Replace("</xfa:", "</")
-            '            FDF = FDF.Replace("xfa:", "")
-            '            FDF = FDF.Replace(":xfa", "")
-            '            Dim strFDF As New StringReader(FDF)
-            '            'FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
-            '            'FDF = FDF.Trim
-            '            'memFDF.Write(Me.ExportByte(FDF), 0, Me.ExportByte(FDF).Length)
-            '            'memFDF.Position = 0
-            '            Dim ds As New DataSet
-            '            If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
-            '            FDFDox.DefaultEncoding = _defaultEncoding
-            '            'Dim reader As XmlTextReader = New XmlTextReader(strFDF)
-            '            'Dim reader As XmlTextReader = New XmlTextReader(New MemoryStream(_defaultEncoding.GetBytes(FDF)))
-            '            'Dim reader As XmlTextReader = New XmlTextReader(memFDF)
-
-            '            Dim sr As New StreamReader(New MemoryStream(_defaultEncoding.GetBytes(FDF)), DefaultEncoding)
-            '            Dim reader As New System.Xml.XmlTextReader(sr)
-
-            '            Dim Name As String = "", Value As String = ""
-            '            Dim FormName As String = "", ContentType As String = "", Href As String = "", ImageFieldStr As String
-            '            Dim PreviousSubFormDepth As Integer = 0, PreviousSubFormName As String = "", SubFormNames As String() = {}, CurDepth As Integer = 0
-            '            Do While (reader.Read())
-            '                Dim x As String = reader.Name & ""
-            '                Select Case reader.NodeType
-            '                    'Case XmlNodeType.Element 'Display beginning of element.
-            '                    Case XmlNodeType.Element
-            '                        Name = reader.Name
-            '                        If reader.HasAttributes Then 'If attributes exist
-            '                            While reader.MoveToNextAttribute()
-            '                                Select Case reader.Name.ToLower
-            '                                    Case "root"
-
-            '                                    Case "version=""1.0"" encoding=""UTF-8"
-
-            '                                    Case "version"
-
-            '                                    Case "standalone"
-
-            '                                    Case "xml"
-
-            '                                    Case "xmlns"
-
-            '                                    Case "encoding"
-
-            '                                    Case "pdf"
-            '                                    Case "xmlns:xdp"
-            '                                    Case "xmlns:xfa"
-            '                                    Case "xmlns"
-            '                                    Case "xml:space"
-            '                                    Case "xmlns"
-
-            '                                    Case "contenttype"
-            '                                        ContentType = reader.Value & ""
-            '                                        reader.MoveToContent()
-            '                                        ImageFieldStr = reader.ReadElementContentAsString
-            '                                        If FDFDox.XDPGetValue(Name, False) Is Nothing Then
-            '                                            FDFDox.XDP_Add_ImageField(Name & "", FormName, TO_IMAGE_MIME_TYPES(ContentType), ImageFieldStr & "", False)
-            '                                        Else
-            '                                            If ImageFieldStr.Length > 0 Then
-            '                                                FDFDox.XDP_Add_ImageField(Name & "", FormName, TO_IMAGE_MIME_TYPES(ContentType), ImageFieldStr & "", False)
-            '                                            End If
-            '                                        End If
-            '                                        GoTo FOUNDIMAGE
-            '                                    Case "href"
-            '                                        Href = reader.Value & ""
-            '                                        FDFDox.FDFSetFile(PDFFileName)
-            '                                    Case Else
-            '                                        '     If reader.HasValue Then
-            '                                        'FDFDox.FDFAddField(Name, Value)
-            '                                        '     End If
-            '                                End Select
-            '                            End While
-            '                        End If
-
-            '                        CurDepth = reader.Depth
-            '                        If reader.HasValue Then
-            '                            'writer.Write(reader.Value)
-            '                            If Not String_IsNullOrEmpty(reader.Name) Then
-            '                                Name = reader.Name
-            '                            End If
-            '                            If Not String_IsNullOrEmpty(Name & "") Then
-            '                                Value = reader.Value & ""
-            '                                FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                            End If
-            '                        Else
-            '                            Dim hasNodes As Boolean = False
-            '                            If FormName = "" And Not String_IsNullOrEmpty(reader.Name) Then
-            '                                FormName = reader.Name
-            '                                ReDim Preserve SubFormNames(CurDepth)
-            '                                SubFormNames(CurDepth) = FormName
-            '                                FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                                PreviousSubFormDepth = CurDepth
-            '                            Else
-            '                                Dim tmpFormName As String = reader.Name
-            '                                ReDim Preserve SubFormNames(CurDepth)
-            '                                SubFormNames(CurDepth) = tmpFormName
-            '                                Dim xtr As New XmlDocument
-            '                                Try
-            '                                    xtr.LoadXml(FDF)
-            '                                    Dim myNode As XmlNode
-            '                                    Try
-            '                                        Dim strSubformsXXX As String = String.Join("/", SubFormNames)
-            '                                        Dim XmlNodeList2 As XmlNodeList = xtr.GetElementsByTagName("*")
-            '                                        For Each XmlNode2 As XmlNode In XmlNodeList2
-            '                                            For Each myNode In XmlNode2.ChildNodes
-            '                                                If myNode.NodeType = XmlNodeType.Element Then
-            '                                                    'If myNode.Name = SubFormNames(SubFormNames.Length - 1) Then
-            '                                                    If SubFormNames.Length >= 2 Then
-            '                                                        Try
-            '                                                            Dim pNode As Xml.XmlElement = myNode.ParentNode
-            '                                                            If myNode.Name = SubFormNames(SubFormNames.Length - 1) And pNode.Name = SubFormNames(SubFormNames.Length - 2) Then
-            '                                                                If myNode.HasChildNodes Then
-            '                                                                    If myNode.ChildNodes.Count > 1 Then
-            '                                                                        hasNodes = True
-            '                                                                    Else
-            '                                                                        If myNode.ChildNodes(0).NodeType = XmlNodeType.Element Then
-            '                                                                            hasNodes = True
-            '                                                                        Else
-            '                                                                            hasNodes = False
-            '                                                                        End If
-            '                                                                    End If
-            '                                                                    Exit For
-            '                                                                End If
-            '                                                            End If
-            '                                                        Catch exParent As Exception
-            '                                                            Err.Clear()
-            '                                                        End Try
-            '                                                    Else
-            '                                                        If myNode.Name = SubFormNames(SubFormNames.Length - 1) Then
-            '                                                            If myNode.HasChildNodes Then
-            '                                                                If myNode.ChildNodes.Count > 1 Then
-            '                                                                    hasNodes = True
-            '                                                                Else
-            '                                                                    If myNode.ChildNodes(0).NodeType = XmlNodeType.Element Then
-            '                                                                        hasNodes = True
-            '                                                                    Else
-            '                                                                        hasNodes = False
-            '                                                                    End If
-            '                                                                End If
-            '                                                                Exit For
-            '                                                            End If
-            '                                                        End If
-            '                                                    End If
-            '                                                    'Debug.Print(XmlNode2.Name & "=" & XmlNode2.Value)
-            '                                                End If
-            '                                            Next myNode
-            '                                            If hasNodes = True Then
-            '                                                Exit For
-            '                                            End If
-            '                                        Next XmlNode2
-            '                                        '     If hasNodes Then
-            '                                        'Dim docChild As New XmlDocument
-            '                                        'docChild.LoadXml(myNode.InnerXml)
-            '                                        'If docChild.HasChildNodes Then
-            '                                        '    Dim eleChild As XmlElement = docChild.FirstChild
-            '                                        '    If eleChild.HasChildNodes Then
-            '                                        '        If eleChild.ChildNodes.Count > 0 Then
-            '                                        '	  hasNodes = True
-            '                                        '        Else
-            '                                        '	  hasNodes = False
-            '                                        '        End If
-            '                                        '    End If
-            '                                        'End If
-            '                                        '     End If
-            '                                    Catch ex As Exception
-            '                                        hasNodes = False
-            '                                    End Try
-
-            '                                Catch ex As Exception
-
-            '                                End Try
-            '                                Try
-            '                                    If hasNodes And Not String_IsNullOrEmpty(tmpFormName) Then
-            '                                        ' PREVIOUS START
-            '                                        FormName = tmpFormName
-            '                                        'Name = reader.Name
-            '                                        ReDim Preserve SubFormNames(CurDepth)
-            '                                        SubFormNames(CurDepth) = FormName
-            '                                        FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                                        PreviousSubFormDepth = CurDepth
-            '                                        PreviousSubFormName = FormName
-            '                                        ' EDITED NK-INC 4/4/2012
-            '                                    ElseIf reader.HasValue Or String_IsNullOrEmpty(reader.Value & "") Then
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth - 1) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = reader.Value & ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDox.XDPFormNumber(SubFormNames), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        FDFDox.XDPAddField(Name & "", Value & "", (CurDepth), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                    ElseIf reader.IsEmptyElement Then
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                        'SubFormNames(CurDepth) = FormName
-            '                                        Name = tmpFormName
-            '                                        Value = ""
-            '                                        'FDFDox.XDPAddField(Name & "", Value & "", FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                        FDFDox.XDPAddField(Name & "", Value & "", (CurDepth), FDFDoc_Class.FieldType.FldTextual, True, False)
-            '                                    Else
-            '                                        ReDim Preserve SubFormNames(PreviousSubFormDepth)
-            '                                    End If
-            '                                Catch ex As Exception
-
-            '                                End Try
-            '                            End If
-            '                        End If
-            '                    Case XmlNodeType.Text 'Display the text in each element.
-            '                        'If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
-            '                        If CurDepth < PreviousSubFormDepth Then
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            PreviousSubFormDepth = CurDepth
-            '                            FDFDox.XDPAddSubForm(SubFormNames, PDFFileName)
-            '                        End If
-            '                        If reader.HasValue Then
-            '                            Value = reader.Value & ""
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            'EDITED 2012-04-07 NK-INC NK - ADDED REPLACE FIELD TRUE
-            '                            FDFDox.XDPAddField(Name & "", FDFDox.XDPGetLastFieldNumber(Name), Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                        ElseIf Name.ToLower <> "xml" And Name.Length > 0 Then
-            '                            Value = reader.Value & ""
-            '                            ReDim Preserve SubFormNames(CurDepth - 1)
-            '                            If Not PreviousSubFormName = SubFormNames(CurDepth - 1) Then
-            '                                FDFDox.XDPAddField(Name & "", FDFDox.XDPGetLastFieldNumber(Name), Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                            Else
-            '                                FDFDox.XDPAddField(Name & "", FDFDox.XDPGetLastFieldNumber(Name), Value & "", FDFDoc_Class.FieldType.FldTextual, True, True)
-            '                            End If
-            '                        End If
-            '                        PreviousSubFormName = SubFormNames(CurDepth - 1)
-            '                    Case XmlNodeType.Attribute
-            '                        If reader.HasAttributes Then 'If attributes exist
-            '                            While reader.MoveToNextAttribute()
-            '                                Select Case reader.Name.ToLower
-            '                                    Case "root"
-
-            '                                    Case "version=""1.0"" encoding=""UTF-8"
-
-            '                                    Case "version"
-
-            '                                    Case "standalone"
-
-            '                                    Case "xml"
-
-            '                                    Case "xmlns"
-
-            '                                    Case "encoding"
-
-            '                                    Case "pdf"
-            '                                    Case "xmlns:xdp"
-            '                                    Case "xmlns:xfa"
-            '                                    Case "xmlns"
-            '                                    Case "xml:space"
-            '                                    Case "xmlns"
-
-            '                                    Case "href"
-            '                                        FDFDox.FDFSetFile(PDFFileName)
-            '                                    Case Else
-            '                                End Select
-            '                            End While
-            '                        End If
-            '                    Case XmlNodeType.EndElement 'Display end of element.
-            '                        CurDepth = CurDepth - 1
-            '                        ReDim Preserve SubFormNames(CurDepth)
-            '                    Case XmlNodeType.Whitespace
-
-            '                End Select
-            'FOUNDIMAGE:
-
-            '            Loop
-
-            '            Try
-            '                sr.Close()
-            '                sr.Dispose()
-            '            Catch ex As Exception
-            '                Err.Clear()
-            '            End Try
-            '            Return FDFDox
+        
         End Function
         'Private Function parseXML(ByVal FDF As String, Optional ByVal FDFInitialize As Boolean = False) As FDFDoc_Class
         '	' Updated 2009-04-09 - StringReader()

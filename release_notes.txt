@@ -1,5 +1,19 @@
 FDFApp.net Release Notes 
 http://www.nk-inc.com/software/fdftoolkit.net/releasenotes.aspx?app=FDFApp.net_2.0
+
+2.2014.11.0801
++ Fixed issues with FDFApp.parseXML(*)
+
+2.2014.11.0401
++ Fixed minor issue with FDFDoc.FDFCreateXDPFromHTMLForm
+
+2.2014.07.1701
++ Fixed FDFDoc.ForceDownload (both overloads) - Issue with flushing response stream
++ Fixed FDFDoc.PDFForceDownload (both overloads) - Issue with flushing response stream
+
+2.2014.02.2401
++ Fixed FDFDoc.WriteHead & FDFDoc.WriteFields for FDF data Chr(10) & Chr(13)
+
 2.2013.10.0701
 + Fixed FDFApp.ParseXML() method when importing Images in XDP data
 
