@@ -5434,12 +5434,12 @@ continue_setting_value:
                         End If
                     Next
                 Catch ex As Exception
-
+                    Err.Clear()
                 End Try
                 If String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
                     XDPAddForm(FormName, "")
                 End If
-                For Each Fieldname In Page.Request.Form
+                For Each Fieldname In Page.Request.Form.Keys
                     FieldEnabled = True
                     FieldValue = Page.Request.Form.Item(Fieldname) & ""
                     If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
@@ -5462,7 +5462,7 @@ continue_setting_value:
                                     _fld.FieldType = FieldType.FldTextual
                                 End If
                                 FoundField = True
-                                Exit Function
+                                'Exit Function
                             Else
                                 bFoundOption = False
                                 FoundField = False
@@ -5489,6 +5489,22 @@ continue_setting_value:
                         End If
                     End If
                 Next
+                'If Page.Request.Files.Count > 0 Then
+                '    Try
+                '        For fileUpload_index As Integer = 0 To Page.Request.Files.Count - 1
+                '            Fieldname = Page.Request.Files(fileUpload_index).ToString
+                '            Dim base64Bytes(Page.Request.Files(Fieldname).InputStream.Length) As Byte
+                '            Page.Request.Files(Fieldname).InputStream.Read(base64Bytes, 0, base64Bytes.Length)
+                '            If Not base64Bytes Is Nothing Then
+                '                XDP_Add_ImageField(Fieldname.Replace("uploadfile__", ""), FormName, ImageFieldMime.JPG, base64Bytes, True)
+                '                FoundField = True
+                '            End If
+                '        Next
+                '    Catch ex As Exception
+                '        Err.Clear()
+                '    End Try
+                'End If
+
                 Return True
                 Exit Function
             Catch ex As Exception
@@ -5497,6 +5513,85 @@ continue_setting_value:
                 Exit Function
             End Try
         End Function
+        'Public Function FDFCreateXDPFromHTMLForm(ByVal Page As System.Web.UI.Page, Optional ByVal OptionNames() As String = Nothing, Optional ByVal FormName As String = "subform1") As Boolean
+        '    Dim FieldValue As String
+        '    Dim Fieldname As String
+        '    Dim FieldEnabled As Boolean
+        '    Dim Options As String, bFoundOption As Boolean
+        '    Try
+        '        Try
+        '            For intFrm As Integer = 0 To _FDF.Count - 1
+        '                If Not String_IsNullOrEmpty(_FDF(intFrm).FormName) Then
+        '                    If _FDF(intFrm).FormName.ToLower & "" = FormName.ToLower & "" Then
+        '                        _CurFDFDoc = intFrm
+        '                        Exit For
+        '                    End If
+        '                End If
+        '            Next
+        '        Catch ex As Exception
+
+        '        End Try
+        '        If String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
+        '            XDPAddForm(FormName, "")
+        '        End If
+        '        For Each Fieldname In Page.Request.Form
+        '            FieldEnabled = True
+        '            FieldValue = Page.Request.Form.Item(Fieldname) & ""
+        '            If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
+        '                For Each _fld As FDFField In _FDF(_CurFDFDoc).struc_FDFFields
+        '                    If _fld.FieldName = Fieldname Then
+        '                        _fld.FieldValue.Clear()
+        '                        _fld.FieldValue.Add(FieldValue)
+        '                        _fld.FieldEnabled = FieldEnabled
+        '                        If Not OptionNames Is Nothing Then
+        '                            For Each Options In OptionNames
+        '                                If Options = Fieldname Then
+        '                                    bFoundOption = True
+        '                                End If
+        '                            Next
+        '                        End If
+        '                        If bFoundOption Then
+        '                            _fld.FieldType = FieldType.FldOption
+        '                            bFoundOption = False
+        '                        Else
+        '                            _fld.FieldType = FieldType.FldTextual
+        '                        End If
+        '                        FoundField = True
+        '                        Exit Function
+        '                    Else
+        '                        bFoundOption = False
+        '                        FoundField = False
+        '                    End If
+        '                Next
+        '            Else
+        '                FoundField = False
+        '            End If
+        '            If Not FoundField Then
+        '                If Not Fieldname & "" = "submit" Then
+        '                    If Not OptionNames Is Nothing Then
+        '                        For Each Options In OptionNames
+        '                            If Options = Fieldname Then
+        '                                bFoundOption = True
+        '                            End If
+        '                        Next
+        '                    End If
+        '                    If bFoundOption Then
+        '                        XDPAddField(Fieldname, FieldValue, FormName, FieldType.FldOption, FieldEnabled)
+        '                        bFoundOption = False
+        '                    Else
+        '                        XDPAddField(Fieldname, FieldValue, FormName, FieldType.FldTextual, FieldEnabled)
+        '                    End If
+        '                End If
+        '            End If
+        '        Next
+        '        Return True
+        '        Exit Function
+        '    Catch ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+        '        Return False
+        '        Exit Function
+        '    End Try
+        'End Function
         ''' <summary>
         ''' Sets FDF Data from Datarow
         ''' </summary>
@@ -8220,13 +8315,21 @@ continue_setting_value:
                 Reset_CurFDFDoc()
                 Select Case xType
                     Case FDFType.FDF
+                        'If AppendSaves And FDFHasChanges Then
+                        '    '	"%FDF-1.2" & vbNewLine & 
+                        '    retString = "%FDF-1.2" & vbNewLine & "%‚„œ”" & vbNewLine & "1 0 obj << /Version/" & IIf(_FDF(_CurFDFDoc).Version <> "", _FDF(_CurFDFDoc).Version, "1.4") & " /FDF " & IIf(_FDF(_CurFDFDoc).Annotations <> "" And AppendSaves = True, "<< /Annots [" & _FDF(_CurFDFDoc).Annotations & "] >>", " << ")
+
+                        'Else
+                        '    '"%FDF-1.2" & vbNewLine & 
+                        '    retString = "%FDF-1.2" & vbNewLine & "%‚„œ”" & vbNewLine & "1 0 obj << /Version/1.6 /FDF << "
+                        'End If
                         If AppendSaves And FDFHasChanges Then
                             '	"%FDF-1.2" & vbNewLine & 
-                            retString = "%FDF-1.2" & vbNewLine & "%‚„œ”" & vbNewLine & "1 0 obj << /Version/" & IIf(_FDF(_CurFDFDoc).Version <> "", _FDF(_CurFDFDoc).Version, "1.4") & " /FDF " & IIf(_FDF(_CurFDFDoc).Annotations <> "" And AppendSaves = True, "<< /Annots [" & _FDF(_CurFDFDoc).Annotations & "] >>", " << ")
+                            retString = "%FDF-1.2" & Chr(13) & Chr(10) & "1 0 obj" & Chr(10) & "<</FDF " & IIf(_FDF(_CurFDFDoc).Annotations <> "" And AppendSaves = True, "<< /Annots [" & _FDF(_CurFDFDoc).Annotations & "] >>", " << ")
 
                         Else
                             '"%FDF-1.2" & vbNewLine & 
-                            retString = "%FDF-1.2" & vbNewLine & "%‚„œ”" & vbNewLine & "1 0 obj << /Version/1.6 /FDF << "
+                            retString = "%FDF-1.2" & Chr(13) & Chr(10) & "1 0 obj" & Chr(10) & "<</FDF << "
                         End If
                     Case FDFType.xFDF
                         '<?xml version="1.0" encoding="UTF-8"?>
@@ -8655,13 +8758,18 @@ continue_setting_value:
                 Select Case xType
                     Case FDFType.FDF
                         '/Differences 5 0 R
+                        'If AppendSaves And FDFHasChanges Then
+                        '    '/Target (_blank)
+                        '    retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ") ") & IIf(_FDF(_CurFDFDoc).Differences <> "" And AppendSaves = True, " /Differences " & _FDF(_CurFDFDoc).Differences, "") & ">> >> " & vbNewLine & "endobj" & vbNewLine & IIf(FDFHasChanges = True And AppendSaves = True, WriteAppendSaves(xType), "") & vbNewLine & "trailer" & vbNewLine & "<</Root 1 0 R>>" & vbNewLine & "%%EOF"
+                        'Else
+                        '    retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ")") & ">> >> " & vbNewLine & "endobj" & vbNewLine & "trailer" & vbNewLine & "<</Root 1 0 R>>" & vbNewLine & "%%EOF"
+                        'End If
                         If AppendSaves And FDFHasChanges Then
                             '/Target (_blank)
-                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ") ") & IIf(_FDF(_CurFDFDoc).Differences <> "" And AppendSaves = True, " /Differences " & _FDF(_CurFDFDoc).Differences, "") & ">> >> " & vbNewLine & "endobj" & vbNewLine & IIf(FDFHasChanges = True And AppendSaves = True, WriteAppendSaves(xType), "") & vbNewLine & "trailer" & vbNewLine & "<</Root 1 0 R>>" & vbNewLine & "%%EOF"
+                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ") ") & IIf(_FDF(_CurFDFDoc).Differences <> "" And AppendSaves = True, " /Differences " & _FDF(_CurFDFDoc).Differences, "") & ">> >>" & Chr(10) & "endobj" & Chr(10) & IIf(FDFHasChanges = True And AppendSaves = True, WriteAppendSaves(xType), "") & Chr(10) & "trailer" & Chr(10) & "<</Root 1 0 R>>" & Chr(10) & "%%EOF" & Chr(10)
                         Else
-                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ")") & ">> >> " & vbNewLine & "endobj" & vbNewLine & "trailer" & vbNewLine & "<</Root 1 0 R>>" & vbNewLine & "%%EOF"
+                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ")") & ">> >>" & Chr(10) & "endobj" & Chr(10) & "trailer" & Chr(10) & "<</Root 1 0 R>>" & Chr(10) & "%%EOF" & Chr(10)
                         End If
-
                     Case FDFType.xFDF
                         retString = IIf(FDFGetFile = "", "", "<f href=""" & FDFGetFile & """/>") & "</xfdf>"
                     Case FDFType.XML
@@ -11291,7 +11399,7 @@ contintue_here:
                     AspxPage.Response.AppendHeader("Content-Disposition", "attachment; filename=""" & FileName & """")
                     AspxPage.Response.BinaryWrite(FileBytes)
                     'AspxPage.Response.Write(outXML & "")
-                    AspxPage.Response.Flush()
+                    'AspxPage.Response.Flush()
                     Return True
                 End If
             Catch ex As Exception
@@ -11351,7 +11459,7 @@ contintue_here:
                     'Response.ContentType = "application/octet-stream";
                     AspxPage.Response.AppendHeader("Content-Disposition", "attachment; filename=""" & FileName & """")
                     AspxPage.Response.BinaryWrite(FileBytes)
-                    AspxPage.Response.Flush()
+                    'AspxPage.Response.Flush()
                     Return True
                 End If
             Catch ex As Exception
@@ -11392,7 +11500,7 @@ contintue_here:
                     End If
                     AspxPage.Response.AppendHeader("Content-Disposition", "attachment; filename=""" & FileName & """")
                     AspxPage.Response.BinaryWrite(FileBytes)
-                    AspxPage.Response.Flush()
+                    'AspxPage.Response.Flush()
                     Return True
                 End If
             Catch ex As Exception
