@@ -33,13 +33,19 @@ Namespace FDFApp
         '    End Try
         'End Function
 		Private _PDF As New PDFDoc
-        Private _FDF As New List(Of FDFDoc_Class)
+        Private _FDF As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
         Private _CurFDFDoc As Integer = 0
         Private _FDFObjects As New List(Of FDFObjects)
 		Dim xField As FDFField, FoundField As Boolean
 		Private _FDFErrors As New FDFErrors
 		Private _FDFFieldCntr As Integer
         Private _defaultEncoding As Encoding = Encoding.UTF8
+        ''' <summary>
+        ''' Throw Errors
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Public Property ThrowErrors() As Boolean
             Get
                 Return _FDFErrors.ThrowErrors
@@ -58,8 +64,9 @@ Namespace FDFApp
 			XML = 3
 			PDF = 4
 			XDP = 5
-			XPDF = 6
-		End Enum
+            XPDF = 6
+            XFA = 10
+        End Enum
 		''' <summary>
 		''' Encryption strength for PDF Forms
 		''' </summary>
@@ -133,7 +140,8 @@ Namespace FDFApp
 			FldMultiSelect = 3
 			FldOption = 5
 			FldButton = 10
-			FldLiveCycleImage = 20
+            FldLiveCycleImage = 20
+            FldSubform = 50
 		End Enum
 		''' <summary>
 		''' Doc types
@@ -158,6 +166,477 @@ Namespace FDFApp
             Public DisplayName As New List(Of String)
             Public DisplayValue As New List(Of String)
             Public ImageBase64 As String
+            Public Subforms As New List(Of FDFDoc_Class)
+            Public FieldLevelLong As String
+            Public Sub New()
+                FieldEnabled = True
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _FieldValue As String, Optional ByVal _FieldType As FieldType = FDFApp.FDFDoc_Class.FieldType.FldTextual)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldValue.Add(_FieldValue)
+                FieldType = _FieldType
+                FieldEnabled = True
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _FieldValue As String, ByVal _FieldType As FieldType, ByVal _ImageBase64 As String)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldValue.Add(_FieldValue)
+                FieldType = _FieldType
+                FieldEnabled = True
+                ImageBase64 = _ImageBase64
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _FieldValues() As String, Optional ByVal _FieldType As FieldType = FDFApp.FDFDoc_Class.FieldType.FldTextual)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldValue.AddRange(_FieldValues)
+                FieldType = _FieldType
+                FieldEnabled = True
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _FieldValue As List(Of String), Optional ByVal _FieldType As FieldType = FDFApp.FDFDoc_Class.FieldType.FldTextual)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldValue = (_FieldValue)
+                FieldType = _FieldType
+                FieldEnabled = True
+            End Sub
+#Region "IMAGE FIELD"
+            Private Function IsValidUrl(ByVal url As String) As Boolean
+                Return System.Text.RegularExpressions.Regex.IsMatch(url, "^(ht|f)tp(s?)\:\/\/[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$")
+            End Function
+            Public Function ConvertToBase64String(ByVal Filebytes As Byte()) As String
+                Dim strModified As String = ""
+                strModified = Convert.ToBase64String(Filebytes)
+                Return strModified
+            End Function
+            Public Function ConvertToBase64String(ByVal image As System.Drawing.Image, ByVal newFormat As System.Drawing.Imaging.ImageFormat) As String
+                Dim strModified As String = ""
+                Dim imgStream As New MemoryStream
+                image.Save(imgStream, newFormat)
+                If imgStream.CanSeek Then
+                    imgStream.Position = 0
+                End If
+                Dim imgBytes(imgStream.Length) As Byte
+                imgStream.Read(imgBytes, 0, imgStream.Length)
+                strModified = Convert.ToBase64String(imgBytes)
+                Return strModified
+            End Function
+            Private Function XDP_IMAGE_MIME_TYPES(ByVal ImageMime As ImageFieldMime) As String
+                Select Case ImageMime
+                    Case ImageFieldMime.JPG
+                        Return "image/jpg"
+                    Case ImageFieldMime.GIF
+                        Return "image/gif"
+                    Case ImageFieldMime.PNG
+                        Return "image/png"
+                    Case ImageFieldMime.BMP
+                        Return "image/bmp"
+                    Case ImageFieldMime.EMF
+                        Return "image/x-emf"
+                    Case Else
+                        Return ""
+                End Select
+            End Function
+            Private Function XDP_IMAGE_MIME_TYPES(ByVal ImageMime As String) As ImageFieldMime
+                Select Case ImageMime.ToLower
+                    Case "image/jpeg"
+                        'Return ImageFieldMime.JPG
+                        Return ImageFieldMime.JPG
+                    Case "image/jpg"
+                        'Return ImageFieldMime.JPG
+                        Return ImageFieldMime.JPG
+                    Case "image/png"
+                        'Return ImageFieldMime.PNG
+                        Return ImageFieldMime.PNG
+                    Case "image/gif"
+                        'Return ImageFieldMime.GIF
+                        Return ImageFieldMime.GIF
+                    Case "image/bmp"
+                        'Return ImageFieldMime.BMP
+                        Return ImageFieldMime.BMP
+                    Case "image/x-emf"
+                        'Return ImageFieldMime.EMF
+                        Return ImageFieldMime.EMF
+                    Case Else
+                        Return ImageFieldMime.JPG
+                End Select
+            End Function
+            Private Function XDP_FILE_IMAGE_MIME_TYPES(ByVal ImageName As String) As ImageFieldMime
+                If ImageName.EndsWith("jpg") Then
+                    Return ImageFieldMime.JPG
+                ElseIf ImageName.EndsWith("jpeg") Then
+                    Return ImageFieldMime.JPG
+                ElseIf ImageName.EndsWith("png") Then
+                    Return ImageFieldMime.PNG
+                ElseIf ImageName.EndsWith("gif") Then
+                    Return ImageFieldMime.GIF
+                ElseIf ImageName.EndsWith("bmp") Then
+                    Return ImageFieldMime.BMP
+                ElseIf ImageName.EndsWith("emf") Then
+                    Return ImageFieldMime.EMF
+                Else
+                    Return ImageFieldMime.JPG
+                End If
+            End Function
+            Public Function XDP_OpenImageToBase64String(ByVal ImagePathOrUrl As String) As String
+                Try
+                    If IsValidUrl(ImagePathOrUrl) Then
+                        Dim client As New WebClient
+                        Dim ImageData() As Byte = client.DownloadData(ImagePathOrUrl)
+                        'Dim input As New BinaryReader(client.OpenRead(ImagePathOrUrl), _defaultEncoding)
+                        'ImageString = input.ReadToEnd
+                        'Dim ImageData(input.BaseStream.Length) As Byte
+                        'input.Read(ImageData, 0, ImageData.Length)
+                        'input.Close()
+                        Return Convert.ToBase64String(ImageData)
+                    ElseIf File.Exists(ImagePathOrUrl) Then
+                        Dim input As New FileStream(ImagePathOrUrl, FileMode.Open, FileAccess.Read)
+                        Dim ImageData(input.Length) As Byte
+                        input.Read(ImageData, 0, ImageData.Length)
+                        input.Close()
+                        Return Convert.ToBase64String(ImageData)
+                    Else
+                        Return Nothing
+                        Exit Function
+                    End If
+                Catch ex As Exception
+                    Return Nothing
+                End Try
+                Return Nothing
+            End Function
+
+            Public Sub SetImageFieldData(ByVal _FieldName As String, ByVal _ImageFieldBytes() As Byte, ByVal _ImageMIME As ImageFieldMime)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldLiveCycleImage
+                FieldValue.Clear()
+                FieldValue.Add(XDP_IMAGE_MIME_TYPES(_ImageMIME))
+                ImageBase64 = Convert.ToBase64String(_ImageFieldBytes)
+                FieldEnabled = True
+            End Sub
+            Public Sub SetImageFieldData(ByVal _FieldName As String, ByVal _ImageFieldStringBase64 As String, ByVal _ImageMIME As ImageFieldMime)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldLiveCycleImage
+                FieldValue.Clear()
+                FieldValue.Add(XDP_IMAGE_MIME_TYPES(_ImageMIME))
+                ImageBase64 = _ImageFieldStringBase64
+                FieldEnabled = True
+            End Sub
+            Public Sub SetImageFieldData(ByVal _FieldName As String, ByVal _ImageFieldBitmap As System.Drawing.Image)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldLiveCycleImage
+
+                Dim ImageMIME As FDFApp.FDFDoc_Class.ImageFieldMime
+                Select Case ImageMIME
+                    'Case "image/jpg"
+                    Case ImageFieldMime.JPG
+                        ImageMIME = ImageFieldMime.JPG
+                        ImageBase64 = ConvertToBase64String(_ImageFieldBitmap, System.Drawing.Imaging.ImageFormat.Jpeg)
+                    Case ImageFieldMime.PNG
+                        'Case "image/png"
+                        ImageMIME = ImageFieldMime.PNG
+                        ImageBase64 = ConvertToBase64String(_ImageFieldBitmap, System.Drawing.Imaging.ImageFormat.Png)
+                    Case ImageFieldMime.GIF
+                        'Case "image/gif"
+                        ImageMIME = ImageFieldMime.GIF
+                        ImageBase64 = ConvertToBase64String(_ImageFieldBitmap, System.Drawing.Imaging.ImageFormat.Gif)
+                    Case ImageFieldMime.BMP
+                        'Case "image/bmp"
+                        ImageMIME = ImageFieldMime.BMP
+                        ImageBase64 = ConvertToBase64String(_ImageFieldBitmap, System.Drawing.Imaging.ImageFormat.Bmp)
+                    Case ImageFieldMime.EMF
+                        'Case "image/x-emf"
+                        ImageMIME = ImageFieldMime.EMF
+                        ImageBase64 = ConvertToBase64String(_ImageFieldBitmap, System.Drawing.Imaging.ImageFormat.Emf)
+                End Select
+                FieldValue.Clear()
+                FieldValue.Add(XDP_IMAGE_MIME_TYPES(ImageMIME))
+                'ImageBase64 = _ImageFieldStringBase64
+                FieldEnabled = True
+            End Sub
+            Public Sub SetImageFieldData(ByVal _FieldName As String, ByVal ImageUrlOrAbsolutePath As String)
+                FieldName = _FieldName
+                FieldValue.Clear()
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldLiveCycleImage
+                Dim ImageMIME As FDFApp.FDFDoc_Class.ImageFieldMime
+                Select Case XDP_FILE_IMAGE_MIME_TYPES(ImageUrlOrAbsolutePath)
+                    'Case "image/jpg"
+                    Case 0
+                        ImageMIME = ImageFieldMime.JPG
+                        ImageBase64 = XDP_OpenImageToBase64String(ImageUrlOrAbsolutePath)
+                    Case 1
+                        'Case "image/png"
+                        ImageMIME = ImageFieldMime.PNG
+                        ImageBase64 = XDP_OpenImageToBase64String(ImageUrlOrAbsolutePath)
+                    Case 2
+                        'Case "image/gif"
+                        ImageMIME = ImageFieldMime.GIF
+                        ImageBase64 = XDP_OpenImageToBase64String(ImageUrlOrAbsolutePath)
+                    Case 3
+                        'Case "image/bmp"
+                        ImageMIME = ImageFieldMime.BMP
+                        ImageBase64 = XDP_OpenImageToBase64String(ImageUrlOrAbsolutePath)
+                    Case 4
+                        'Case "image/x-emf"
+                        ImageMIME = ImageFieldMime.EMF
+                        ImageBase64 = XDP_OpenImageToBase64String(ImageUrlOrAbsolutePath)
+                    Case Else
+                        Exit Sub
+                End Select
+                FieldValue.Add(XDP_IMAGE_MIME_TYPES(ImageMIME))
+                'ImageBase64 = _ImageFieldStringBase64
+                FieldEnabled = True
+            End Sub
+#End Region
+            
+            Public Sub New(ByVal _FieldName As String, ByVal _Subforms As List(Of FDFDoc_Class), ByVal _FieldLevelLong As String, Optional ByVal _FieldType As FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform)
+                FieldName = _FieldName
+                FieldType = _FieldType
+                Subforms = _Subforms
+                FieldLevelLong = _FieldLevelLong
+                FieldEnabled = True
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _Subforms As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _FieldLevelLong As String, Optional ByVal _FieldType As FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform)
+                FieldName = _FieldName
+                FieldType = _FieldType
+                Subforms.Add(_Subforms)
+                FieldLevelLong = _FieldLevelLong
+                FieldEnabled = True
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _Subforms() As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _FieldLevelLong As String, Optional ByVal _FieldType As FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform)
+                FieldName = _FieldName
+                FieldType = _FieldType
+                Subforms.AddRange(_Subforms)
+                FieldLevelLong = _FieldLevelLong
+                FieldEnabled = True
+            End Sub
+            Public Sub New(ByVal _FieldName As String, ByVal _FieldType As FieldType, ByVal _FieldValue As List(Of String), ByVal _FieldNum As Integer, ByVal _FieldEnabled As Boolean, ByVal _DefaultValue As List(Of String), ByVal _DisplayName As List(Of String), ByVal _DisplayValue As List(Of String), ByVal _ImageBase64 As String, ByVal _Subforms As List(Of FDFDoc_Class), ByVal _FieldLevelLong As String)
+                FieldName = _FieldName
+                FieldType = _FieldType
+                Subforms = _Subforms
+                FieldLevelLong = _FieldLevelLong
+                FieldValue = _FieldValue
+                FieldNum = _FieldNum
+                FieldEnabled = _FieldEnabled
+                DefaultValue = _DefaultValue
+                DisplayName = _DisplayName
+                DisplayValue = _DisplayValue
+                ImageBase64 = _ImageBase64
+                Subforms = _Subforms
+                FieldLevelLong = _FieldLevelLong
+            End Sub
+            Public Function XDPAppendSubformField(ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFDoc_Class
+                Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                cdoc.FileName = _pdfPath
+                cdoc.FormName = _formName
+                cdoc.FormLevel = _formLevel
+                cdoc.DocType = FDFDocType.XDPForm
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                If Not _FDFFields_Structure Is Nothing Then
+                    cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+                End If
+                Subforms.Add(cdoc)
+                Return cdoc
+            End Function
+            Public Function XDPAppendSubformField(ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFSubform_Structure As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFDoc_Class
+                Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                cdoc.FileName = _pdfPath
+                cdoc.FormName = _formName
+                cdoc.FormLevel = _formLevel
+                cdoc.DocType = FDFDocType.XDPForm
+                If Not _FDFSubform_Structure Is Nothing Then
+                    cdoc.struc_FDFFields.Add(_FDFSubform_Structure)
+                End If
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                'If Not _FDFFields_Structure Is Nothing Then
+                'cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+                'End If
+                Subforms.Add(cdoc)
+                Return cdoc
+            End Function
+            Public Sub XDPAppendSubformField(ByVal _FDFSubform_Structure As FDFApp.FDFDoc_Class.FDFField)
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                If (Subforms.Count - 1) >= 0 Then
+                    Subforms(Subforms.Count - 1).struc_FDFFields.Add(_FDFSubform_Structure)
+                End If
+            End Sub
+            Public Sub XDPAppendSubformFields(ByVal _FDFSubform_Structure() As FDFApp.FDFDoc_Class.FDFField)
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                If (Subforms.Count - 1) >= 0 Then
+                    Subforms(Subforms.Count - 1).struc_FDFFields.AddRange(_FDFSubform_Structure)
+                End If
+            End Sub
+            Public Function XDPAppendSubform(ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, Optional ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField = Nothing) As FDFApp.FDFDoc_Class.FDFField
+                Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                cdoc.FileName = _pdfPath
+                cdoc.FormName = _formName
+                cdoc.FormLevel = _formLevel
+                cdoc.DocType = FDFDocType.XDPForm
+                If Not _FDFFields_Structure Is Nothing Then
+                    cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+                End If
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                Subforms.Add(cdoc)
+                Return Me
+            End Function
+            Public Function XDPAppendSubform(ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFSubformField_Structure As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFField
+                Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                cdoc.FileName = _pdfPath
+                cdoc.FormName = _formName
+                cdoc.FormLevel = _formLevel
+                cdoc.DocType = FDFDocType.XDPForm
+                If Not _FDFSubformField_Structure Is Nothing Then
+                    cdoc.struc_FDFFields.Add(_FDFSubformField_Structure)
+                End If
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                Subforms.Add(cdoc)
+                Return Me
+            End Function
+            Public Function XDPAppendSubform(ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _subformAdd As FDFApp.FDFDoc_Class.FDFDoc_Class) As FDFApp.FDFDoc_Class.FDFField
+                _subformAdd.FileName = _pdfPath
+                _subformAdd.FormName = _formName
+                _subformAdd.FormLevel = _formLevel
+                _subformAdd.DocType = FDFDocType.XDPForm
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+                Subforms.Add(_subformAdd)
+                Return Me
+            End Function
+            Public Function XDPAppendSubform(ByVal _subformAdd As FDFApp.FDFDoc_Class.FDFDoc_Class) As FDFApp.FDFDoc_Class.FDFField
+                _subformAdd.DocType = FDFDocType.XDPForm
+                FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform
+                '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+                Subforms.Add(_subformAdd)
+                Return Me
+            End Function
+            ''' <summary>
+            ''' Gets/Sets XDP Subform
+            ''' </summary>
+            ''' <param name="index"></param>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Public Property Subform(ByVal index As Integer) As FDFApp.FDFDoc_Class.FDFDoc_Class
+                Get
+                    If index < 0 Or index > Subforms.Count - 1 Or Subforms.Count <= 0 Then
+                        Return Nothing
+                    End If
+                    Return Subforms(index)
+                End Get
+                Set(ByVal value As FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    If index < 0 Or index > Subforms.Count - 1 Or Subforms.Count <= 0 Then
+                        Return
+                    End If
+                    Subforms(index) = value
+                End Set
+            End Property
+            ''' <summary>
+            ''' Gets/Sets XDP Subform
+            ''' </summary>
+            ''' <param name="nameOrPathLevel"></param>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Public Property Subform(ByVal nameOrPathLevel As String) As FDFApp.FDFDoc_Class.FDFDoc_Class
+                Get
+                    Dim fdfdoc As FDFApp.FDFDoc_Class.FDFDoc_Class
+                    For subformCntr As Integer = 0 To Subforms.Count - 1
+                        If Subforms(subformCntr).FormName.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                            Return Subforms(subformCntr)
+                        ElseIf Subforms(subformCntr).FormLevelLong.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                            Return Subforms(subformCntr)
+                        ElseIf Subforms(subformCntr).FormLevel.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                            Return Subforms(subformCntr)
+                        Else
+                            For fld As Integer = 0 To Subforms(subformCntr).struc_FDFFields.Count - 1
+                                If Subforms(subformCntr).struc_FDFFields(fld).FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform Then
+                                    If nameOrPathLevel.ToString.ToLower.StartsWith(Subforms(subformCntr).struc_FDFFields(fld).FieldLevelLong) Then
+                                        fdfdoc = GetSubform(Subforms(subformCntr).struc_FDFFields(fld).Subforms, nameOrPathLevel)
+                                        If Not fdfdoc Is Nothing Then
+                                            Return fdfdoc
+                                        End If
+                                    End If
+                                End If
+                            Next
+                        End If
+                    Next
+                    Return Nothing
+                End Get
+                Set(ByVal value As FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    For subformCntr As Integer = 0 To Subforms.Count - 1
+                        If Subforms(subformCntr).FormName.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                            Subforms(subformCntr) = value
+                            Return
+                        ElseIf Subforms(subformCntr).FormLevelLong.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                            Subforms(subformCntr) = value
+                            Return
+                        ElseIf Subforms(subformCntr).FormLevel.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                            Subforms(subformCntr) = value
+                            Return
+                        Else
+                            For fld As Integer = 0 To Subforms(subformCntr).struc_FDFFields.Count - 1
+                                If Subforms(subformCntr).struc_FDFFields(fld).FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform Then
+                                    If nameOrPathLevel.ToString.ToLower.StartsWith(Subforms(subformCntr).struc_FDFFields(fld).FieldLevelLong) Then
+                                        If SetSubform(Subforms(subformCntr).struc_FDFFields(fld).Subforms, nameOrPathLevel, value) Then
+                                            Return
+                                        End If
+                                    End If
+                                End If
+                            Next
+                        End If
+                    Next
+                    'NOT FOUND
+                    Subforms.Add(value)
+                    Return
+                End Set
+            End Property
+            Public Function GetSubform(ByRef _subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal nameOrPathLevel As String) As FDFApp.FDFDoc_Class.FDFDoc_Class
+                For subformX As Integer = 0 To _subforms.Count - 1
+                    If _subforms(subformX).FormName.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                        Return _subforms(subformX)
+                    ElseIf _subforms(subformX).FormLevel.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                        Return _subforms(subformX)
+                    ElseIf _subforms(subformX).FormLevelLong.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                        Return _subforms(subformX)
+                    Else
+                        For fld As Integer = 0 To _subforms(subformX).struc_FDFFields.Count - 1
+                            If _subforms(subformX).struc_FDFFields(fld).FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform Then
+                                If nameOrPathLevel.ToString.ToLower.StartsWith(_subforms(subformX).struc_FDFFields(fld).FieldLevelLong) Then
+                                    Return GetSubform(_subforms(subformX).struc_FDFFields(fld).Subforms, nameOrPathLevel)
+                                End If
+                            End If
+                        Next
+                    End If
+                Next
+                Return Nothing
+            End Function
+            Public Function SetSubform(ByRef _subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal nameOrPathLevel As String, ByVal value As FDFApp.FDFDoc_Class.FDFDoc_Class) As Boolean
+                For subformX As Integer = 0 To _subforms.Count - 1
+                    If _subforms(subformX).FormName.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                        _subforms(subformX) = value
+                        Return True
+                    ElseIf _subforms(subformX).FormLevel.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                        _subforms(subformX) = value
+                        Return True
+                    ElseIf _subforms(subformX).FormLevelLong.ToString.ToLower = nameOrPathLevel.ToString.ToLower Then
+                        _subforms(subformX) = value
+                        Return True
+                    Else
+                        For fld As Integer = 0 To _subforms(subformX).struc_FDFFields.Count - 1
+                            If _subforms(subformX).struc_FDFFields(fld).FieldType = FDFApp.FDFDoc_Class.FieldType.FldSubform Then
+                                If nameOrPathLevel.ToString.ToLower.StartsWith(_subforms(subformX).struc_FDFFields(fld).FieldLevelLong) Then
+                                    If SetSubform(_subforms(subformX).struc_FDFFields(fld).Subforms, nameOrPathLevel, value) Then
+                                        Return True
+                                    End If
+                                End If
+                            End If
+                        Next
+                    End If
+                Next
+                Return False
+            End Function
         End Class
 		''' <summary>
 		''' FDFTemplates
@@ -251,17 +730,17 @@ Namespace FDFApp
 		''' </summary>
 		''' <remarks></remarks>
         Public Class FDFDoc_Class
-            Public FileName As String
-            Public Status As String
-            Public FDFData As String
-            Public XDPData As String
+            Public FileName As String = ""
+            Public Status As String = ""
+            Public FDFData As String = ""
+            Public XDPData As String = ""
             Public PDFData() As Byte
-            Public HasChanges As Boolean
-            Public Version As String
-            Public Differences As String
-            Public Annotations As String
-            Public AppendSaves As String
-            Public TargetFrame As String
+            Public HasChanges As Boolean = False
+            Public Version As String = ""
+            Public Differences As String = ""
+            Public Annotations As String = ""
+            Public AppendSaves As String = ""
+            Public TargetFrame As String = ""
             Public DocType As FDFDocType
             Public struc_FDFFields As New List(Of FDFField)
             Public struc_FDFActions As New List(Of FDFActions)
@@ -271,14 +750,122 @@ Namespace FDFApp
             Public struc_NamedActions As New List(Of FDFNamedAction)
             Public struc_ImportDataAction As New List(Of FDFImportDataAction)
             Public struc_XDPActions As New List(Of XDPActions)
-            Public TmpNewPage As Boolean
-            Public TmpTemplateName As String
-            Public TmpRename As Boolean
-            Public FormName As String
-            Public FormLevel As String ' form1/subform1/subform4
             Public XDPSubForms As New List(Of FDFDoc_Class)
-            Public FormNumber As Integer
-            Public WrittenXDP As Boolean
+            Public TmpNewPage As Boolean
+            Public TmpTemplateName As String = ""
+            Public TmpRename As Boolean
+            Public FormName As String = ""
+            Public FormLevel As String = "" ' form1/subform1/subform4
+            Public FormLevelLong As String = "" ' form1[0]/subform1[0]/subform4[0]
+            Public FormNumber As Integer = 0
+            Public WrittenXDP As Boolean = False
+            Public Sub XDPAppendSubform(ByVal _subformAdd As FDFApp.FDFDoc_Class.FDFDoc_Class)
+                _subformAdd.DocType = FDFDocType.XDPForm
+                '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+                struc_FDFFields.Add(New FDFApp.FDFDoc_Class.FDFField(_subformAdd.FormName, _subformAdd, _subformAdd.FormLevelLong, FieldType.FldSubform))
+            End Sub
+            Public Sub XDPAppendSubform(ByVal FormName As String, ByVal FormLevelLong As String, ByVal _flds() As FDFApp.FDFDoc_Class.FDFField)
+                Dim _subformAdd As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                _subformAdd.DocType = FDFDocType.XDPForm
+                _subformAdd.FormName = FormName & ""
+                _subformAdd.FormLevelLong = FormLevelLong & ""
+                If Not FormLevel.Contains(FormName & "") Then
+                    _subformAdd.FormLevelLong = FormLevelLong & "/" & FormName & "[0]"
+                End If
+                Dim strFormLevel() As String = FormLevelLong.Split("/")
+                For i As Integer = 0 To strFormLevel.Length - 1
+                    If strFormLevel(i).Contains("[") Then
+                        strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                    End If
+                Next
+                _subformAdd.FormLevel = CStr(String.Join("/", strFormLevel) & "").Replace("//", "/").TrimStart("/").TrimEnd("/")
+                _subformAdd.struc_FDFFields.AddRange(_flds)
+                '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+                struc_FDFFields.Add(New FDFApp.FDFDoc_Class.FDFField(_subformAdd.FormName, _subformAdd, _subformAdd.FormLevelLong, FieldType.FldSubform))
+            End Sub
+            Public Sub XDPAppendSubform(ByVal FormName As String, ByVal _flds() As FDFApp.FDFDoc_Class.FDFField)
+                Dim strFormLevelLong As String = FormLevelLong & "/" & FormName & "[0]"
+                Dim _subformAdd As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                _subformAdd.DocType = FDFDocType.XDPForm
+                _subformAdd.FormName = FormName & ""
+                _subformAdd.FormLevelLong = FormLevelLong & "/" & FormName & "[0]"
+                Dim strFormLevel() As String = strFormLevelLong.Split("/")
+                For i As Integer = 0 To strFormLevel.Length - 1
+                    If strFormLevel(i).Contains("[") Then
+                        strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                    End If
+                Next
+                _subformAdd.FormLevel = CStr(String.Join("/", strFormLevel) & "").Replace("//", "/").TrimStart("/").TrimEnd("/")
+                _subformAdd.struc_FDFFields.AddRange(_flds)
+                '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+                struc_FDFFields.Add(New FDFApp.FDFDoc_Class.FDFField(_subformAdd.FormName, _subformAdd, _subformAdd.FormLevelLong, FieldType.FldSubform))
+            End Sub
+            Public Sub XDPAppendSubform(ByVal FormName As String)
+                Dim strFormLevelLong As String = FormLevelLong & "/" & FormName & "[0]"
+                Dim _subformAdd As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                _subformAdd.DocType = FDFDocType.XDPForm
+                _subformAdd.FormName = FormName & ""
+                _subformAdd.FormLevelLong = FormLevelLong & "/" & FormName & "[0]"
+                Dim strFormLevel() As String = strFormLevelLong.Split("/")
+                For i As Integer = 0 To strFormLevel.Length - 1
+                    If strFormLevel(i).Contains("[") Then
+                        strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                    End If
+                Next
+                _subformAdd.FormLevel = CStr(String.Join("/", strFormLevel) & "").Replace("//", "/").TrimStart("/").TrimEnd("/")
+                '_subformAdd.struc_FDFFields.AddRange(_flds)
+                '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+                struc_FDFFields.Add(New FDFApp.FDFDoc_Class.FDFField(_subformAdd.FormName, _subformAdd, _subformAdd.FormLevelLong, FieldType.FldSubform))
+            End Sub
+            Public Sub XDPAppendField(ByVal _fld As FDFApp.FDFDoc_Class.FDFField)
+                struc_FDFFields.Add(_fld)
+            End Sub
+            Public Sub XDPInsertField(ByVal index As Integer, ByVal _fld As FDFApp.FDFDoc_Class.FDFField)
+                If index >= 0 And index < struc_FDFFields.Count Then
+                    struc_FDFFields.Insert(index, _fld)
+                End If
+            End Sub
+            ''' <summary>
+            ''' FDFFields list
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Public Property XDPFields() As List(Of FDFField)
+                Get
+                    Return struc_FDFFields
+                End Get
+                Set(ByVal value As List(Of FDFField))
+                    struc_FDFFields = value
+                End Set
+            End Property
+            Public Sub XDPDeleteField(ByVal index As Integer)
+                If index >= 0 And index < struc_FDFFields.Count Then
+                    struc_FDFFields.RemoveAt(index)
+                End If
+            End Sub
+            Public Sub XDPAppendField(ByVal _FieldName As String, ByVal _FieldValue As String, ByVal _FieldType As FieldType, Optional ByVal _ImageBase64 As String = "")
+                Dim _fld As New FDFApp.FDFDoc_Class.FDFField(_FieldName, _FieldValue, _FieldType, _ImageBase64)
+                struc_FDFFields.Add(_fld)
+            End Sub
+            Public Sub XDPAppendFields(ByVal _flds() As FDFApp.FDFDoc_Class.FDFField)
+                struc_FDFFields.AddRange(_flds)
+            End Sub
+            Public Sub XDPAppendFields(ByVal _flds As List(Of FDFApp.FDFDoc_Class.FDFField))
+                struc_FDFFields.AddRange(_flds.ToArray)
+            End Sub
+
+            Public Sub New()
+                struc_FDFFields = New List(Of FDFField)
+                struc_FDFActions = New List(Of FDFActions)
+                struc_DocScript = New List(Of FDFScripts)
+                struc_ImportScripts = New List(Of FDFImportScript)
+                struc_HideActions = New List(Of FDFHideAction)
+                struc_NamedActions = New List(Of FDFNamedAction)
+                struc_ImportDataAction = New List(Of FDFImportDataAction)
+                struc_XDPActions = New List(Of XDPActions)
+                XDPSubForms = New List(Of FDFDoc_Class)
+            End Sub
         End Class
 		''' <summary>
 		''' FDF Objects
@@ -394,56 +981,56 @@ Namespace FDFApp
                                         If Not _fld.FieldValue.Count <= 0 Then
                                             If Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                                 If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray), (_fld.DisplayName.ToArray))
                                                 End If
                                             ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                                 If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.DisplayValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.DisplayValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
 
                                                 ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                     If _fld.DisplayValue.Count = 1 Then
-                                                        fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                        fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                     ElseIf _fld.DisplayValue.Count > 0 Then
                                                         If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                            fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                            fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                         End If
-                                                        fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                        fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                     End If
                                                 End If
                                             ElseIf Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = _fld.DisplayValue.Count Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = 1 Then
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                 ElseIf _fld.DisplayValue.Count > 0 Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             End If
                                         ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.DisplayValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.DisplayValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = 1 Then
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                 ElseIf _fld.DisplayValue.Count > 0 Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             End If
                                         End If
@@ -503,56 +1090,56 @@ Namespace FDFApp
                                         If Not _fld.FieldValue.Count <= 0 Then
                                             If Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = _fld.DisplayValue.Count Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
                                             ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                                 If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.DisplayValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.DisplayValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
 
                                                 ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                     If _fld.DisplayValue.Count = 1 Then
-                                                        fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                        fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                     ElseIf _fld.DisplayValue.Count > 0 Then
                                                         If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                            fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                            fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                         End If
-                                                        fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                        fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                     End If
                                                 End If
                                             ElseIf Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = _fld.DisplayValue.Count Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = 1 Then
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                 ElseIf _fld.DisplayValue.Count > 0 Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             End If
                                         ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.DisplayValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.DisplayValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                 If _fld.DisplayValue.Count = 1 Then
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                 ElseIf _fld.DisplayValue.Count > 0 Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.DisplayValue.Count = _fld.DisplayName.Count) And (_fld.DisplayValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             End If
                                         End If
@@ -815,7 +1402,6 @@ Namespace FDFApp
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream, "\0", True)
                     Flatten = False
                 Else
-
                     stamper = New iTextSharp.text.pdf.PdfStamper(reader, MemStream)
                 End If
                 Set_PDF_Fields_Merge(reader, stamper)
@@ -1099,7 +1685,7 @@ Namespace FDFApp
                 Dim fields As iTextSharp.text.pdf.AcroFields
                 fields = stamper.AcroFields
                 Dim FDFDoc As FDFDoc_Class = _FDF(0)
-                Dim FDFApp As New FDFApp_Class
+                'Dim FDFApp As New FDFApp_Class
                 Dim FDFFields() As FDFApp.FDFDoc_Class.FDFField = FDFGetFields()
                 'Dim FDFField As FDFApp.FDFDoc_Class.FDFField
                 Dim xFld As New iTextSharp.text.pdf.AcroFields.Item
@@ -1112,7 +1698,7 @@ Namespace FDFApp
                             retString = retString & GetDocJavaScripts()
                             If HasDocOnImportJavaScripts() Then
                                 retString = retString & Me.FDFGetImportJSActions(False)
-                                retString = FDFCheckCharReverse(retString)
+                                retString = (retString)
                                 Dim writer As iTextSharp.text.pdf.PdfWriter
                                 writer = stamper.Writer
                                 Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript(retString, writer)
@@ -1121,7 +1707,7 @@ Namespace FDFApp
                         Else
                             If HasDocOnImportJavaScripts() Then
                                 retString = Me.FDFGetImportJSActions(True, True)
-                                retString = FDFCheckCharReverse(retString)
+                                retString = (retString)
                                 Dim writer As iTextSharp.text.pdf.PdfWriter
                                 writer = stamper.Writer
                                 Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript(retString, writer)
@@ -1145,56 +1731,56 @@ Namespace FDFApp
                                     If Not _fld.FieldValue.Count <= 0 Then
                                         If Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                             End If
                                         ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
 
                                             ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                 If _fld.FieldValue.Count = 1 Then
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                 ElseIf _fld.FieldValue.Count > 0 Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             End If
                                         ElseIf Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         ElseIf Not _fld.FieldValue.Count <= 0 Then
                                             If _fld.FieldValue.Count = 1 Then
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                             ElseIf _fld.FieldValue.Count > 0 Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         End If
                                     ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                         If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                             If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                             End If
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                         ElseIf Not _fld.FieldValue.Count <= 0 Then
                                             If _fld.FieldValue.Count = 1 Then
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                             ElseIf _fld.FieldValue.Count > 0 Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         End If
 
@@ -1222,7 +1808,7 @@ Namespace FDFApp
                 Dim fields As iTextSharp.text.pdf.AcroFields
                 fields = stamper.AcroFields
                 Dim FDFDoc As FDFApp.FDFDoc_Class = FDFDocX
-                Dim FDFApp As New FDFApp_Class
+                'Dim FDFApp As New FDFApp_Class
                 Dim FDFFields() As FDFApp.FDFDoc_Class.FDFField = FDFGetFields()
                 'Dim FDFField As FDFApp.FDFDoc_Class.FDFField
                 Dim xFld As New iTextSharp.text.pdf.AcroFields.Item
@@ -1235,7 +1821,7 @@ Namespace FDFApp
                             retString = retString & FDFDoc.GetDocJavaScripts()
                             If FDFDoc.HasDocOnImportJavaScripts() Then
                                 retString = retString & FDFDoc.FDFGetImportJSActions(False)
-                                retString = FDFDoc.FDFCheckCharReverse(retString)
+                                retString = (retString) & ""
                                 Dim writer As iTextSharp.text.pdf.PdfWriter
                                 writer = stamper.Writer
                                 Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript(retString, writer)
@@ -1244,12 +1830,10 @@ Namespace FDFApp
                         Else
                             If HasDocOnImportJavaScripts() Then
                                 retString = FDFDoc.FDFGetImportJSActions(True, True)
-                                retString = FDFCheckCharReverse(retString)
+                                retString = (retString)
                                 Dim writer As iTextSharp.text.pdf.PdfWriter
                                 writer = stamper.Writer
                                 Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript(retString, writer)
-                                'Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript("var clr = this.getField('FullName');clr.textColor = color.red;", writer)
-                                'var clr = this.getField('FullName');clr.textColor = color.red;"
                                 writer.AddJavaScript(JSAction)
                             End If
                         End If
@@ -1270,56 +1854,56 @@ Namespace FDFApp
                                     If Not _fld.FieldValue.Count <= 0 Then
                                         If Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                             End If
                                         ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.ToArray().Length) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
 
                                             ElseIf Not _fld.FieldValue.Count <= 0 Then
                                                 If _fld.FieldValue.Count = 1 Then
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                                 ElseIf _fld.FieldValue.Count > 0 Then
                                                     If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.ToArray().Length) And (_fld.FieldValue.Count >= 1) Then
-                                                        fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                        fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                     End If
-                                                    fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                    fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                                 End If
                                             End If
                                         ElseIf Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                             If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.ToArray().Length) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         ElseIf Not _fld.FieldValue.Count <= 0 Then
                                             If _fld.FieldValue.Count = 1 Then
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                             ElseIf _fld.FieldValue.Count > 0 Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.ToArray().Length) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         End If
                                     ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                         If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                             If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.ToArray().Length) And (_fld.FieldValue.Count >= 1) Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                             End If
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                         ElseIf Not _fld.FieldValue.Count <= 0 Then
                                             If _fld.FieldValue.Count = 1 Then
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                             ElseIf _fld.FieldValue.Count > 0 Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.ToArray().Length) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray()))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray()))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         End If
 
@@ -1399,9 +1983,6 @@ Namespace FDFApp
 #Region "PRESERVE EXTENDED RIGHTS"
 
         ' EDITED 2010-10-29 NK-INC @ 8:52PM
-        ' <param name="preserveExtendedRights">Preserve Extended Reader Rights</param>
-        ' <param name="removeExtendedRights">Remove Extended Reader Rights</param>
-        'Public Function PDFMergeFDF2Buf(ByVal PDFForm As Byte(), ByVal Flatten As Boolean, ByVal ownerPassword As String, ByVal preserveExtendedRights As Boolean, ByVal removeExtendedRights As Boolean) As Byte()
         ''' <summary>
         ''' Merges FDF Data and PDF Form to byte array (buffer)
         ''' </summary>
@@ -2465,31 +3046,6 @@ Namespace FDFApp
             End Try
 
         End Function
-        ''' <summary>
-        ''' Gets used bytes
-        ''' </summary>
-        ''' <param name="m"></param>
-        ''' <returns></returns>
-        ''' <remarks></remarks>
-        Private Function GetUsedBytesOnly(ByRef m As MemoryStream, Optional ByVal closeStream As Boolean = False) As Byte()
-            If m.CanSeek Then m.Position = 0
-            Dim bytes As Byte() = m.GetBuffer()
-            Dim i As Integer = 0
-            For i = bytes.Length - 1 To 1 Step -1
-                If bytes(i) <> 0 Then
-                    Exit For
-                End If
-            Next
-            Dim newBytes As Byte() = New Byte(i - 1) {}
-            Array.Copy(bytes, newBytes, i)
-            ReDim bytes(0)
-            bytes = Nothing
-            If closeStream Then
-                m.Close()
-                m.Dispose()
-            End If
-            Return newBytes
-        End Function
         Public Function GetUsedBytesOnly(ByRef b() As Byte) As Byte()
             Dim bytes As Byte() = b
             Dim i As Integer = 0
@@ -2498,11 +3054,48 @@ Namespace FDFApp
                     Exit For
                 End If
             Next
-            Dim newBytes As Byte() = New Byte(i - 1) {}
-            Array.Copy(bytes, newBytes, i)
+            Dim newBytes As Byte() = New Byte(i) {}
+            Array.Copy(bytes, newBytes, i + 1)
             ReDim bytes(0)
             bytes = Nothing
             Return newBytes
+        End Function
+        Public Function GetUsedBytesOnly(ByRef s As Stream, Optional ByVal closeStream As Boolean = False) As Byte()
+            Dim bytes(s.Length) As Byte
+            If s.CanSeek Then
+                s.Seek(0, SeekOrigin.Begin)
+            End If
+            s.Read(bytes, 0, bytes.Length)
+            If closeStream Then
+                s.Close()
+            End If
+            Return GetUsedBytesOnly(bytes)
+        End Function
+        Public Function GetUsedBytesOnly(ByRef s As System.IO.MemoryStream, Optional ByVal closeStream As Boolean = False) As Byte()
+            Dim bytes(s.Length) As Byte
+            If s.CanSeek Then
+                s.Seek(0, SeekOrigin.Begin)
+            End If
+            s.Read(bytes, 0, bytes.Length)
+            If closeStream Then
+                s.Close()
+            End If
+            Return GetUsedBytesOnly(bytes)
+        End Function
+        Public Function GetUsedBytesOnly(ByRef s As String) As Byte()
+            If IsValidUrl(s.ToString & "") Then
+                Dim w As New System.Net.WebClient()
+                Dim bytes() As Byte = w.DownloadData(s.ToString)
+                Return GetUsedBytesOnly(bytes)
+            ElseIf File.Exists(s & "") Then
+                Dim bytes() As Byte = File.ReadAllBytes(s)
+                Return GetUsedBytesOnly(bytes)
+            ElseIf Not String.IsNullOrEmpty(s & "") Then
+                Dim bytes() As Byte = _defaultEncoding.GetBytes(s & "")
+                Return GetUsedBytesOnly(bytes)
+            Else
+                Return Nothing
+            End If
         End Function
         ''' <summary>
         ''' Combines PDF Forms and merges the data and outputs to a file
@@ -3042,7 +3635,7 @@ Namespace FDFApp
 
                 fields = stamper.AcroFields
                 Dim FDFDoc As FDFDoc_Class = _FDF(0)
-                Dim FDFApp As New FDFApp_Class
+                'Dim FDFApp As New FDFApp_Class
                 Dim FDFFields() As FDFApp.FDFDoc_Class.FDFField = FDFGetFields()
                 'Dim FDFField As FDFApp.FDFDoc_Class.FDFField
                 Dim xFld As New iTextSharp.text.pdf.AcroFields.Item
@@ -3053,7 +3646,7 @@ Namespace FDFApp
                         retString = retString & GetDocJavaScripts()
                         If HasDocOnImportJavaScripts() Then
                             retString = retString & Me.FDFGetImportJSActions(False)
-                            retString = FDFCheckCharReverse(retString)
+                            retString = (retString)
                             Dim writer As iTextSharp.text.pdf.PdfWriter
                             writer = stamper.Writer
                             Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript(retString, writer)
@@ -3062,7 +3655,7 @@ Namespace FDFApp
                     Else
                         If HasDocOnImportJavaScripts() Then
                             retString = Me.FDFGetImportJSActions(True, True)
-                            retString = FDFCheckCharReverse(retString)
+                            retString = (retString)
                             Dim writer As iTextSharp.text.pdf.PdfWriter
                             writer = stamper.Writer
                             Dim JSAction As iTextSharp.text.pdf.PdfAction = iTextSharp.text.pdf.PdfAction.JavaScript(retString, writer)
@@ -3080,57 +3673,57 @@ Namespace FDFApp
                                 If Not _fld.FieldValue.Count <= 0 Then
                                     If Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                         If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
-                                            fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                            fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray))
                                         End If
                                     ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                         If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                             If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.DisplayValue.ToArray), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.DisplayValue.ToArray), (_fld.DisplayName.ToArray))
                                             End If
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                         ElseIf Not _fld.FieldValue.Count <= 0 Then
                                             If _fld.FieldValue.Count = 1 Then
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                             ElseIf _fld.FieldValue.Count > 0 Then
                                                 If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                    fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                                    fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray))
                                                 End If
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         End If
                                     ElseIf Not _fld.FieldValue.Count <= 0 And Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                         If _fld.FieldValue.Count = _fld.DisplayValue.Count Then
                                             If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray))
                                             Else
-                                                fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                                fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                             End If
                                         End If
                                     ElseIf Not _fld.FieldValue.Count <= 0 Then
                                         If _fld.FieldValue.Count = 1 Then
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                         ElseIf _fld.FieldValue.Count > 0 Then
                                             If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray))
                                             End If
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                         End If
                                     End If
 
                                 ElseIf Not _fld.DisplayValue.Count <= 0 And Not _fld.DisplayName.Count <= 0 Then
                                     If _fld.DisplayName.Count = _fld.DisplayValue.Count Then
                                         If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                            fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.DisplayValue.ToArray), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                            fields.SetListOption(_fld.FieldName & "", (_fld.DisplayValue.ToArray), (_fld.DisplayName.ToArray))
                                         End If
-                                        fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                        fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                     ElseIf Not _fld.FieldValue.Count <= 0 Then
                                         If _fld.FieldValue.Count = 1 Then
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0) & ""))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0) & ""))
                                         ElseIf _fld.FieldValue.Count > 0 Then
                                             If (fields.GetFieldType(_fld.FieldName) = 5 Or fields.GetFieldType(_fld.FieldName) = 6) And (_fld.FieldValue.Count = _fld.DisplayName.Count) And (_fld.FieldValue.Count >= 1) Then
-                                                fields.SetListOption(_fld.FieldName & "", FDFCheckCharReverse2(_fld.FieldValue.ToArray()), FDFCheckCharReverse2(_fld.DisplayName.ToArray))
+                                                fields.SetListOption(_fld.FieldName & "", (_fld.FieldValue.ToArray()), (_fld.DisplayName.ToArray))
                                             End If
-                                            fields.SetField(_fld.FieldName & "", FDFCheckCharReverse(_fld.FieldValue(0)))
+                                            fields.SetField(_fld.FieldName & "", (_fld.FieldValue(0)))
                                         End If
                                     End If
 
@@ -3295,12 +3888,13 @@ Namespace FDFApp
         ''' <returns>String of errors</returns>
         ''' <remarks></remarks>
         Public Function FDFDocErrorsStr(Optional ByVal HTMLFormat As Boolean = False) As String
-            Dim FDFErrors As FDFErrors
-            Dim FDFError As FDFErrors.FDFError
-            FDFErrors = _FDFErrors
+            'Dim FDFErrors As FDFErrors
+            'FDFErrors = _FDFErrors
             Dim retString As String
             retString = IIf(HTMLFormat, "<br>", vbNewLine) & "FDFDoc Errors:"
-            For Each FDFError In FDFErrors.FDFErrors
+            If FDFErrors.FDFErrors Is Nothing Then Return ""
+            If FDFErrors.FDFErrors.Length <= 0 Then Return ""
+            For Each FDFError As FDFErrors.FDFError In FDFErrors.FDFErrors
                 retString = retString & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Error: " & FDFError.FDFError & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "#: " & FDFError.FDFError_Number & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Module: " & FDFError.FDFError_Module & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Message: " & FDFError.FDFError_Msg & IIf(HTMLFormat, "<br>", vbNewLine)
             Next
             Return retString
@@ -3322,26 +3916,31 @@ Namespace FDFApp
             End Set
         End Property
         ''' <summary>
-        ''' Append saves
+        ''' Gets/Sets Append saves (Currently not used)
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
         ''' <remarks></remarks>
         Public Property FDFAppendSaves() As String
             Get
-                If _FDF(_CurFDFDoc).AppendSaves = "" Then
-                    Return GetChanges() & ""
+                If _CurFDFDoc < _FDF.Count Then
+                    If _FDF(_CurFDFDoc).AppendSaves = "" Then
+                        Return GetChanges() & ""
+                    End If
+                    Return _FDF(_CurFDFDoc).AppendSaves
                 End If
-                Return _FDF(_CurFDFDoc).AppendSaves
+                Return ""
             End Get
             Set(ByVal Value As String)
-                Dim _nFDF As FDFDoc_Class = _FDF(_CurFDFDoc)
-                _nFDF.AppendSaves = Value
-                _FDF(_CurFDFDoc) = _nFDF
+                If _CurFDFDoc < _FDF.Count Then
+                    Dim _nFDF As FDFDoc_Class = _FDF(_CurFDFDoc)
+                    _nFDF.AppendSaves = Value
+                    _FDF(_CurFDFDoc) = _nFDF
+                End If
             End Set
         End Property
         ''' <summary>
-        ''' FDF Version
+        ''' Gets/Sets FDF Version
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
@@ -3358,7 +3957,7 @@ Namespace FDFApp
         End Property
 
         ''' <summary>
-        ''' Differences
+        ''' Differences (Currently not used)
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
@@ -3374,7 +3973,7 @@ Namespace FDFApp
             End Set
         End Property
         ''' <summary>
-        ''' Annotations
+        ''' Annotations (Currently not used)
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
@@ -3390,7 +3989,7 @@ Namespace FDFApp
             End Set
         End Property
         ''' <summary>
-        ''' FDF Data
+        ''' Gets/Sets FDF Data String
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
@@ -3410,6 +4009,12 @@ Namespace FDFApp
                 _FDF(_CurFDFDoc) = _nFDF
             End Set
         End Property
+        ''' <summary>
+        ''' Gets/Sets XDP Data byte array
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Public Property XDPData() As String
             Get
                 If _FDF(_CurFDFDoc).FDFData Is Nothing Or _FDF(_CurFDFDoc).FDFData = WriteHead(FDFType.FDF, False) Then
@@ -3427,7 +4032,7 @@ Namespace FDFApp
         End Property
 
         ''' <summary>
-        ''' PDF Data
+        ''' PDF Data Byte array
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
@@ -3533,15 +4138,16 @@ Namespace FDFApp
             If XDPGetFields() Is Nothing Then
                 Return 0
             Else
-                Dim cntr As Integer = 0
-                For Each fld As FDFField In XDPGetFields()
-                    If Not fld.FieldName Is Nothing Then
-                        If Not String_IsNullOrEmpty(fld.FieldName & "") Then
-                            cntr += 1
-                        End If
-                    End If
-                Next
-                Return cntr
+                'Dim cntr As Integer = 0
+                'For Each fld As FDFField In XDPGetFields()
+                '    If Not fld.FieldName Is Nothing Then
+                '        If Not String_IsNullOrEmpty(fld.FieldName & "") Then
+                '            cntr += 1
+                '        End If
+                '    End If
+                'Next
+                'Return cntr
+                Return XDPGetAllFieldsCount()
             End If
         End Function
 
@@ -3566,21 +4172,20 @@ Namespace FDFApp
         ''' <returns></returns>
         ''' <remarks></remarks>
         Public Function FDFObjectCount() As Integer
-            If _FDFObjects(0).objNum Is Nothing Then
-                Return 0
-            Else
+            If Not _FDFObjects Is Nothing Then
                 Return _FDFObjects.Count
             End If
         End Function
 
         ''' <summary>
-        ''' Return FDF Objects array
+        ''' Return FDF Objects array (Currently not used)
         ''' </summary>
         ''' <value></value>
         ''' <returns></returns>
         ''' <remarks></remarks>
         Public Property FDFGetObjects() As FDFObjects()
             Get
+                If _FDFObjects Is Nothing Then Return Nothing
                 Return _FDFObjects.ToArray
             End Get
             Set(ByVal Value As FDFObjects())
@@ -3595,6 +4200,7 @@ Namespace FDFApp
         ''' <returns></returns>
         ''' <remarks></remarks>
         Public Function FDFGetObject(ByVal objNum As String) As FDFObjects
+            If Me._FDFObjects Is Nothing Then Return Nothing
             Dim xFDFObj As FDFObjects, intNum As Integer
             intNum = 0
             Try
@@ -3608,7 +4214,8 @@ Namespace FDFApp
 
                 Return Nothing
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetObject", 1)
+                '_FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: " & ex.Message, "FDFDoc.FDFGetObject", 1)
+                Err.Clear()
                 Return Nothing
                 Exit Function
             End Try
@@ -3616,7 +4223,7 @@ Namespace FDFApp
         Private Property xFDFField(ByVal FieldName As String, Optional ByVal FieldNum As Integer = -1) As FDFField
             Get
                 FoundField = False
-                For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                For Each xField In FDFGetAllFields()
                     If xField.FieldName = FieldName Then
                         Return xField
                         FoundField = True
@@ -3735,26 +4342,49 @@ Namespace FDFApp
             str_bld = str_bld.Replace("  ", " ")
             Return str_bld.ToString & ""
         End Function
-        Private Function FDFCheckChar(ByVal strINPUT As String) As String
+        Private Function FDFCheckChar(ByVal strINPUT() As String) As String()
+            If strINPUT.Length <= 0 Then
+                Return New String() {""}
+                Exit Function
+            End If
+            
+            For i As Integer = 0 To strINPUT.Length - 1
+                'For Each chrReplace As Char In "\$#~%*^()+=[]{};""<>?|!'".ToCharArray
+                '    If strINPUT(i).IndexOf("\" & chrReplace) >= 0 Then
+                '        strINPUT(i) = strINPUT(i).Replace("\" & chrReplace, chrReplace)
+                '    End If
+                'Next
+                strINPUT(i) = strINPUT(i).Replace("\".ToString, "\\".ToString)
+                For Each chrReplace As Char In "/$#~%*^()+=[]{};""<>?|!'".ToCharArray
+                    If strINPUT(i).IndexOf(chrReplace) >= 0 Then
+                        strINPUT(i) = strINPUT(i).Replace(chrReplace.ToString, CStr("\" & chrReplace.ToString))
+                    End If
+                Next
+                strINPUT(i) = strINPUT(i).Replace(vbNewLine, "\r")
+                strINPUT(i) = strINPUT(i).Replace(Environment.NewLine, "\r")
+                strINPUT(i) = strINPUT(i).Replace(Chr(13), "\r")
+                strINPUT(i) = strINPUT(i).Replace(Chr(10), "\r")
+            Next
+
+            Return strINPUT
+        End Function
+        Private Function FDFCheckChar(Byval strINPUT As String) As String
             If strINPUT.Length <= 0 Then
                 Return ""
                 Exit Function
             End If
-            strINPUT = strINPUT.Replace("\(", "(")
-            strINPUT = strINPUT.Replace("\)", "\")
-            strINPUT = strINPUT.Replace("\'", "'")
-            strINPUT = strINPUT.Replace("\’", "'")
-            strINPUT = strINPUT.Replace("\\", "\")
 
-            strINPUT = strINPUT.Replace("\", "\\")
-            strINPUT = strINPUT.Replace("(", "\(")
-            strINPUT = strINPUT.Replace(")", "\)")
+            strINPUT = strINPUT.Replace("\".ToString, "\\".ToString)
+            For Each chrReplace As Char In "/$#~%*^()+=[]{};""<>?|!'".ToCharArray
+                If strINPUT.IndexOf(chrReplace) >= 0 Then
+                    strINPUT = strINPUT.Replace(chrReplace.ToString, CStr("\" & chrReplace.ToString))
+                End If
+            Next
             strINPUT = strINPUT.Replace(vbNewLine, "\r")
             strINPUT = strINPUT.Replace(Environment.NewLine, "\r")
             strINPUT = strINPUT.Replace(Chr(13), "\r")
             strINPUT = strINPUT.Replace(Chr(10), "\r")
-            strINPUT = strINPUT.Replace("'", "\'")
-            strINPUT = strINPUT.Replace("’", "\'")
+
             Return strINPUT & ""
 
         End Function
@@ -3764,39 +4394,42 @@ Namespace FDFApp
                 Return ""
                 Exit Function
             End If
-            Dim str_bld As String = strINPUT
-            str_bld = str_bld.Replace("\\", "\")
-            str_bld = str_bld.Replace("\(", "(")
-            str_bld = str_bld.Replace("\)", ")")
-            str_bld = str_bld.Replace("\r", vbNewLine)  ' \r\n
-            str_bld = str_bld.Replace("\" & Environment.NewLine, vbNewLine)    ' \r\n
-            str_bld = str_bld.Replace("\" & Chr(13), vbNewLine)      ' \r\n
-            str_bld = str_bld.Replace("\" & Chr(10), vbNewLine)      ' \r\n
-            str_bld = str_bld.Replace("\'", "'")      ' \r\n
-            str_bld = str_bld.Replace("\’", "'")      ' \r\n
-            Return str_bld.ToString
+            'Dim str_bld As String = strINPUT
+            'str_bld = str_bld.Replace("\\", "\")
+            'str_bld = str_bld.Replace("\(", "(")
+            'str_bld = str_bld.Replace("\)", ")")
+            strINPUT = strINPUT.Replace("\\".ToString, "\".ToString)
+            For Each chrReplace As Char In "/$#~%*^()+=[]{};""<>?|!'".ToCharArray
+                If strINPUT.IndexOf("\" & chrReplace) >= 0 Then
+                    strINPUT = strINPUT.Replace("\" & chrReplace, chrReplace)
+                End If
+            Next
+            strINPUT = strINPUT.Replace("\r", vbNewLine)  ' \r\n
+            strINPUT = strINPUT.Replace("\" & Environment.NewLine, vbNewLine)    ' \r\n
+            strINPUT = strINPUT.Replace("\" & Chr(13), vbNewLine)      ' \r\n
+            strINPUT = strINPUT.Replace("\" & Chr(10), vbNewLine)      ' \r\n
+            Return strINPUT.ToString
         End Function
         Private Function FDFCheckCharReverse2(ByVal strINPUT As String()) As String()
-            Dim tmpScript As String
+            'Dim tmpScript As String
             If strINPUT.Length <= 0 Then
                 Return Nothing
                 Exit Function
             End If
-            Dim strOutput(strINPUT.Length - 1) As String, index As Integer
-            For Each tmpScript In strINPUT
-                tmpScript = tmpScript.Replace("\\", "\")
-                tmpScript = tmpScript.Replace("\(", "(")
-                tmpScript = tmpScript.Replace("\)", ")")
-                tmpScript = tmpScript.Replace("\'", "'")
-                tmpScript = tmpScript.Replace("\’", "'")
-                tmpScript = tmpScript.Replace("\" & Environment.NewLine, vbNewLine)      ' \r\n
-                tmpScript = tmpScript.Replace("\" & Chr(13), vbNewLine)      ' \r\n
-                tmpScript = tmpScript.Replace("\" & Chr(10), vbNewLine)      ' \r\n
-                tmpScript = tmpScript.Replace("\r", vbNewLine)    ' \r\n
-                strOutput(index) = tmpScript & ""
-                index += 1
+            'Dim strOutput(strINPUT.Length - 1) As String, index As Integer
+            For Each chrReplace As Char In "/$#~%*^()+=[]{};""<>?|!'".ToCharArray
+                For i As Integer = 0 To strINPUT.Length - 1
+                    strINPUT(i) = strINPUT(i).Replace("\\".ToString, "\".ToString)
+                    If strINPUT(i).IndexOf("\" & chrReplace) >= 0 Then
+                        strINPUT(i) = strINPUT(i).Replace("\" & chrReplace, chrReplace)
+                    End If
+                    strINPUT(i) = strINPUT(i).Replace("\" & Environment.NewLine, vbNewLine)      ' \r\n
+                    strINPUT(i) = strINPUT(i).Replace("\" & Chr(13), vbNewLine)      ' \r\n
+                    strINPUT(i) = strINPUT(i).Replace("\" & Chr(10), vbNewLine)      ' \r\n
+                    strINPUT(i) = strINPUT(i).Replace("\r", vbNewLine)    ' \r\n
+                Next
             Next
-            Return strOutput
+            Return strINPUT
         End Function
         ''' <summary>
         ''' Set Javascript action
@@ -3806,20 +4439,18 @@ Namespace FDFApp
         ''' <param name="theScript">Script to set</param>
         ''' <remarks></remarks>
         Public Sub FDFSetJavaScriptAction(ByVal FieldName As String, ByVal whichTrigger As FDFActionTrigger, ByVal theScript As String)
-            Dim tmpScript As String
-            tmpScript = Me.FDFCheckCharReverse(theScript)
-            tmpScript = Me.FDFCheckChar(tmpScript)
-            theScript = tmpScript
-
+            'theScript = FDFCheckChar(theScript)
             Dim FoundField As Boolean
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
+                    Dim i As Integer = -1
                     For Each _fld As FDFActions In _FDF(_CurFDFDoc).struc_FDFActions
-                        If _fld.FieldName = FieldName And (whichTrigger = FDFActionTrigger.FDFUp And _fld.Trigger = whichTrigger) Then       'And struc_FDFActions(fldCnt).ActionType = ActionTypes.JavaScript 
-                            _fld.Trigger = whichTrigger
-                            _fld.JavaScript_URL = theScript
-                            _fld.ActionType = ActionTypes.JavaScript
+                        i = i + 1
+                        If _fld.FieldName = FieldName And (whichTrigger = FDFActionTrigger.FDFUp And _fld.Trigger = whichTrigger) Then
+                            _FDF(_CurFDFDoc).struc_FDFActions(i).Trigger = whichTrigger
+                            _FDF(_CurFDFDoc).struc_FDFActions(i).JavaScript_URL = (theScript)
+                            _FDF(_CurFDFDoc).struc_FDFActions(i).ActionType = ActionTypes.JavaScript
                             FoundField = True
                             Exit Sub
                         End If
@@ -3916,6 +4547,13 @@ Namespace FDFApp
         ''' <remarks></remarks>
         Public Sub FDFSetValue(ByVal FieldName As String, ByVal FieldValue As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True)
             Dim FoundField As Boolean
+            Try
+                If FDFSetValue(_FDF, FieldName, FieldValue, FieldEnabled) Then
+                    FoundField = True
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
@@ -3923,7 +4561,7 @@ Namespace FDFApp
 
                         If _fld.FieldName = FieldName Then
                             _fld.FieldValue.Clear()
-                            _fld.FieldValue.Add(Me.FDFCheckChar(FieldValue))
+                            _fld.FieldValue.Add((FieldValue))
                             _fld.FieldEnabled = FieldEnabled
                             FoundField = True
                             Exit Sub
@@ -3939,6 +4577,32 @@ Namespace FDFApp
             End Try
 
         End Sub
+        Public Function FDFSetValue(ByRef _subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FieldName As String, ByVal FieldValue As String, Optional ByVal FieldEnabled As Boolean = True) As Boolean
+            Dim FoundField As Boolean
+            FoundField = False
+            Try
+                For _s As Integer = 0 To _subforms.Count - 1
+                    If _subforms(_s).struc_FDFFields.Count > 0 Then
+                        For _fld As Integer = 0 To _subforms(_s).struc_FDFFields.Count - 1
+                            If _subforms(_s).struc_FDFFields(_fld).FieldType = FieldType.FldSubform Or _subforms(_s).struc_FDFFields(_fld).Subforms.Count > 0 Then
+                                If FDFSetValue(_subforms(_s).struc_FDFFields(_fld).Subforms, FieldName, FieldValue, FieldEnabled) Then
+                                    FoundField = True
+                                End If
+                            ElseIf _subforms(_s).struc_FDFFields(_fld).FieldName = FieldName Then
+                                _subforms(_s).struc_FDFFields(_fld).FieldValue.Clear()
+                                _subforms(_s).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
+                                _subforms(_s).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
+                                FoundField = True
+                            End If
+                        Next
+                    End If
+                Next
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Exit Function
+            End Try
+            Return FoundField
+        End Function
         ''' <summary>
         ''' Set value of field
         ''' </summary>
@@ -3949,12 +4613,13 @@ Namespace FDFApp
             Dim FoundField As Boolean
             FoundField = False
             Try
+
                 Dim FieldValueStr As String = CStr(FieldValue & "") & ""
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
                     For Each _fld As FDFField In _FDF(_CurFDFDoc).struc_FDFFields
                         If _fld.FieldName = FieldName Then
                             _fld.FieldValue.Clear()
-                            _fld.FieldValue.Add(Me.FDFCheckChar(FieldValueStr))
+                            _fld.FieldValue.Add((FieldValueStr))
                             _fld.FieldEnabled = True
                             FoundField = True
                             Exit Sub
@@ -3975,25 +4640,25 @@ Namespace FDFApp
         ''' </summary>
         ''' <param name="FieldName">Live-Cycle PDF Form Field Name</param>
         ''' <param name="FieldValue">Live-Cycle PDF Form Field Value</param>
-        ''' <param name="FormName">Live-Cycle PDF Form Name</param>
+        ''' <param name="ParentFormNameOrLevel">Live-Cycle Form Level or Name</param>
         ''' <param name="FDFEmpty">Leave blank or set to false</param>
         ''' <param name="FieldEnabled">Set to true to enable field</param>
         ''' <remarks></remarks>
-        Public Sub XDPSetValue(ByVal FieldName As String, ByVal FieldValue As String, ByVal FormName As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True)
+        Public Sub XDPSetValue(ByVal FieldName As String, ByVal FieldValue As String, ByVal ParentFormNameOrLevel As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True)
             Dim FoundField As Boolean
             FoundField = False
             Try
                 Dim xdpFrm As New FDFDoc_Class
-                xdpFrm = XDPForm(FormName)
+                xdpFrm = XDPForm(ParentFormNameOrLevel)
                 If Not xdpFrm.FormName Is Nothing Then
                     If Not xdpFrm.struc_FDFFields Is Nothing Then
                         If xdpFrm.struc_FDFFields.Count >= 1 Then
                             For _fld As Integer = 0 To xdpFrm.struc_FDFFields.Count - 1
-                                If Not String_IsNullOrEmpty(XDPForm(FormName).struc_FDFFields(_fld).FieldName) Then
-                                    If XDPForm(FormName).struc_FDFFields(_fld).FieldName.ToLower = FieldName.ToLower Then
-                                        XDPForm(FormName).struc_FDFFields(_fld).FieldValue.Clear()
-                                        XDPForm(FormName).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
-                                        XDPForm(FormName).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
+                                If Not String_IsNullOrEmpty(XDPForm(ParentFormNameOrLevel).struc_FDFFields(_fld).FieldName) Then
+                                    If XDPForm(ParentFormNameOrLevel).struc_FDFFields(_fld).FieldName.ToLower = FieldName.ToLower Then
+                                        XDPForm(ParentFormNameOrLevel).struc_FDFFields(_fld).FieldValue.Clear()
+                                        XDPForm(ParentFormNameOrLevel).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
+                                        XDPForm(ParentFormNameOrLevel).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
                                         FoundField = True
                                         Exit Sub
                                     End If
@@ -4002,7 +4667,7 @@ Namespace FDFApp
                         End If
                     End If
                     If Not FoundField Then
-                        XDPAddField(FieldName, FieldValue, XDPForm(FormName).FormName)
+                        XDPAddField(FieldName, FieldValue, XDPForm(ParentFormNameOrLevel).FormName)
                     End If
                 End If
             Catch ex As Exception
@@ -4011,6 +4676,54 @@ Namespace FDFApp
             End Try
 
         End Sub
+        Public Function XDPSetValue(ByRef _fdfDoc_Class2 As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FieldName As String, ByVal FieldValue As String, ByVal FormName As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True) As Boolean
+            Dim FoundField As Boolean
+            FoundField = False
+            Try
+                'Dim xdpFrm As New FDFDoc_Class
+                'xdpFrm = XDPForm(FormName)
+                For xdpFrm As Integer = 0 To _fdfDoc_Class2.Count - 1
+                    If Not _fdfDoc_Class2(xdpFrm).FormName Is Nothing Then
+                        If Not _fdfDoc_Class2(xdpFrm).struc_FDFFields Is Nothing Then
+                            If _fdfDoc_Class2(xdpFrm).struc_FDFFields.Count >= 1 Then
+                                For _fld As Integer = 0 To _fdfDoc_Class2(xdpFrm).struc_FDFFields.Count - 1
+                                    If Not String_IsNullOrEmpty(_fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldName) Then
+                                        If _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldType = FieldType.FldSubform Then
+                                            If XDPSetValue(_fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).Subforms, FieldName, FieldValue, True, True) Then
+                                                FoundField = True
+                                                Return FoundField
+                                            End If
+                                        ElseIf _fdfDoc_Class2(xdpFrm).FormLevelLong & "/" & _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldName.ToLower & "[" & _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldNum & "]" = FieldName.ToLower Then
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldValue.Clear()
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            Return FoundField
+                                        ElseIf _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldName.ToLower & "[" & _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldNum & "]" = FieldName.ToLower Then
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldValue.Clear()
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            Return FoundField
+                                        ElseIf _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldName.ToLower = FieldName.ToLower Then
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldValue.Clear()
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldValue.Add((FieldValue))
+                                            _fdfDoc_Class2(xdpFrm).struc_FDFFields(_fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            Return FoundField
+                                        End If
+                                    End If
+                                Next
+                            End If
+                        End If
+                    End If
+                Next
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Exit Function
+            End Try
+            Return False
+        End Function
         ''' <summary>
         ''' Set value of field in a Live-Cycle Form
         ''' </summary>
@@ -4026,6 +4739,12 @@ Namespace FDFApp
             Try
                 Dim xdpFrm As New FDFDoc_Class
                 Dim TmpCurFDFDoc As Integer = 0
+                Dim fldTmp As FDFField = XDPGetField(FieldName)
+                If Not fldTmp Is Nothing Then
+                    If XDPSetValueFormLevel(fldTmp.FieldLevelLong.Substring(0, fldTmp.FieldLevelLong.LastIndexOf("/")), FieldName, FieldValue) Then
+                        Return
+                    End If
+                End If
                 If _FDF.Count > 0 Then
                     'If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
                     Dim intx As Integer = -1
@@ -4035,14 +4754,27 @@ Namespace FDFApp
                             If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
                                 Dim inty As Integer = -1
                                 For fld As Integer = 0 To _FDF(intx).struc_FDFFields.Count - 1
-                                    If Not String_IsNullOrEmpty(_FDF(intx).struc_FDFFields(fld).FieldName) Then
-                                        If _FDF(intx).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                    If _FDF(intx).struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                        FoundField = XDPSetValue(_FDF(intx).struc_FDFFields(fld).Subforms, FieldName, FieldValue, True, True)
+                                    ElseIf Not String_IsNullOrEmpty(_FDF(intx).struc_FDFFields(fld).FieldName) Then
+                                        If _FDF(intx).FormLevelLong & "/" & _FDF(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _FDF(intx).struc_FDFFields(fld).FieldNum & "]" = FieldName.ToLower Then
+                                            _FDF(intx).struc_FDFFields(fld).FieldValue.Clear()
+                                            _FDF(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            _FDF(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                        ElseIf _FDF(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _FDF(intx).struc_FDFFields(fld).FieldNum & "]" = FieldName.ToLower Then
+                                            _FDF(intx).struc_FDFFields(fld).FieldValue.Clear()
+                                            _FDF(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            _FDF(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                        ElseIf _FDF(intx).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
                                             _FDF(intx).struc_FDFFields(fld).FieldValue.Clear()
                                             _FDF(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
                                             _FDF(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
                                             FoundField = True
                                         End If
                                     End If
+
                                 Next
                             End If
                         End If
@@ -4071,6 +4803,244 @@ continue_setting_value:
             End Try
 
         End Sub
+        Public Function XDPSetFieldRef(ByVal Subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FieldNameOrLevelLong As String, ByVal value As FDFField) As Boolean
+            Dim FoundField As Boolean
+            ''EDITED BY NK-INC 11/30/2011
+            FoundField = False
+            Dim fldTmp As FDFField = Nothing
+            Try
+                Dim xdpFrm As New FDFDoc_Class
+                Dim TmpCurFDFDoc As Integer = 0
+                Dim intx As Integer = -1
+                For Each _fdfdoc As FDFApp.FDFDoc_Class.FDFDoc_Class In Subforms
+                    intx += 1
+                    If Not _fdfdoc.struc_FDFFields Is Nothing Then
+                        If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                            Dim inty As Integer = -1
+                            For fld As Integer = 0 To _fdfdoc.struc_FDFFields.Count - 1
+                                If _fdfdoc.struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                    If XDPSetFieldRef(_fdfdoc.struc_FDFFields(fld).Subforms, FieldNameOrLevelLong, value) Then
+                                        Return True
+                                    End If
+                                ElseIf Not String_IsNullOrEmpty(_fdfdoc.struc_FDFFields(fld).FieldName) Then
+                                    If Subforms(intx).FormLevelLong & "/" & _fdfdoc.struc_FDFFields(fld).FieldName.ToLower & "[" & _fdfdoc.struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                        _fdfdoc.struc_FDFFields(fld) = value
+                                        Return True
+                                    ElseIf _fdfdoc.struc_FDFFields(fld).FieldName.ToLower & "[" & _fdfdoc.struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                        _fdfdoc.struc_FDFFields(fld) = value
+                                        Return True
+                                    ElseIf _fdfdoc.struc_FDFFields(fld).FieldName.ToLower = FieldNameOrLevelLong.ToLower Then
+                                        _fdfdoc.struc_FDFFields(fld) = value
+                                        Return True
+                                    End If
+                                End If
+
+                            Next
+                        End If
+                    End If
+                    'End If
+                Next
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return False
+        End Function
+        Public ReadOnly Property XDPGetFieldRef(ByVal Subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FieldNameOrLevelLong As String) As FDFField
+            Get
+                Dim FoundField As Boolean
+                ''EDITED BY NK-INC 11/30/2011
+                FoundField = False
+                Dim fldTmp As FDFField = Nothing
+                Try
+                    Dim xdpFrm As New FDFDoc_Class
+                    Dim TmpCurFDFDoc As Integer = 0
+                    Dim intx As Integer = -1
+                    For Each _fdfdoc As FDFApp.FDFDoc_Class.FDFDoc_Class In Subforms
+                        intx += 1
+                        If Not _fdfdoc.struc_FDFFields Is Nothing Then
+                            If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                Dim inty As Integer = -1
+                                For fld As Integer = 0 To _fdfdoc.struc_FDFFields.Count - 1
+                                    If _fdfdoc.struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                        fldTmp = XDPGetFieldRef(_fdfdoc.struc_FDFFields(fld).Subforms, FieldNameOrLevelLong)
+                                        If Not fldTmp Is Nothing Then Return fldTmp
+                                    ElseIf Not String_IsNullOrEmpty(_fdfdoc.struc_FDFFields(fld).FieldName) Then
+                                        If Subforms(intx).FormLevelLong.ToLower & "/" & _fdfdoc.struc_FDFFields(fld).FieldName.ToLower & "[" & _fdfdoc.struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                            Return _fdfdoc.struc_FDFFields(fld)
+                                        ElseIf _fdfdoc.struc_FDFFields(fld).FieldName.ToLower & "[" & _fdfdoc.struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                            Return _fdfdoc.struc_FDFFields(fld)
+                                        ElseIf _fdfdoc.struc_FDFFields(fld).FieldName.ToLower = FieldNameOrLevelLong.ToLower Then
+                                            Return _fdfdoc.struc_FDFFields(fld)
+                                        End If
+                                    End If
+
+                                Next
+                            End If
+                        End If
+                        'End If
+                    Next
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+                Return Nothing
+            End Get
+        End Property
+        ''' <summary>
+        ''' Gets or Sets XDPField
+        ''' </summary>
+        ''' <param name="FieldNameOrLevelLong">Fieldname, Fieldname[Number], or Field Long Level</param>
+        ''' <value>Field Value to Set</value>
+        ''' <returns>FDFField object</returns>
+        ''' <remarks></remarks>
+        Public Property XDPField(ByVal FieldNameOrLevelLong As String) As FDFField
+            Get
+                Dim FoundField As Boolean
+                ''EDITED BY NK-INC 11/30/2011
+                FoundField = False
+                Dim fldTmp As FDFField = Nothing
+                If Not XDPGetField(FieldNameOrLevelLong) Is Nothing Then
+                    Return XDPGetField(FieldNameOrLevelLong)
+                End If
+                Try
+                    Dim xdpFrm As New FDFDoc_Class
+                    Dim TmpCurFDFDoc As Integer = 0
+                    Dim intx As Integer = -1
+                    For Each _fdfdoc As FDFDoc_Class In _FDF
+                        intx += 1
+                        If Not _fdfdoc.struc_FDFFields Is Nothing Then
+                            If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                Dim inty As Integer = -1
+                                For fld As Integer = 0 To _FDF(intx).struc_FDFFields.Count - 1
+                                    If _FDF(intx).struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                        If Not XDPGetFieldRef(_FDF(intx).struc_FDFFields(fld).Subforms, FieldNameOrLevelLong) Is Nothing Then Return XDPGetFieldRef(_FDF(intx).struc_FDFFields(fld).Subforms, FieldNameOrLevelLong)
+                                    ElseIf Not String_IsNullOrEmpty(_FDF(intx).struc_FDFFields(fld).FieldName) Then
+                                        If _FDF(intx).FormLevelLong & "/" & _FDF(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _FDF(intx).struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                            Return _FDF(intx).struc_FDFFields(fld)
+                                        ElseIf _FDF(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _FDF(intx).struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                            Return _FDF(intx).struc_FDFFields(fld)
+                                        ElseIf _FDF(intx).struc_FDFFields(fld).FieldName.ToLower = FieldNameOrLevelLong.ToLower Then
+                                            Return _FDF(intx).struc_FDFFields(fld)
+                                        End If
+                                    End If
+
+                                Next
+                            End If
+                        End If
+                        'End If
+                    Next
+                    Return Nothing
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+                Return Nothing
+            End Get
+            Set(ByVal value As FDFField)
+                Dim FoundField As Boolean
+                ''EDITED BY NK-INC 11/30/2011
+                FoundField = False
+                If Not XDPGetField(FieldNameOrLevelLong) Is Nothing Then
+                    XDPGetField(FieldNameOrLevelLong) = value
+                End If
+                Dim fldTmp As FDFField = Nothing
+                Try
+                    Dim xdpFrm As New FDFDoc_Class
+                    Dim TmpCurFDFDoc As Integer = 0
+                    Dim intx As Integer = -1
+                    For Each _fdfdoc As FDFDoc_Class In _FDF
+                        intx += 1
+                        If Not _fdfdoc.struc_FDFFields Is Nothing Then
+                            If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                Dim inty As Integer = -1
+                                For fld As Integer = 0 To _FDF(intx).struc_FDFFields.Count - 1
+                                    If _FDF(intx).struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                        If XDPSetFieldRef(_FDF(intx).struc_FDFFields(fld).Subforms, FieldNameOrLevelLong, value) Then
+                                            Return
+                                        End If
+                                    ElseIf Not String_IsNullOrEmpty(_FDF(intx).struc_FDFFields(fld).FieldName) Then
+                                        If _FDF(intx).FormLevelLong & "/" & _FDF(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _FDF(intx).struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                            _FDF(intx).struc_FDFFields(fld) = value
+                                            Return
+                                        ElseIf _FDF(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _FDF(intx).struc_FDFFields(fld).FieldNum & "]" = FieldNameOrLevelLong.ToLower Then
+                                            _FDF(intx).struc_FDFFields(fld) = value
+                                            Return
+                                        ElseIf _FDF(intx).struc_FDFFields(fld).FieldName.ToLower = FieldNameOrLevelLong.ToLower Then
+                                            _FDF(intx).struc_FDFFields(fld) = value
+                                            Return
+                                        End If
+                                    End If
+
+                                Next
+                            End If
+                        End If
+                        'End If
+                    Next
+                    'If Not XDPSubform(FieldNameOrLevelLong.Substring(0, FieldNameOrLevelLong.LastIndexOf("/"))) Is Nothing Then
+                    '    XDPSubform(FieldNameOrLevelLong.Substring(0, FieldNameOrLevelLong.LastIndexOf("/"))).XDPAppendField(value)
+                    'End If
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+            End Set
+        End Property
+
+        Public Function XDPSetValue(ByRef _fdfDoc_Class2 As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FieldName As String, ByVal FieldValue As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True) As Boolean
+            Dim FoundField As Boolean
+            ''EDITED BY NK-INC 11/30/2011
+            FoundField = False
+            Try
+                Dim xdpFrm As New FDFDoc_Class
+                Dim TmpCurFDFDoc As Integer = 0
+                If _FDF.Count > 0 Then
+                    'If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
+                    Dim intx As Integer = -1
+                    For _fdfdoc As Integer = 0 To _fdfDoc_Class2.Count - 1
+                        intx += 1
+                        If Not _fdfDoc_Class2(_fdfdoc).struc_FDFFields Is Nothing Then
+                            If _fdfDoc_Class2(_fdfdoc).struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                Dim inty As Integer = -1
+                                For fld As Integer = 0 To _fdfDoc_Class2(_fdfdoc).struc_FDFFields.Count - 1
+                                    If Not String_IsNullOrEmpty(_fdfDoc_Class2(_fdfdoc).struc_FDFFields(fld).FieldName) Then
+                                        If _fdfDoc_Class2(_fdfdoc).struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                            If XDPSetValue(_fdfDoc_Class2(_fdfdoc).struc_FDFFields(fld).Subforms, FieldName, FieldValue, True, True) Then
+                                                FoundField = True
+                                                Return FoundField
+                                            End If
+                                        ElseIf _fdfDoc_Class2(intx).FormLevelLong.ToLower & "/" & _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldNum & "]" = FieldName.ToLower Then
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldValue.Clear()
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            Return FoundField
+                                        ElseIf _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldName.ToLower & "[" & _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldNum & "]" = FieldName.ToLower Then
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldValue.Clear()
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            Return FoundField
+                                        ElseIf _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldValue.Clear()
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            _fdfDoc_Class2(intx).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
+                                            Return FoundField
+                                        End If
+                                    End If
+                                Next
+                            End If
+                        End If
+                    Next
+                End If
+                'End If
+                '_FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field (" & FieldName & ") Not Found", "FDFDoc.FDFSetValue", 1)
+                'Exit Function
+                'Return FoundField
+continue_setting_value:
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Exit Function
+            End Try
+            Return FoundField
+        End Function
         ''' <summary>
         ''' Set value of field in a Live-Cycle Form
         ''' </summary>
@@ -4085,18 +5055,36 @@ continue_setting_value:
             Try
                 Dim xdpFrm As New FDFDoc_Class
                 Dim TmpCurFDFDoc As Integer = 0
+                'Dim fldTmp As FDFField = XDPGetField(FieldName)
+                For Each fld As FDFField In XDPGetAllFields()
+                    If Not fld Is Nothing Then
+                        If FieldName = fld.FieldName And FieldNumber = fld.FieldNum Then
+                            If XDPSetValueFormLevel(fld.FieldLevelLong.Substring(0, fld.FieldLevelLong.LastIndexOf("/")), FieldName, FieldValue) Then
+                                Return
+                            End If
+                        End If                       
+                    End If
+                Next
                 If _FDF.Count > 0 Then
-                    If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
-                        If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
-                            GoTo continue_setting_value
-                        End If
-                    Else
-                        Dim intX As Integer = -1
-                        For Each _fdfdoc As FDFDoc_Class In _FDF
-                            intX += 1
-                            If Not _fdfdoc.struc_FDFFields Is Nothing Then
-                                If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
-                                    For fld As Integer = 0 To _FDF(intX).struc_FDFFields.Count - 1
+                    'If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
+                    '    If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
+                    '        GoTo continue_setting_value
+                    '    End If
+                    'Else
+                    Dim intX As Integer = -1
+                    For Each _fdfdoc As FDFDoc_Class In _FDF
+                        intX += 1
+                        If Not _fdfdoc.struc_FDFFields Is Nothing Then
+                            If _fdfdoc.struc_FDFFields.Count >= 1 Then      '_FDF(XDPFDF).DocType = FDFDocType.XDPForm And 
+                                For fld As Integer = 0 To _FDF(intX).struc_FDFFields.Count - 1
+                                    If _FDF(intX).struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                        If _FDF(intX).struc_FDFFields(fld).Subforms.Count > 0 Then
+                                            If XDPSetValue(_FDF(intX).struc_FDFFields(fld).Subforms, FieldName, FieldNumber, FieldValue, False, True) Then
+                                                FoundField = True
+                                                Exit Sub
+                                            End If
+                                        End If
+                                    Else
                                         If Not String_IsNullOrEmpty(_FDF(intX).struc_FDFFields(fld).FieldName) Then
                                             If _FDF(intX).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
                                                 If _FDF(intX).struc_FDFFields(fld).FieldNum = FieldNumber Then
@@ -4106,16 +5094,17 @@ continue_setting_value:
                                                     FoundField = True
                                                     Exit Sub
                                                 End If
-                                                _CurFDFDoc = intX
-                                                GoTo continue_setting_value
+                                                '_CurFDFDoc = intX
+                                                'GoTo continue_setting_value
                                             End If
                                         End If
-                                    Next
-                                End If
+                                    End If
+                                Next
                             End If
-                        Next
-                        GoTo continue_setting_value
-                    End If
+                        End If
+                    Next
+                    GoTo continue_setting_value
+                    'End If
                 End If
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field (" & FieldName & ") Not Found", "FDFDoc.FDFSetValue", 1)
                 Exit Sub
@@ -4129,6 +5118,55 @@ continue_setting_value:
             End Try
 
         End Sub
+        Public Function XDPSetValue(ByRef _fdfDoc_Class2 As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FieldName As String, ByVal FieldNumber As Integer, ByVal FieldValue As String, Optional ByVal FDFEmpty As Boolean = False, Optional ByVal FieldEnabled As Boolean = True) As Boolean
+            Dim FoundField As Boolean
+            FoundField = False
+            Try
+                Dim xdpFrm As New FDFDoc_Class
+                Dim TmpCurFDFDoc As Integer = 0
+                If _fdfDoc_Class2.Count > 0 Then
+                    For Each _fdfDoc_class As FDFApp.FDFDoc_Class.FDFDoc_Class In _fdfDoc_Class2
+                        If Not String_IsNullOrEmpty(_fdfDoc_class.FormName) Then
+                            Dim intX As Integer = -1
+                            'For Each _fdfdoc As FDFDoc_Class In _FDF
+                            intX += 1
+                            If Not _fdfDoc_class.struc_FDFFields Is Nothing Then
+                                For fld As Integer = 0 To _fdfDoc_class.struc_FDFFields.Count - 1
+                                    If _fdfDoc_class.struc_FDFFields.Count >= 1 Then
+                                        If _fdfDoc_class.struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                            If XDPSetValue(_fdfDoc_class.struc_FDFFields(fld).Subforms, FieldName, FieldNumber, FieldValue, FDFEmpty, FieldEnabled) Then
+                                                Return True
+                                            End If
+                                        ElseIf Not String_IsNullOrEmpty(_fdfDoc_class.struc_FDFFields(fld).FieldName) Then
+                                            If _fdfDoc_class.struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                                If _fdfDoc_class.struc_FDFFields(fld).FieldNum = FieldNumber Then
+                                                    _fdfDoc_class.struc_FDFFields(fld).FieldValue.Clear()
+                                                    _fdfDoc_class.struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                                    _fdfDoc_class.struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                                    FoundField = True
+                                                    Return FoundField
+                                                    '_CurFDFDoc = intX
+                                                    'GoTo continue_setting_value
+                                                End If
+                                            End If
+                                        End If
+                                        'Next
+                                    End If
+                                Next
+
+                            End If
+                            GoTo continue_setting_value
+                        End If
+                    Next
+                End If
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field (" & FieldName & ") Not Found", "FDFDoc.FDFSetValue", 1)
+continue_setting_value:
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Exit Function
+            End Try
+            Return FoundField
+        End Function
 
         ''' <summary>
         ''' Set value of field in a Live-Cycle Form
@@ -4145,24 +5183,34 @@ continue_setting_value:
             Try
                 Dim xdpFrm As New FDFDoc_Class
                 xdpFrm = XDPForm(FormNumber)
-                If Not xdpFrm.FormName Is Nothing Then
-                    If Not xdpFrm.struc_FDFFields Is Nothing Then
-                        If xdpFrm.struc_FDFFields.Count >= 1 Then
-                            For fld As Integer = 0 To XDPForm(FormNumber).struc_FDFFields.Count - 1
-                                If Not String_IsNullOrEmpty(XDPForm(FormNumber).struc_FDFFields(fld).FieldName) Then
-                                    If XDPForm(FormNumber).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
-                                        XDPForm(FormNumber).struc_FDFFields(fld).FieldValue.Clear()
-                                        XDPForm(FormNumber).struc_FDFFields(fld).FieldValue.Add((FieldValue))
-                                        XDPForm(FormNumber).struc_FDFFields(fld).FieldEnabled = FieldEnabled
-                                        FoundField = True
-                                        Exit Sub
+                If Not xdpFrm Is Nothing Then
+                    If Not xdpFrm.FormName Is Nothing Then
+                        If Not xdpFrm.struc_FDFFields Is Nothing Then
+                            If xdpFrm.struc_FDFFields.Count >= 1 Then
+                                For fld As Integer = 0 To XDPForm(FormNumber).struc_FDFFields.Count - 1
+                                    If XDPForm(FormNumber).struc_FDFFields(fld).FieldType = FieldType.FldSubform Then
+                                        If XDPSetValue(XDPForm(FormNumber).struc_FDFFields(fld).Subforms, FieldName, FieldValue, True, True) Then
+                                            FoundField = True
+                                            Return
+                                        End If
+                                    Else
+                                        If Not String_IsNullOrEmpty(XDPForm(FormNumber).struc_FDFFields(fld).FieldName) Then
+                                            If XDPForm(FormNumber).struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                                XDPForm(FormNumber).struc_FDFFields(fld).FieldValue.Clear()
+                                                XDPForm(FormNumber).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                                XDPForm(FormNumber).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                                FoundField = True
+                                                Exit Sub
+                                            End If
+                                        End If
                                     End If
-                                End If
-                            Next
+
+                                Next
+                            End If
                         End If
-                    End If
-                    If Not FoundField Then
-                        XDPAddField(FieldName, FieldValue, XDPForm(FormNumber).FormName)
+                        If Not FoundField Then
+                            XDPAddField(FieldName, FieldValue, XDPForm(FormNumber).FormName)
+                        End If
                     End If
                 End If
             Catch ex As Exception
@@ -4184,31 +5232,32 @@ continue_setting_value:
             Dim FoundField As Boolean
             FoundField = False
             Try
-                Dim xdpFrm As New FDFDoc_Class
+                'Dim xdpFrm As New FDFDoc_Class
                 'xdpFrm = XDPForm(FormNumber)
-                For Each xdpFrm In XDPGetAllForms_FormLevel(FormLevel)
-                    If Not xdpFrm.FormName Is Nothing Then
-                        If Not xdpFrm.struc_FDFFields Is Nothing Then
-                            If xdpFrm.struc_FDFFields.Count >= 1 Then
-                                If xdpFrm.FormLevel.StartsWith(FormLevel) Then
-                                    For fld As Integer = 0 To xdpFrm.struc_FDFFields.Count - 1
-                                        If Not String_IsNullOrEmpty(xdpFrm.struc_FDFFields(fld).FieldName) Then
-                                            If xdpFrm.struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
-                                                XDPForm(xdpFrm.FormNumber).struc_FDFFields(fld).FieldValue.Clear()
-                                                XDPForm(xdpFrm.FormNumber).struc_FDFFields(fld).FieldValue.Add((FieldValue))
-                                                XDPForm(xdpFrm.FormNumber).struc_FDFFields(fld).FieldEnabled = FieldEnabled
-                                                FoundField = True
-                                            End If
+                'For Each xdpFrm In XDPGetAllForms_FormLevel(FormLevel)
+                Dim xdpFrm As FDFApp.FDFDoc_Class.FDFDoc_Class = XDPSubform(FormLevel)
+                If Not xdpFrm.FormName Is Nothing Then
+                    If Not xdpFrm.struc_FDFFields Is Nothing Then
+                        If xdpFrm.struc_FDFFields.Count >= 1 Then
+                            If xdpFrm.FormLevel.StartsWith(FormLevel) Or xdpFrm.FormLevelLong.StartsWith(FormLevel) Then
+                                For fld As Integer = 0 To xdpFrm.struc_FDFFields.Count - 1
+                                    If Not String_IsNullOrEmpty(xdpFrm.struc_FDFFields(fld).FieldName) Then
+                                        If xdpFrm.struc_FDFFields(fld).FieldName.ToLower = FieldName.ToLower Then
+                                            XDPSubform(FormLevel).struc_FDFFields(fld).FieldValue.Clear()
+                                            XDPSubform(FormLevel).struc_FDFFields(fld).FieldValue.Add((FieldValue))
+                                            XDPSubform(FormLevel).struc_FDFFields(fld).FieldEnabled = FieldEnabled
+                                            FoundField = True
                                         End If
-                                    Next
-                                End If
+                                    End If
+                                Next
                             End If
                         End If
-                        If Not FoundField Then
-                            XDPAddField(FieldName, FieldValue, XDPForm(xdpFrm.FormNumber).FormName)
-                        End If
                     End If
-                Next
+                    If Not FoundField Then
+                        XDPAddField(FieldName, FieldValue, XDPForm(xdpFrm.FormNumber).FormName)
+                    End If
+                End If
+                'Next
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Exit Sub
@@ -4227,7 +5276,7 @@ continue_setting_value:
                                 strTmp = Chr(xByte)
                                 SB.Append(strTmp)
                             Next
-                            _fld.FieldValue.Add(Me.FDFCheckChar(SB.ToString))
+                            _fld.FieldValue.Add((SB.ToString))
                             _fld.FieldEnabled = FieldEnabled
                             FoundField = True
                             Exit Sub
@@ -4239,7 +5288,7 @@ continue_setting_value:
                         strTmp = xByte.ToString
                         SB.Append(strTmp)
                     Next
-                    FDFAddField(FieldName, Me.FDFCheckChar(SB.ToString))
+                    FDFAddField(FieldName, (SB.ToString))
                 End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
@@ -5101,8 +6150,8 @@ continue_setting_value:
                     End If
 
                     FieldEnabled = True
-                    If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                        For Each _fld As FDFField In _FDF(_CurFDFDoc).struc_FDFFields
+                    If FDFFields.Length > 0 Then
+                        For Each _fld As FDFField In FDFFields  '_FDF(_CurFDFDoc).struc_FDFFields
                             If _fld.FieldName = Fieldname Then
                                 _fld.FieldValue.Clear()
                                 _fld.FieldValue.Add(FieldValue)
@@ -5121,8 +6170,9 @@ continue_setting_value:
                                     _fld.FieldType = FieldType.FldTextual
                                 End If
                                 FoundField = True
-                                Return Nothing
-                                Exit Function
+                                Exit For
+                                'Return Nothing
+                                'Exit Function
                             Else
                                 bFoundOption = False
                                 FoundField = False
@@ -5434,7 +6484,7 @@ continue_setting_value:
                         End If
                     Next
                 Catch ex As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
                 If String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
                     XDPAddForm(FormName, "")
@@ -5501,7 +6551,7 @@ continue_setting_value:
                 '            End If
                 '        Next
                 '    Catch ex As Exception
-                '        Err.Clear()
+                '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 '    End Try
                 'End If
 
@@ -5596,10 +6646,10 @@ continue_setting_value:
         ''' Sets FDF Data from Datarow
         ''' </summary>
         ''' <param name="Dr">Datarow with data</param>
-        ''' <param name="OptionNames">Option names</param>
+        ''' <param name="ExcludeNames">Exclude names</param>
         ''' <returns>FDF Data</returns>
         ''' <remarks></remarks>
-        Public Function FDFSetValuesFromDataRow(ByVal Dr As DataRow, Optional ByVal OptionNames() As String = Nothing) As String
+        Public Function FDFSetValuesFromDataRow(ByVal Dr As DataRow, Optional ByVal ExcludeNames() As String = Nothing) As String
             Dim FieldValue As String = ""
             Dim Fieldname As String = ""
             Dim FieldTypes As String = ""
@@ -5626,14 +6676,15 @@ continue_setting_value:
                     End If
 
                     FieldEnabled = True
-                    If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                        For Each _fld As FDFField In _FDF(_CurFDFDoc).struc_FDFFields
+                    If FDFFields.Length > 0 Then
+                        For Each _fld As FDFField In FDFFields '_FDF(_CurFDFDoc).struc_FDFFields
+                            bFoundOption = False
                             If _fld.FieldName = Fieldname Then
                                 _fld.FieldValue.Clear()
                                 _fld.FieldValue.Add(FieldValue)
                                 _fld.FieldEnabled = FieldEnabled
-                                If Not OptionNames Is Nothing Then
-                                    For Each Options In OptionNames
+                                If Not ExcludeNames Is Nothing Then
+                                    For Each Options In ExcludeNames
                                         If Options = Fieldname Then
                                             bFoundOption = True
                                         End If
@@ -5646,8 +6697,9 @@ continue_setting_value:
                                     _fld.FieldType = FieldType.FldTextual
                                 End If
                                 FoundField = True
-                                Return Nothing
-                                Exit Function
+                                Exit For
+                                'Return Nothing
+                                'Exit Function
                             Else
                                 bFoundOption = False
                                 FoundField = False
@@ -5655,8 +6707,8 @@ continue_setting_value:
                         Next
                     End If
                     If Not FoundField Then
-                        If Not OptionNames Is Nothing Then
-                            For Each Options In OptionNames
+                        If Not ExcludeNames Is Nothing Then
+                            For Each Options In ExcludeNames
                                 If Options = Fieldname Then
                                     bFoundOption = True
                                 End If
@@ -5683,10 +6735,10 @@ continue_setting_value:
         ''' Sets FDF Data from Datarow
         ''' </summary>
         ''' <param name="Dr">Datarow with data</param>
-        ''' <param name="OptionNames">Option names</param>
+        ''' <param name="ExcludeNames">Exclude names</param>
         ''' <returns>FDF Data</returns>
         ''' <remarks></remarks>
-        Public Function XDPSetValuesFromDataRow(ByVal Dr As DataRow, Optional ByVal OptionNames() As String = Nothing) As String
+        Public Function XDPSetValuesFromDataRow(ByVal Dr As DataRow, Optional ByVal ExcludeNames() As String = Nothing) As String
             Dim FieldValue As String = ""
             Dim Fieldname As String = ""
             Dim FieldTypes As String = ""
@@ -5715,26 +6767,29 @@ continue_setting_value:
                     FieldEnabled = True
                     If True = True Then 'Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
                         For Each _fld As FDFField In XDPGetFields()
+                            bFoundOption = False
                             If _fld.FieldName = Fieldname Then
-                                _fld.FieldValue.Clear()
-                                _fld.FieldValue.Add(FieldValue)
-                                _fld.FieldEnabled = FieldEnabled
-                                If Not OptionNames Is Nothing Then
-                                    For Each Options In OptionNames
+                                '_fld.FieldValue.Clear()
+                                '_fld.FieldValue.Add(FieldValue)
+                                '_fld.FieldEnabled = FieldEnabled
+                                If Not ExcludeNames Is Nothing Then
+                                    For Each Options In ExcludeNames
                                         If Options = Fieldname Then
                                             bFoundOption = True
                                         End If
                                     Next
                                 End If
                                 If bFoundOption Then
-                                    _fld.FieldType = FieldType.FldOption
+                                    '_fld.FieldType = FieldType.FldOption
                                     bFoundOption = False
                                 Else
-                                    _fld.FieldType = FieldType.FldTextual
+                                    '_fld.FieldType = FieldType.FldTextual
+                                    XDPSetValue(_fld.FieldLevelLong, FieldValue, True, True)
                                 End If
                                 FoundField = True
-                                Return Nothing
-                                Exit Function
+                                Exit For
+                                'Return Nothing
+                                'Exit Function
                             Else
                                 bFoundOption = False
                                 FoundField = False
@@ -5742,24 +6797,23 @@ continue_setting_value:
                         Next
                     End If
                     If Not FoundField Then
-                        If Not OptionNames Is Nothing Then
-                            For Each Options In OptionNames
+                        If Not ExcludeNames Is Nothing Then
+                            For Each Options In ExcludeNames
                                 If Options = Fieldname Then
                                     bFoundOption = True
                                 End If
                             Next
                         End If
                         If bFoundOption Then
-                            FDFAddField(Fieldname, FieldValue, FieldType.FldOption, FieldEnabled)
+                            'XDPAddField(Fieldname, FieldValue, FieldType.FldOption, FieldEnabled, False)
                             bFoundOption = False
                         Else
-                            FDFAddField(Fieldname, FieldValue, FieldType.FldTextual, FieldEnabled)
+                            XDPAddField(Fieldname, FieldValue, FieldType.FldTextual, FieldEnabled, False)
                         End If
                     End If
                 Next
-
-                FDFData = FDFSavetoStr(FDFType.FDF, True)
-                Return FDFData
+                XDPData = FDFSavetoStr(FDFType.XDP, True)
+                Return XDPData
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return Nothing
@@ -5807,7 +6861,7 @@ continue_setting_value:
             FoundField = False
             Try
                 If Not bstrFieldName = "" Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If FoundField = True Then
                             Return xField.FieldName & ""
                             Exit Function
@@ -5856,18 +6910,18 @@ continue_setting_value:
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If CaseSensitive = True Then
                             If Not String_IsNullOrEmpty(xField.FieldName) Then
                                 If xField.FieldName & "" = FieldName Then
-                                    Return FDFCheckCharReverse(xField.FieldValue(0) & "")
+                                    Return (xField.FieldValue(0) & "")
                                     Exit Function
                                 End If
                             End If
                         Else
                             If Not String_IsNullOrEmpty(xField.FieldName) Then
                                 If LCase(xField.FieldName) & "" = LCase(FieldName) Then
-                                    Return FDFCheckCharReverse(xField.FieldValue(0) & "")
+                                    Return (xField.FieldValue(0) & "")
                                     Exit Function
                                 End If
                             End If
@@ -5896,10 +6950,10 @@ continue_setting_value:
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If Not String_IsNullOrEmpty(xField.FieldName) Then
                             If LCase(xField.FieldName) & "" = LCase(FieldName) Then
-                                Return FDFCheckCharReverse(xField.FieldValue(0) & "")
+                                Return (xField.FieldValue(0) & "")
                                 Exit Function
                             End If
                         End If
@@ -5921,18 +6975,18 @@ continue_setting_value:
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If CaseSensitive = True Then
                             If Not String_IsNullOrEmpty(xField.FieldName) Then
                                 If xField.FieldName & "" = FieldName Then
-                                    Return FDFCheckCharReverse(xField.FieldValue(0) & "")
+                                    Return (xField.FieldValue(0) & "")
                                     Exit Function
                                 End If
                             End If
                         Else
                             If Not String_IsNullOrEmpty(xField.FieldName) Then
                                 If LCase(xField.FieldName) & "" = LCase(FieldName) Then
-                                    Return FDFCheckCharReverse(xField.FieldValue(0) & "")
+                                    Return (xField.FieldValue(0) & "")
                                     Exit Function
                                 End If
                             End If
@@ -5956,8 +7010,8 @@ continue_setting_value:
         ''' <param name="xdpFormName">Live-Cycle Form Name</param>
         ''' <param name="CaseSensitive">If true, must match case</param>
         ''' <returns></returns>
-        ''' <remarks></remarks>
-        Public Function XDPGetValue(ByVal FieldName As String, ByVal xdpFormName As String, Optional ByVal CaseSensitive As Boolean = False) As String
+        ''' <remarks>edited: 5/2/2015</remarks>
+        Public Function XDPGetValue(ByVal FieldName As String, ByVal xdpFormName As String, ByVal CaseSensitive As Boolean) As String
             Dim xField As FDFField
             Dim FoundField As Boolean
             FoundField = False
@@ -6048,7 +7102,7 @@ continue_setting_value:
         ''' Gets value of Live-Cycle Form Field 
         ''' </summary>
         ''' <param name="FieldName">Field name</param>
-        ''' ''' <param name="FieldNumber">Field Number</param>
+        ''' <param name="FieldNumber">Field Number</param>
         ''' <param name="xdpFormName">Live-Cycle Form Name</param>
         ''' <param name="CaseSensitive">If true, must match case</param>
         ''' <returns></returns>
@@ -6098,6 +7152,97 @@ continue_setting_value:
             _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
             Return Nothing
         End Function
+        Public Function XDPGetValue(ByVal FieldName As String, ByVal FieldNumber As Integer, ByVal xdpFormLevel As String, ByVal subforms() As FDFDoc_Class, Optional ByVal CaseSensitive As Boolean = False) As String
+            Dim xField As FDFField
+            Dim FoundField As Boolean
+            FoundField = False
+            Try
+                If subforms Is Nothing Then
+                    Dim xdpFrms() As FDFDoc_Class = XDPForms.ToArray
+                    For Each xdpFrm As FDFDoc_Class In xdpFrms
+                        If Not xdpFrm.struc_FDFFields.Count <= 0 Then
+                            If xdpFrm.struc_FDFFields.Count >= 1 Then
+                                For Each xField In xdpFrm.struc_FDFFields
+                                    If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                        If xField.FieldType = FieldType.FldSubform Then
+                                            If xField.FieldName = FieldName And xdpFormLevel.ToString.ToLower.StartsWith(xdpFrm.FormLevel & "/" & xField.FieldName) Then
+                                                If xField.FieldNum = FieldNumber Then
+                                                    Return xField.FieldValue(0) & ""
+                                                End If
+                                            ElseIf xField.Subforms.Count > 0 Then
+                                                If Not XDPGetValue(FieldName, FieldNumber, xdpFormLevel, xField.Subforms.ToArray, CaseSensitive) Is Nothing Then
+                                                    Return XDPGetValue(FieldName, FieldNumber, xdpFormLevel, xField.Subforms.ToArray, CaseSensitive)
+                                                End If
+                                            End If
+                                        Else
+                                            If xdpFrm.FormLevel.ToString.ToLower = xdpFormLevel.ToString.ToLower Then
+                                                If CaseSensitive = True Then
+                                                    If xField.FieldName & "" = FieldName Then
+                                                        If xField.FieldNum = FieldNumber Then
+                                                            Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                                            Exit Function
+                                                        End If
+
+                                                    End If
+                                                Else
+                                                    If LCase(xField.FieldName) & "" = LCase(FieldName) Then
+                                                        If xField.FieldNum = FieldNumber Then
+                                                            Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                                            Exit Function
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                Next
+                            End If
+                        End If
+                    Next
+                Else
+                    For Each xdpFrm As FDFDoc_Class In subforms
+                        If Not xdpFrm.struc_FDFFields.Count <= 0 Then
+                            If xdpFrm.struc_FDFFields.Count >= 1 Then
+                                If xdpFrm.FormLevel.ToString.ToLower = xdpFormLevel.ToString.ToLower Then
+                                    For Each xField In xdpFrm.struc_FDFFields
+                                        If xField.FieldType = FieldType.FldSubform And xField.Subforms.Count > 0 Then
+                                            If Not XDPGetValue(FieldName, FieldNumber, xdpFormLevel, xField.Subforms.ToArray, CaseSensitive) Is Nothing Then
+                                                Return XDPGetValue(FieldName, FieldNumber, xdpFormLevel, xField.Subforms.ToArray, CaseSensitive)
+                                            End If
+                                        Else
+                                            If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                                If CaseSensitive = True Then
+                                                    If xField.FieldName & "" = FieldName Then
+                                                        If xField.FieldNum = FieldNumber Then
+                                                            Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                                            Exit Function
+                                                        End If
+
+                                                    End If
+                                                Else
+                                                    If LCase(xField.FieldName) & "" = LCase(FieldName) Then
+                                                        If xField.FieldNum = FieldNumber Then
+                                                            Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                                            Exit Function
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                    Next
+                                End If
+                            End If
+                        End If
+                    Next
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+            Return Nothing
+        End Function
         ''' <summary>
         ''' Get value of Live-Cycle form field
         ''' </summary>
@@ -6106,7 +7251,7 @@ continue_setting_value:
         ''' <param name="CaseSensitive">If true, must match case</param>
         ''' <returns>Field value</returns>
         ''' <remarks></remarks>
-        Public Function XDPGetValue(ByVal FieldName As String, ByVal xdpFormNumber As Integer, Optional ByVal CaseSensitive As Boolean = False) As String
+        Public Function XDPGetValue(ByVal FieldName As String, ByVal xdpFormNumber As Integer, ByVal CaseSensitive As Boolean) As String
             Dim xField As FDFField
             Dim FoundField As Boolean
             FoundField = False
@@ -6146,50 +7291,8 @@ continue_setting_value:
             _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
             Return Nothing
         End Function
-
-        ''' <summary>
-        ''' Gets value of Live-Cycle form field, in any Live-Cycle form
-        ''' </summary>
-        ''' <param name="FieldName">Field name</param>
-        ''' <param name="CaseSensitive">If true, must match case</param>
-        ''' <returns>Field value</returns>
-        ''' <remarks></remarks>
-        Public Function XDPGetValue(ByVal FieldName As String, ByVal CaseSensitive As Boolean) As String
-            Dim xField As FDFField
-            Dim FoundField As Boolean
-            FoundField = False
-            Dim xdpFrm As New FDFDoc_Class
-            Try
-                For Each xdpFrm In _FDF
-                    If Not xdpFrm.struc_FDFFields.Count <= 0 Then
-                        If xdpFrm.struc_FDFFields.Count >= 1 Then
-                            For Each xField In xdpFrm.struc_FDFFields
-                                If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                    If CaseSensitive = True Then
-                                        If xField.FieldName & "" = FieldName Then
-                                            Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
-                                            Exit Function
-                                        End If
-                                    Else
-                                        If LCase(xField.FieldName) & "" = LCase(FieldName) Then
-                                            Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
-                                            Exit Function
-                                        End If
-                                    End If
-                                End If
-                            Next
-                        End If
-                    End If
-                Next
-                Return Nothing
-            Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return Nothing
-                Exit Function
-            End Try
-            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
-            Return Nothing
-        End Function
+        
+        
         ''' <summary>
         ''' Gets the value of an FDF Field in a character array
         ''' </summary>
@@ -6203,7 +7306,7 @@ continue_setting_value:
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If CaseSensitive = True Then
                             If xField.FieldName & "" = FieldName Then
                                 Return xField.FieldValue(0).ToCharArray
@@ -6241,7 +7344,7 @@ continue_setting_value:
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If CaseSensitive = True Then
                             If xField.FieldName & "" = FieldName Then
                                 Return Me.StrToByteArray(xField.FieldValue(0).ToString)
@@ -6285,7 +7388,7 @@ continue_setting_value:
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
 
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If CaseSensitive = True Then
                             If xField.FieldName = FieldName Then
                                 FieldValues = xField.FieldValue.ToArray
@@ -6531,24 +7634,22 @@ continue_setting_value:
             FoundField = False
             Dim _ExportFields As New List(Of FDFField)
             Try
-                If FieldNames = "" Then
-                    Return _FDF(_CurFDFDoc).struc_FDFFields.ToArray()
+                If String.IsNullOrEmpty(FieldNames & "") Then
+                    Return FDFGetAllFields() 'Return _FDF(_CurFDFDoc).struc_FDFFields.ToArray()
                 Else
                     Dim FldNames() As String = FieldNames.Split(";")
                     Dim FldName As String
                     FieldCount = 0
                     For Each FldName In FldNames
-                        For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                        For Each xField In FDFGetAllFields()
                             Try
                                 If FldName.ToLower = xField.FieldName.ToLower Then
                                     _ExportFields.Add(xField)
                                 End If
                             Catch ex As Exception
-
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                             End Try
-
                         Next
-
                         FieldCount = FieldCount + 1
                     Next
                 End If
@@ -6556,8 +7657,9 @@ continue_setting_value:
                 Exit Function
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return _ExportFields.ToArray
-                Exit Function
+                'Return _ExportFields.ToArray
+                'Exit Function
+                Return Nothing
             End Try
         End Function
         ''' <summary>
@@ -6569,18 +7671,15 @@ continue_setting_value:
         Public Sub FDFSetOnImportJavaScript(ByVal bstrScript As String, ByVal bBefore As Boolean)
             Try
                 Dim xAction As FDFImportScript
-                Dim tmpScript As String
-                tmpScript = Me.FDFCheckCharReverse(bstrScript)
-                tmpScript = Me.FDFCheckChar(tmpScript)
-                bstrScript = tmpScript
                 'bstrScript = FDFCheckChar(bstrScript)
                 Dim xCntr As Integer = 0
                 Dim bFound As Boolean
                 If Not _FDF(_CurFDFDoc).struc_ImportScripts Is Nothing Then
+                    Dim i As Integer = 0
                     For Each xAction In _FDF(_CurFDFDoc).struc_ImportScripts
                         If xAction.Before = bBefore And xAction.ScriptCode <> "" Then
-                            xAction.Before = bBefore
-                            xAction.ScriptCode = bstrScript
+                            _FDF(_CurFDFDoc).struc_ImportScripts(i).Before = bBefore
+                            _FDF(_CurFDFDoc).struc_ImportScripts(i).ScriptCode = bstrScript
                             bFound = True
                             Exit Sub
                         Else
@@ -6590,7 +7689,6 @@ continue_setting_value:
                         xCntr += 1
                     Next
                 End If
-                'bstrScript = Me.FDFCheckChar(bstrScript)
                 If bFound = False Then
                     If Not _FDF(_CurFDFDoc).struc_ImportScripts Is Nothing Then
                         If _FDF(_CurFDFDoc).struc_ImportScripts.Count < 2 Then
@@ -6626,7 +7724,7 @@ continue_setting_value:
                 If Not _FDF(_CurFDFDoc).struc_HideActions Is Nothing Then
                     For Each xAction In _FDF(_CurFDFDoc).struc_HideActions
                         If xAction.FieldName = FieldName Then
-                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then     'And xAction.ActionType = ActionTypes.JavaScript 
+                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then
                                 xAction.FieldName = FieldName
                                 xAction.Trigger = whichTrigger
                                 xAction.Target = bstrTheTarget
@@ -6680,7 +7778,7 @@ continue_setting_value:
                 If Not _FDF(_CurFDFDoc).struc_ImportDataAction Is Nothing Then
                     For Each xAction In _FDF(_CurFDFDoc).struc_ImportDataAction
                         If xAction.FieldName = FieldName Then
-                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then     'And xAction.ActionType = ActionTypes.JavaScript 
+                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then
                                 xAction.FieldName = FieldName
                                 xAction.Trigger = whichTrigger
                                 xAction.FileName = bstrTheFile
@@ -6731,7 +7829,7 @@ continue_setting_value:
                 If Not _FDF(_CurFDFDoc).struc_NamedActions Is Nothing Then
                     For Each xAction In _FDF(_CurFDFDoc).struc_NamedActions
                         If xAction.FieldName = FieldName Then
-                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then     'And xAction.ActionType = ActionTypes.JavaScript 
+                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then
                                 xAction.FieldName = FieldName
                                 xAction.Trigger = whichTrigger
                                 xAction.Name = theName
@@ -6779,17 +7877,17 @@ continue_setting_value:
         Private Sub FDFAddJSAction(ByVal FieldName As String, ByVal whichTrigger As FDFActionTrigger, ByVal theScript As String)
             Try
                 Dim xAction As FDFActions
-                'theScript = Me.FDFCheckCharReverse(theScript)
-                'theScript = Me.FDFCheckChar(theScript)
+                'theScript = FDFCheckChar(theScript)
                 Dim xCntr As Integer, bFound As Boolean
                 If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
+                    Dim i As Integer = 0
                     For Each xAction In _FDF(_CurFDFDoc).struc_FDFActions
                         If xAction.FieldName = FieldName Then
-                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = whichTrigger) Then     'And xAction.ActionType = ActionTypes.JavaScript 
-                                xAction.FieldName = FieldName
-                                xAction.Trigger = whichTrigger
-                                xAction.JavaScript_URL = theScript
-                                xAction.ActionType = ActionTypes.JavaScript
+                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = whichTrigger) Then
+                                _FDF(_CurFDFDoc).struc_FDFActions(i).FieldName = FieldName
+                                _FDF(_CurFDFDoc).struc_FDFActions(i).Trigger = whichTrigger
+                                _FDF(_CurFDFDoc).struc_FDFActions(i).JavaScript_URL = theScript
+                                _FDF(_CurFDFDoc).struc_FDFActions(i).ActionType = ActionTypes.JavaScript
                                 Exit Sub
                                 bFound = True
                                 Exit For
@@ -6838,7 +7936,7 @@ continue_setting_value:
                 If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
                     For Each xAction In _FDF(_CurFDFDoc).struc_FDFActions
                         If xAction.FieldName = FieldName Then
-                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then     'And xAction.ActionType = ActionTypes.JavaScript 
+                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then
                                 xAction.FieldName = FieldName
                                 xAction.Trigger = whichTrigger
                                 xAction.ActionType = ActionTypes.Reset
@@ -6890,7 +7988,7 @@ continue_setting_value:
                 If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
                     For Each xAction In _FDF(_CurFDFDoc).struc_FDFActions
                         If xAction.FieldName = FieldName Then
-                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then     'And xAction.ActionType = ActionTypes.JavaScript 
+                            If (whichTrigger = FDFActionTrigger.FDFUp And xAction.Trigger = FDFActionTrigger.FDFUp) Or (Not whichTrigger = FDFActionTrigger.FDFUp) Then
                                 xAction.FieldName = FieldName
                                 xAction.Trigger = whichTrigger
                                 xAction.JavaScript_URL = URl
@@ -6940,8 +8038,7 @@ continue_setting_value:
         ''' <remarks></remarks>
         Public Sub FDFAddDocJavaScript(ByVal bstrScriptName As String, ByVal bstrScript As String)
             Try
-                bstrScript = Me.FDFCheckCharReverse(bstrScript)
-                bstrScript = Me.FDFCheckChar(bstrScript)
+                'bstrScript = FDFCheckChar(bstrScript)
                 If Not _FDF(_CurFDFDoc).struc_DocScript Is Nothing Then
                     Dim _fa As New FDFApp.FDFDoc_Class.FDFScripts
                     _fa.ScriptName = bstrScriptName
@@ -6962,21 +8059,19 @@ continue_setting_value:
         ''' </summary>
         ''' <returns>Document javascripts</returns>
         ''' <remarks></remarks>
-        Private Function GetDocJavaScripts(Optional ByVal iText As Boolean = True) As String
+        Private Function GetDocJavaScripts(Optional ByVal iText As Boolean = False) As String
             Dim strScripts As String = ""
             Dim Script As FDFScripts
             Try
                 If Not _FDF(_CurFDFDoc).struc_DocScript Is Nothing Then
                     For Each Script In _FDF(_CurFDFDoc).struc_DocScript
                         If iText = True Then
-                            strScripts = strScripts & Environment.NewLine & _FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptCode
+                            strScripts = strScripts & Environment.NewLine & (_FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptCode)
                         Else
                             If _FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptName <> "" Or Not _FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptName Is Nothing Then
-                                strScripts = strScripts & "(" & _FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptName & ") " & "(" & _FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptCode & ")"
+                                strScripts = strScripts & "(" & _FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptName & ") " & "(" & FDFCheckChar(_FDF(_CurFDFDoc).struc_DocScript(_FDF(_CurFDFDoc).struc_DocScript.Count - 1).ScriptCode) & ")"
                             End If
                         End If
-
-
                     Next
                 End If
                 Return strScripts & ""
@@ -7137,9 +8232,9 @@ continue_setting_value:
                     If xAction.FieldName = FieldName And xAction.ActionType = ActionTypes.JavaScript And xAction.Exported = False And (Trigger = xAction.Trigger Or Trigger = Nothing) Then
                         Select Case xAction.Trigger
                             Case FDFActionTrigger.FDFUp
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /JavaScript /JS (" & xAction.JavaScript_URL & ") >> "
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /JavaScript /JS (" & FDFCheckChar(xAction.JavaScript_URL) & ") >> "
                             Case Else
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /JavaScript /JS (" & xAction.JavaScript_URL & ") >> " & IIf(IncludeTrigger, ">> ", "")
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /JavaScript /JS (" & FDFCheckChar(xAction.JavaScript_URL) & ") >> " & IIf(IncludeTrigger, ">> ", "")
                         End Select
                         xAction.Exported = True
                     End If
@@ -7177,9 +8272,9 @@ continue_setting_value:
                     If (xAction.Exported And IncludeExported = True) Or (xAction.Exported = False) And (Trigger = xAction.Trigger Or Trigger = Nothing) Then
                         Select Case xAction.Trigger
                             Case FDFActionTrigger.FDFUp
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /ImportData /F (" & xAction.FileName & ") >> "
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /ImportData /F (" & FDFCheckChar(xAction.FileName) & ") >> "
                             Case Else
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /ImportData /F (" & xAction.FileName & ") >> " & IIf(IncludeTrigger, ">> ", "")
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /ImportData /F (" & FDFCheckChar(xAction.FileName) & ") >> " & IIf(IncludeTrigger, ">> ", "")
                         End Select
                         xAction.Exported = True
                     End If
@@ -7197,9 +8292,9 @@ continue_setting_value:
                 For Each xAction In _FDF(_CurFDFDoc).struc_ImportScripts
                     If xAction.Before = Before And xAction.ScriptCode & "" <> "" Then
                         If iText = True Then
-                            returnAction = returnAction & Environment.NewLine & xAction.ScriptCode
+                            returnAction = returnAction & Environment.NewLine & (xAction.ScriptCode)
                         Else
-                            returnAction = returnAction & IIf(xAction.Before = True, "/Before", "/After") & "(" & xAction.ScriptCode & ") "
+                            returnAction = returnAction & IIf(xAction.Before = True, "/Before", "/After") & "(" & FDFCheckChar(xAction.ScriptCode) & ") "
                         End If
                     End If
                     xCntr += 1
@@ -7215,9 +8310,9 @@ continue_setting_value:
                 For Each xAction In _FDF(_CurFDFDoc).struc_ImportScripts
                     If xAction.ScriptCode & "" <> "" Then
                         If iText = True Then
-                            returnAction = returnAction & Environment.NewLine & xAction.ScriptCode
+                            returnAction = returnAction & Environment.NewLine & (xAction.ScriptCode)
                         Else
-                            returnAction = returnAction & " /" & IIf(xAction.Before = True, "Before", "After") & "(" & xAction.ScriptCode & ") "
+                            returnAction = returnAction & " /" & IIf(xAction.Before = True, "Before", "After") & "(" & FDFCheckChar(xAction.ScriptCode) & ") "
                             xCntr += 1
                         End If
                     End If
@@ -7241,9 +8336,9 @@ continue_setting_value:
                     If xAction.FieldName = FieldName And xAction.ActionType = ActionTypes.Submit And xAction.Exported = False And (Trigger = xAction.Trigger Or Trigger = Nothing) Then
                         Select Case xAction.Trigger
                             Case FDFActionTrigger.FDFUp
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /SubmitForm /F (" & xAction.JavaScript_URL & ") >> "
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /SubmitForm /F (" & FDFCheckChar(xAction.JavaScript_URL) & ") >> "
                             Case Else
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /SubmitForm /F (" & xAction.JavaScript_URL & ") >> " & IIf(IncludeTrigger, ">> ", "")
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /SubmitForm /F (" & FDFCheckChar(xAction.JavaScript_URL) & ") >> " & IIf(IncludeTrigger, ">> ", "")
                         End Select
                         xAction.Exported = True
                     End If
@@ -7363,9 +8458,9 @@ continue_setting_value:
                     If xAction.FieldName = FieldName And xAction.ActionType = ActionTypes.URL And xAction.Exported = False And (Trigger = xAction.Trigger Or Trigger = Nothing) Then
                         Select Case xAction.Trigger
                             Case FDFActionTrigger.FDFUp
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /URI /URI (" & xAction.JavaScript_URL & ") >> "
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA"), "") & " << /S /URI /URI (" & FDFCheckChar(xAction.JavaScript_URL) & ") >> "
                             Case Else
-                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /URI /URI (" & xAction.JavaScript_URL & ") >> " & IIf(IncludeTrigger, ">> ", "")
+                                returnAction = returnAction & IIf(IncludeTrigger, " /" & IIf(xAction.Trigger = FDFActionTrigger.FDFUp, "A", "AA") & " << /" & ReturnTriggerString(xAction.Trigger), "") & " << /S /URI /URI (" & FDFCheckChar(xAction.JavaScript_URL) & ") >> " & IIf(IncludeTrigger, ">> ", "")
                         End Select
                         xAction.Exported = True
                     End If
@@ -7462,7 +8557,7 @@ continue_setting_value:
         End Function
         Private Function FDFGetAllActionsForField(Optional ByVal FieldName As String = "", Optional ByVal IncludeTrigger As Boolean = True, Optional ByVal Trigger As FDFActionTrigger = Nothing, Optional ByVal IncludeFieldName As Boolean = False) As String
             Dim returnAction As String = ""
-            Dim xAction1 As FDFActions, xTrigger As FDFActionTrigger, xTriggers(9) As FDFActionTrigger
+            Dim xTrigger As FDFActionTrigger, xTriggers(9) As FDFActionTrigger 'xAction1 As FDFActions, 
             Dim xAction2 As FDFHideAction
             Dim xAction3 As FDFImportDataAction
             Dim xAction5 As FDFNamedAction
@@ -7494,79 +8589,91 @@ continue_setting_value:
             xCntr = 0
             Dim ClosingBracket As Boolean
             Dim strActionString As String = ""
-            Dim strActionStringClose As String = " >> "
+            Dim strActionStringClose As String = " " '" >> "
             If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
                 'returnAction = returnAction & IIf(IncludeFieldName, "<< /T (" & xAction1.FieldName & ") ", "") & IIf(xAction1.Trigger = FDFActionTrigger.FDFUp, "/A", "/AA") & "<< "
                 'strActionString = IIf(xAction1.Trigger = FDFActionTrigger.FDFUp, "/A", "/AA") & "<< "
             End If
             Dim keyUpTrigger As String = "", predicateTrigger As String = ""
             For Each xTrigger In xTriggers
-                If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
-                    'Dim xAction As FDFActions
-                    For Each xAction1 In _FDF(_CurFDFDoc).struc_FDFActions
-                        If (xAction1.Exported = False And FieldName = xAction1.FieldName) Then
-                            If xAction1.Trigger = xTrigger Then
-                                If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
-                                    If String_IsNullOrEmpty(strActionString) Then
-                                        strActionString = IIf(IncludeFieldName, "<< /T (" & xAction1.FieldName & ") ", "")
-                                        Select Case xAction1.Trigger
-                                            Case FDFActionTrigger.FDFUp
-                                                predicateTrigger = "/A"
-                                                returnAction = returnAction & predicateTrigger & " << "
-                                                returnAction = returnAction & " /" & IIf(xAction1.Trigger = FDFActionTrigger.FDFUp, "S", ReturnTriggerString(xAction1.Trigger)) & " /JavaScript /JS (" & xAction1.JavaScript_URL & ") "
-                                                returnAction = returnAction & " >> "
-                                                
-                                                If IncludeTrigger Then ClosingBracket = True
-                                                xAction1.Exported = True
-                                            Case Else
-                                                predicateTrigger = "/AA "
-                                                If returnAction.Contains(predicateTrigger) Then
-                                                    returnAction = returnAction & " /" & ReturnTriggerString(xAction1.Trigger) & " << /S /JavaScript /JS (" & xAction1.JavaScript_URL & ") >> "
-                                                Else
-                                                    returnAction = returnAction & predicateTrigger & " << "
-                                                    returnAction = returnAction & "/" & IIf(xAction1.Trigger = FDFActionTrigger.FDFUp, "S", ReturnTriggerString(xAction1.Trigger)) & " << /S /JavaScript /JS (" & xAction1.JavaScript_URL & ") >> "
-                                                End If
-                                                xAction1.Exported = True
-                                                If IncludeTrigger Then ClosingBracket = True
-                                        End Select
+                returnAction = returnAction & FDFGetJSAction(FieldName, xTrigger) & FDFGetSubmitAction(FieldName, xTrigger) & FDFGetResetAction(FieldName, xTrigger) & FDFGetURlAction(FieldName, xTrigger) & Me.FDFGetNamedAction(FieldName, xTrigger) & Me.FDFGetHideAction(FieldName, xTrigger)
 
-                                        If Not _FDF(_CurFDFDoc).struc_HideActions.Count <= 0 Then
-                                            For Each xAction2 In _FDF(_CurFDFDoc).struc_HideActions
-                                                If (xAction2.Exported = False And FieldName = xAction2.FieldName) Then
-                                                    If xAction2.Trigger = xTrigger Then
-                                                        returnAction = returnAction & IIf(FDFHasHideActions(xAction2.FieldName), Me.FDFGetHideAction(xAction2.FieldName, xTrigger), "") & " "
-                                                        If Not _FDF(_CurFDFDoc).struc_ImportDataAction Is Nothing Then
-                                                            For Each xAction3 In _FDF(_CurFDFDoc).struc_ImportDataAction
-                                                                If (xAction3.Exported = False) And (FieldName = xAction3.FieldName) Then
-                                                                    If xAction3.Trigger = xTrigger Then
-                                                                        returnAction = returnAction & IIf(Me.FDFHasImportDataActions(xAction3.FieldName), Me.FDFGetImportDataAction(xAction3.FieldName, xTrigger), "") & " "
-                                                                    End If
-                                                                End If
-                                                            Next
-                                                        End If
-                                                        If Not _FDF(_CurFDFDoc).struc_NamedActions Is Nothing Then
-                                                            For Each xAction5 In _FDF(_CurFDFDoc).struc_NamedActions
-                                                                If (xAction5.Exported = False) And (FieldName = xAction5.FieldName) Then
-                                                                    If xAction5.Trigger = xTrigger Then
-                                                                        returnAction = returnAction & IIf(Me.FDFHasNamedActions(xAction5.FieldName), Me.FDFGetNamedAction(xAction5.FieldName, xTrigger), "") & " "
-                                                                    End If
-                                                                End If
-                                                            Next
-                                                        End If
-                                                    End If
+                'For Each xTrigger In xTriggers
+                '    If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
+                '        'Dim xAction As FDFActions
+                '        For Each xAction1 In _FDF(_CurFDFDoc).struc_FDFActions
+                '            If (xAction1.Exported = False And FieldName = xAction1.FieldName) Then
+                '                If xAction1.Trigger = xTrigger Then
+                '                    If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 Then
+                '                        If String_IsNullOrEmpty(strActionString) Then
+                '                            strActionString = IIf(IncludeFieldName, "<< /T (" & xAction1.FieldName & ") ", "")
+                '                            Try
+                '                                If xAction1.ActionType = ActionTypes.Submit Then
+                '                                    returnAction = FDFGetSubmitAction(xAction1.FieldName, xTrigger, True)
+                '                                    strActionStringClose = ""
+                '                                Else
+                '                                    Select Case xAction1.Trigger
+                '                                        Case FDFActionTrigger.FDFUp
+                '                                            predicateTrigger = "/A"
+                '                                            returnAction = returnAction & predicateTrigger & " << "
+                '                                            returnAction = returnAction & " /" & IIf(xAction1.Trigger = FDFActionTrigger.FDFUp, "S", ReturnTriggerString(xAction1.Trigger)) & " /JavaScript /JS (" & FDFCheckChar(xAction1.JavaScript_URL) & ") "
+                '                                            returnAction = returnAction & " >> "
+                '                                            If IncludeTrigger Then ClosingBracket = True
+                '                                            xAction1.Exported = True
+                '                                        Case Else
+                '                                            predicateTrigger = "/AA "
+                '                                            If returnAction.Contains(predicateTrigger) Then
+                '                                                returnAction = returnAction & " /" & ReturnTriggerString(xAction1.Trigger) & " << /S /JavaScript /JS (" & FDFCheckChar(xAction1.JavaScript_URL) & ") >> "
+                '                                            Else
+                '                                                returnAction = returnAction & predicateTrigger & " << "
+                '                                                returnAction = returnAction & "/" & IIf(xAction1.Trigger = FDFActionTrigger.FDFUp, "S", ReturnTriggerString(xAction1.Trigger)) & " << /S /JavaScript /JS (" & FDFCheckChar(xAction1.JavaScript_URL) & ") >> "
+                '                                                returnAction = returnAction & " >> "
+                '                                            End If
+                '                                            xAction1.Exported = True
+                '                                            If IncludeTrigger Then ClosingBracket = True
+                '                                    End Select
 
-                                                End If
-                                            Next
-                                        End If
-                                    End If
-                                End If
-                            End If
-                        End If
-                        xCntr += 1
-                    Next
+                '                                End If
+                '                            Catch ex As Exception
+                '                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                '                            End Try
+                '                            If Not _FDF(_CurFDFDoc).struc_HideActions.Count <= 0 Then
+                '                                For Each xAction2 In _FDF(_CurFDFDoc).struc_HideActions
+                '                                    If (xAction2.Exported = False And FieldName = xAction2.FieldName) Then
+                '                                        If xAction2.Trigger = xTrigger Then
+                '                                            returnAction = returnAction & IIf(FDFHasHideActions(xAction2.FieldName), Me.FDFGetHideAction(xAction2.FieldName, xTrigger), "") & " "
+                '                                            If Not _FDF(_CurFDFDoc).struc_ImportDataAction Is Nothing Then
+                '                                                For Each xAction3 In _FDF(_CurFDFDoc).struc_ImportDataAction
+                '                                                    If (xAction3.Exported = False) And (FieldName = xAction3.FieldName) Then
+                '                                                        If xAction3.Trigger = xTrigger Then
+                '                                                            returnAction = returnAction & IIf(Me.FDFHasImportDataActions(xAction3.FieldName), Me.FDFGetImportDataAction(xAction3.FieldName, xTrigger), "") & " "
+                '                                                        End If
+                '                                                    End If
+                '                                                Next
+                '                                            End If
+                '                                            If Not _FDF(_CurFDFDoc).struc_NamedActions Is Nothing Then
+                '                                                For Each xAction5 In _FDF(_CurFDFDoc).struc_NamedActions
+                '                                                    If (xAction5.Exported = False) And (FieldName = xAction5.FieldName) Then
+                '                                                        If xAction5.Trigger = xTrigger Then
+                '                                                            returnAction = returnAction & IIf(Me.FDFHasNamedActions(xAction5.FieldName), Me.FDFGetNamedAction(xAction5.FieldName, xTrigger), "") & " "
+                '                                                        End If
+                '                                                    End If
+                '                                                Next
+                '                                            End If
+                '                                        End If
 
-                    xCntr = 0
-                End If
+                '                                    End If
+                '                                Next
+                '                            End If
+                '                        End If
+                '                    End If
+                '                End If
+                '            End If
+                '            xCntr += 1
+                '        Next
+
+                '        xCntr = 0
+                '    End If
 
                 If Not _FDF(_CurFDFDoc).struc_HideActions.Count <= 0 Then
                     For Each xAction2 In _FDF(_CurFDFDoc).struc_HideActions
@@ -7813,7 +8920,7 @@ continue_setting_value:
                         _FDF(_CurFDFDoc).struc_FDFActions.Add(_fa)
                     End If
                 End If
-                Array.Sort(_FDF(_CurFDFDoc).struc_FDFActions.ToArray)
+                'Array.Sort(_FDF(_CurFDFDoc).struc_FDFActions.ToArray)
             Catch ex As Exception
 
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
@@ -7845,19 +8952,20 @@ continue_setting_value:
                     Dim _fld As New FDFField()
                     _fld.FieldName = FieldName
                     _fld.FieldType = FieldType
-                    _fld.DisplayValue.Add(FieldValue)
-                    _fld.DisplayName.Add(DisplayName)
+                    _fld.DisplayValue.Add((FieldValue))
+                    _fld.DisplayName.Add((DisplayName))
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 ElseIf Not FieldName = "" Then
                     Dim _fld As New FDFField()
                     _fld.FieldName = FieldName
                     _fld.FieldType = FieldType
-                    _fld.DisplayValue.Add(FieldValue)
-                    _fld.DisplayName.Add(DisplayName)
+                    _fld.DisplayValue.Add((FieldValue))
+                    _fld.DisplayName.Add((DisplayName))
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 End If
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -7881,19 +8989,20 @@ continue_setting_value:
                     Dim _fld As New FDFField()
                     _fld.FieldName = FieldName
                     _fld.FieldType = FieldType
-                    _fld.DisplayValue.AddRange(FieldValue)
-                    _fld.DisplayName.AddRange(DisplayName)
+                    _fld.DisplayValue.AddRange((FieldValue))
+                    _fld.DisplayName.AddRange((DisplayName))
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 ElseIf Not FieldName = "" Then
                     Dim _fld As New FDFField()
                     _fld.FieldName = FieldName
                     _fld.FieldType = FieldType
-                    _fld.DisplayValue.AddRange(FieldValue)
-                    _fld.DisplayName.AddRange(DisplayName)
+                    _fld.DisplayValue.AddRange((FieldValue))
+                    _fld.DisplayName.AddRange((DisplayName))
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 End If
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -7918,7 +9027,7 @@ continue_setting_value:
                                     If Not String_IsNullOrEmpty(xField.FieldName) Then
                                         If FieldName = xField.FieldName Then
                                             xField.FieldValue.Clear()
-                                            xField.FieldValue.Add(FieldValue)
+                                            xField.FieldValue.Add((FieldValue))
                                             xField.FieldEnabled = FieldEnabled
                                             xField.FieldType = FieldType
                                             blnFound = True
@@ -7947,7 +9056,7 @@ continue_setting_value:
                                     xField.FieldValue.Add(MultiVal)
                                     xField.FieldEnabled = FieldEnabled
                                 Else
-                                    xField.FieldValue.Add(FieldValue)
+                                    xField.FieldValue.Add((FieldValue))
                                     xField.FieldEnabled = FieldEnabled
                                 End If
                             Case FieldType.FldOption
@@ -7964,12 +9073,13 @@ continue_setting_value:
                     Dim xField As New FDFField
                     xField.FieldName = FieldName
                     xField.FieldType = FieldType
-                    xField.FieldValue.Add(FieldValue)
+                    xField.FieldValue.Add((FieldValue))
                     xField.FieldEnabled = FieldEnabled
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(xField)
                 End If
                 Dim x As Integer
                 x = 0
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -8035,6 +9145,7 @@ continue_setting_value:
         ''' <remarks></remarks>
         Public Sub FDFAddField(ByVal FieldName As String, ByVal FieldValue() As String, Optional ByVal FieldType As FieldType = FieldType.FldTextual, Optional ByVal FieldEnabled As Boolean = True, Optional ByVal ReplaceField As Boolean = True)
             Try
+
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
                     Dim blnFound As Boolean = False
                     If ReplaceField = True Then
@@ -8044,7 +9155,7 @@ continue_setting_value:
                                     If Not String_IsNullOrEmpty(xField.FieldName) Then
                                         If FieldName = xField.FieldName Then
                                             xField.FieldValue.Clear()
-                                            xField.FieldValue.AddRange(FieldValue)
+                                            xField.FieldValue.AddRange((FieldValue))
                                             xField.FieldEnabled = FieldEnabled
                                             xField.FieldType = FieldType
                                             blnFound = True
@@ -8065,17 +9176,17 @@ continue_setting_value:
                         Select Case FieldType
                             Case FieldType.FldMultiSelect
                                 If FieldValue.Length > 1 Then
-                                    _fld.FieldValue.AddRange(FieldValue)
+                                    _fld.FieldValue.AddRange((FieldValue))
                                 ElseIf FieldValue.Length = 1 Then
-                                    _fld.FieldValue.AddRange(FieldValue)
+                                    _fld.FieldValue.AddRange((FieldValue))
                                 End If
                             Case FieldType.FldOption
                                 If FieldValue.Length = 1 Then
-                                    _fld.FieldValue.AddRange(FieldValue)
+                                    _fld.FieldValue.AddRange((FieldValue))
                                 End If
                             Case FieldType.FldTextual
                                 If FieldValue.Length = 1 Then
-                                    _fld.FieldValue.AddRange(FieldValue)
+                                    _fld.FieldValue.AddRange((FieldValue))
                                 End If
                         End Select
                         _fld.FieldEnabled = FieldEnabled
@@ -8088,14 +9199,15 @@ continue_setting_value:
                     _fld.FieldType = FieldType
                     _fld.FieldEnabled = FieldEnabled
                     If FieldValue.Length > 1 Then
-                        _fld.FieldValue.AddRange(FieldValue)
+                        _fld.FieldValue.AddRange((FieldValue))
                     ElseIf FieldValue.Length = 1 Then
-                        _fld.FieldValue.AddRange(FieldValue)
+                        _fld.FieldValue.AddRange((FieldValue))
                     End If
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                 End If
 
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -8143,10 +9255,13 @@ continue_setting_value:
         ''' <returns></returns>
         ''' <remarks></remarks>
         Public Function GetChanges(Optional ByVal intObjNum As Integer = -1) As String
+            If Me._FDFObjects Is Nothing Then Return ""
+            If _FDFObjects.Count <= 0 Then Return ""
             Dim xOutput As String = "", xFDFObjects As FDFObjects, xObjNum As Integer = 0
             xObjNum = 0
             Try
                 If intObjNum = -1 Then
+
                     If Me.FDFObjectCount > 0 Then
                         For Each xFDFObjects In Me._FDFObjects
                             If xFDFObjects.objNum.ToLower <> "1 0 obj" Then
@@ -8159,6 +9274,8 @@ continue_setting_value:
                     FDFAppendSaves = xOutput
                     Return xOutput & ""
                 Else
+                    If Me._FDFObjects Is Nothing Then Return ""
+                    If _FDFObjects.Count <= 0 Then Return ""
                     If Me.FDFObjectCount >= intObjNum Then
                         xFDFObjects = Me._FDFObjects(intObjNum - 1)
                         xOutput = xOutput & vbNewLine & xFDFObjects.objNum
@@ -8167,11 +9284,19 @@ continue_setting_value:
                     Return xOutput & ""
                 End If
             Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return Nothing
+                '_FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Err.Clear()
+                Return ""
+
                 Exit Function
             End Try
         End Function
+        ''' <summary>
+        ''' Default Encoding
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Public Property DefaultEncoding() As Encoding
             Get
                 Return _defaultEncoding
@@ -8342,7 +9467,7 @@ continue_setting_value:
                 End Select
                 Return retString
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
         End Function
@@ -8368,365 +9493,189 @@ continue_setting_value:
                 End Select
                 Return retString
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
         End Function
 
-        Private Function WriteFields(ByVal xType As FDFType) As String
+        Private Function WriteFields(ByVal xType As FDFType, Optional ByRef _FDFTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class) = Nothing) As String
             Dim retString As String = "", xFDFField As FDFField
             Dim FldValue As String = ""
             Try
                 Select Case xType
                     Case FDFType.FDF
-                        'If Not _FDF(_CurFDFDoc).struc_FDFActions.Count <= 0 And Not FDFFields Is Nothing And Not _FDF(_CurFDFDoc).struc_NamedActions Is Nothing And Not _FDF(_CurFDFDoc).struc_ImportDataAction Is Nothing And Not _FDF(_CurFDFDoc).struc_HideActions Is Nothing Then
+                        'If Not _FDFTmp(_CurFDFDoc).struc_FDFActions.Count <= 0 And Not FDFFields Is Nothing And Not _FDFTmp(_CurFDFDoc).struc_NamedActions Is Nothing And Not _FDFTmp(_CurFDFDoc).struc_ImportDataAction Is Nothing And Not _FDFTmp(_CurFDFDoc).struc_HideActions Is Nothing Then
                         '	retString = " /Fields ["
                         'Else
                         '	retString = " /Fields ["
                         '                  End If
-                        retString = " /Fields ["
-                        Me.ResetActions()
-                        If Not _FDF.Count <= 0 Then
+                        If _FDFTmp Is Nothing Then
+                            _FDFTmp = _FDF
+                            retString = " /Fields ["
+                            Me.ResetActions()
+                        End If
+                        If Not _FDFTmp.Count <= 0 Then
                             Dim FormIndex As Integer = -1
-                            For Each XDPDoc1 As FDFDoc_Class In _FDF
-                                FormIndex += 1
-                                If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                                    If XDPDoc1.struc_FDFFields.Count > 0 Then 'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                        If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                                            For Each xFDFField In XDPDoc1.struc_FDFFields
-                                                If xFDFField.FieldEnabled Then
-                                                    If xFDFField.FieldType = FieldType.FldOption And Not xFDFField.FieldValue.Count <= 0 Then
-                                                        Dim valCntr As Integer
-                                                        Dim Values, DisplayNames As String
-                                                        FldValue = ""
-                                                        If xFDFField.DisplayValue.Count <= 0 And xFDFField.DisplayName.Count <= 0 Then
-                                                            FldValue = xFDFField.FieldValue(0) & ""
-                                                            If Not FldValue.IndexOf("\(") >= 0 Then
-                                                                FldValue = FldValue.Replace("(", "\(")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\)") >= 0 Then
-                                                                FldValue = FldValue.Replace(")", "\)")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\'") >= 0 Then
-                                                                FldValue = FldValue.Replace("'", "\'")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\’") >= 0 Then
-                                                                FldValue = FldValue.Replace("’", "\'")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\" & Chr(13)) > 0 Then
-                                                                FldValue = FldValue.Replace("\" & Chr(13), "")  ' \r\n
-                                                            End If
-                                                            If Not FldValue.IndexOf("\r") > 0 Then
-                                                                FldValue = FldValue.Replace(vbNewLine, "\r")            ' \r\n
-                                                            End If
-                                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /V (" & FldValue & ") " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                        Else
-                                                            For valCntr = 0 To xFDFField.DisplayValue.Count - 1
-                                                                Values = xFDFField.DisplayValue(valCntr) & ""
-                                                                If Not Values.IndexOf("\(") >= 0 Then
-                                                                    Values = Values.Replace("(", "\(")
-                                                                End If
-                                                                If Not Values.IndexOf("\)") >= 0 Then
-                                                                    Values = Values.Replace(")", "\)")
-                                                                End If
-                                                                '’
-                                                                If Not Values.IndexOf("\'") >= 0 Then
-                                                                    Values = Values.Replace("'", "\'")
-                                                                End If
-                                                                If Not Values.IndexOf("\’") >= 0 Then
-                                                                    Values = Values.Replace("’", "\'")
-                                                                End If
-                                                                If Values.IndexOf(Chr(13)) > 0 Then
-                                                                    Values = Values.Replace(Chr(13), "\r")    ' \r\n
-                                                                End If
-                                                                If Values.IndexOf(vbNewLine) > 0 Then
-                                                                    Values = Values.Replace(vbNewLine, "\r")           ' \r\n
-                                                                End If
-                                                                If Values.IndexOf(Environment.NewLine) > 0 Then
-                                                                    Values = Values.Replace(Environment.NewLine, "\r")             ' \r\n
-                                                                End If
-
-                                                                DisplayNames = xFDFField.DisplayName(valCntr) & ""
-                                                                If Not DisplayNames.IndexOf("\(") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("(", "\(")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\)") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace(")", "\)")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\'") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("'", "\'")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\’") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("’", "\'")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\" & Chr(13)) > 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("\" & Chr(13), "")      ' \r\n
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\r") > 0 Then
-                                                                    DisplayNames = DisplayNames.Replace(vbNewLine, "\r")  ' \r\n
-                                                                End If
-
-                                                                FldValue &= " [(" & Values & ")(" & DisplayNames & ")] "
-                                                            Next
-                                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /Opt [" & FldValue & "] " & IIf(xFDFField.FieldValue.Count > 0, " /V (" & xFDFField.FieldValue(0) & ") ", " ") & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                        End If
-                                                    ElseIf xFDFField.FieldType = FieldType.FldOption And xFDFField.FieldValue.Count <= 0 Then
-                                                        Dim valCntr As Integer
-                                                        Dim Values, DisplayNames As String
-                                                        FldValue = ""
-                                                        If Not xFDFField.DisplayValue.Count <= 0 And Not xFDFField.DisplayName.Count <= 0 Then
-                                                            For valCntr = 0 To xFDFField.DisplayValue.Count - 1
-                                                                Values = xFDFField.DisplayValue(valCntr) & ""
-                                                                If Not Values.IndexOf("\(") >= 0 Then
-                                                                    Values = Values.Replace("(", "\(")
-                                                                End If
-                                                                If Not Values.IndexOf("\)") >= 0 Then
-                                                                    Values = Values.Replace(")", "\)")
-                                                                End If
-                                                                '’
-                                                                If Not Values.IndexOf("\'") >= 0 Then
-                                                                    Values = Values.Replace("'", "\'")
-                                                                End If
-                                                                If Not Values.IndexOf("\’") >= 0 Then
-                                                                    Values = Values.Replace("’", "\'")
-                                                                End If
-                                                                If Values.IndexOf(Chr(13)) > 0 Then
-                                                                    Values = Values.Replace(Chr(13), "\r")    ' \r\n
-                                                                End If
-                                                                If Values.IndexOf(vbNewLine) > 0 Then
-                                                                    Values = Values.Replace(vbNewLine, "\r")           ' \r\n
-                                                                End If
-                                                                If Values.IndexOf(Environment.NewLine) > 0 Then
-                                                                    Values = Values.Replace(Environment.NewLine, "\r")             ' \r\n
-                                                                End If
-
-                                                                DisplayNames = xFDFField.DisplayName(valCntr) & ""
-                                                                If Not DisplayNames.IndexOf("\(") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("(", "\(")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\)") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace(")", "\)")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\'") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("'", "\'")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\’") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("’", "\'")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\" & Chr(13)) > 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("\" & Chr(13), "")      ' \r\n
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\r") > 0 Then
-                                                                    DisplayNames = DisplayNames.Replace(vbNewLine, "\r")  ' \r\n
-                                                                End If
-                                                                FldValue &= " [(" & Values & ")(" & DisplayNames & ")] "
-                                                            Next
-                                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /Opt [" & FldValue & "] " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                        End If
-                                                    ElseIf xFDFField.FieldType = FieldType.FldMultiSelect And Not xFDFField.FieldValue.Count <= 0 Then
-                                                        Dim valCntr As Integer
-                                                        Dim Values, DisplayNames As String
-                                                        FldValue = ""
-                                                        If xFDFField.DisplayValue.Count <= 0 And xFDFField.DisplayName.Count <= 0 Then
-                                                            FldValue = xFDFField.FieldValue(0) & ""
-                                                            If Not FldValue.IndexOf("\(") >= 0 Then
-                                                                FldValue = FldValue.Replace("(", "\(")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\)") >= 0 Then
-                                                                FldValue = FldValue.Replace(")", "\)")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\'") >= 0 Then
-                                                                FldValue = FldValue.Replace("'", "\'")
-                                                            End If
-                                                            If Not FldValue.IndexOf("\’") >= 0 Then
-                                                                FldValue = FldValue.Replace("’", "\'")
-                                                            End If
-                                                            If FldValue.IndexOf(Chr(13)) > 0 Then
-                                                                FldValue = FldValue.Replace(Chr(13), "\r")  ' \r\n
-                                                            End If
-                                                            If FldValue.IndexOf(vbNewLine) > 0 Then
-                                                                FldValue = FldValue.Replace(vbNewLine, "\r")            ' \r\n
-                                                            End If
-                                                            If FldValue.IndexOf(Environment.NewLine) > 0 Then
-                                                                FldValue = FldValue.Replace(Environment.NewLine, "\r")          ' \r\n
-                                                            End If
-                                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /V ["
-                                                            If xFDFField.FieldValue.Count > 0 Then
-                                                                For Each FldValue In xFDFField.FieldValue
-                                                                    retString = retString & "(" & FldValue & ")"
-                                                                Next
-                                                            End If
-                                                            retString = retString & "] " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                        Else
-                                                            For valCntr = 0 To xFDFField.DisplayValue.Count - 1
-                                                                Values = xFDFField.DisplayValue(valCntr) & ""
-                                                                If Not Values.IndexOf("\(") >= 0 Then
-                                                                    Values = Values.Replace("(", "\(")
-                                                                End If
-                                                                If Not Values.IndexOf("\)") >= 0 Then
-                                                                    Values = Values.Replace(")", "\)")
-                                                                End If
-                                                                '’
-                                                                If Not Values.IndexOf("\'") >= 0 Then
-                                                                    Values = Values.Replace("'", "\'")
-                                                                End If
-                                                                If Not Values.IndexOf("\’") >= 0 Then
-                                                                    Values = Values.Replace("’", "\'")
-                                                                End If
-                                                                If Values.IndexOf(Chr(13)) > 0 Then
-                                                                    Values = Values.Replace(Chr(13), "\r")    ' \r\n
-                                                                End If
-                                                                If Values.IndexOf(vbNewLine) > 0 Then
-                                                                    Values = Values.Replace(vbNewLine, "\r")           ' \r\n
-                                                                End If
-                                                                If Values.IndexOf(Environment.NewLine) > 0 Then
-                                                                    Values = Values.Replace(Environment.NewLine, "\r")             ' \r\n
-                                                                End If
-
-                                                                DisplayNames = xFDFField.DisplayName(valCntr) & ""
-                                                                If Not DisplayNames.IndexOf("\(") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("(", "\(")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\)") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace(")", "\)")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\'") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("'", "\'")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\’") >= 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("’", "\'")
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\" & Chr(13)) > 0 Then
-                                                                    DisplayNames = DisplayNames.Replace("\" & Chr(13), "")      ' \r\n
-                                                                End If
-                                                                If Not DisplayNames.IndexOf("\r") > 0 Then
-                                                                    DisplayNames = DisplayNames.Replace(vbNewLine, "\r")  ' \r\n
-                                                                End If
-                                                                FldValue &= " [(" & Values & ")(" & DisplayNames & ")] "
-                                                            Next
-                                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /Opt [" & FldValue & "] /V ["
-                                                            If xFDFField.FieldValue.Count > 0 Then
-                                                                For Each FldValue In xFDFField.FieldValue
-                                                                    retString = retString & "(" & FldValue & ")"
-                                                                Next
-                                                            End If
-                                                            retString = retString & "] " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                        End If
-                                                    ElseIf xFDFField.FieldType = FieldType.FldTextual And Not xFDFField.FieldValue.Count <= 0 Then
-                                                        FldValue = xFDFField.FieldValue(0)
-                                                        If Not FldValue.IndexOf("\(") >= 0 Then
-                                                            FldValue = FldValue.Replace("(", "\(")
-                                                        End If
-                                                        If Not FldValue.IndexOf("\)") >= 0 Then
-                                                            FldValue = FldValue.Replace(")", "\)")
-                                                        End If
-                                                        If Not FldValue.IndexOf("\'") >= 0 Then
-                                                            FldValue = FldValue.Replace("'", "\'")
-                                                        End If
-                                                        If Not FldValue.IndexOf("\’") >= 0 Then
-                                                            FldValue = FldValue.Replace("’", "\'")
-                                                        End If
-                                                        If FldValue.IndexOf(Chr(13)) > 0 Then
-                                                            FldValue = FldValue.Replace(Chr(13), "\r")    ' \r\n
-                                                        End If
-                                                        If FldValue.IndexOf(vbNewLine) > 0 Then
-                                                            FldValue = FldValue.Replace(vbNewLine, "\r")        ' \r\n
-                                                        End If
-                                                        If FldValue.IndexOf(Environment.NewLine) > 0 Then
-                                                            FldValue = FldValue.Replace(Environment.NewLine, "\r")      ' \r\n
-                                                        End If
-                                                        retString = retString & "<< /T (" & xFDFField.FieldName & ") /V (" & FldValue & ") " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                    ElseIf xFDFField.FieldType = FieldType.FldButton Then
-                                                        retString = retString & "<< /T (" & xFDFField.FieldName & ") " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
-                                                    End If
-                                                End If
+                            'For Each XDPDoc1 As FDFDoc_Class In _FDFTmp
+                            FormIndex += 1
+                            'If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+                            '    If XDPDoc1.struc_FDFFields.Count > 0 Then 'XDPDoc1.DocType = FDFDocType.XDPForm And
+                            '        If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+                            For Each xFDFField In FDFGetAllFields()
+                                If xFDFField.FieldEnabled Or xFDFField.FieldType = FieldType.FldSubform Then
+                                    If xFDFField.FieldType = FieldType.FldOption And Not xFDFField.FieldValue.Count <= 0 Then
+                                        Dim valCntr As Integer
+                                        Dim Values, DisplayNames As String
+                                        FldValue = ""
+                                        If xFDFField.DisplayValue.Count <= 0 And xFDFField.DisplayName.Count <= 0 Then
+                                            FldValue = xFDFField.FieldValue(0) & ""
+                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /V (" & FDFCheckChar(FldValue) & ") " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
+                                        Else
+                                            For valCntr = 0 To xFDFField.DisplayValue.Count - 1
+                                                Values = xFDFField.DisplayValue(valCntr) & ""
+                                                DisplayNames = xFDFField.DisplayName(valCntr) & ""
+                                                FldValue &= " [(" & FDFCheckChar(Values) & ")(" & FDFCheckChar(DisplayNames) & ")] "
                                             Next
+                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /Opt [" & (FldValue) & "] " & IIf(xFDFField.FieldValue.Count > 0, " /V (" & FDFCheckChar(xFDFField.FieldValue(0)) & ") ", " ") & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
                                         End If
-
+                                    ElseIf xFDFField.FieldType = FieldType.FldOption And xFDFField.FieldValue.Count <= 0 Then
+                                        Dim valCntr As Integer
+                                        Dim Values, DisplayNames As String
+                                        FldValue = ""
+                                        If Not xFDFField.DisplayValue.Count <= 0 And Not xFDFField.DisplayName.Count <= 0 Then
+                                            For valCntr = 0 To xFDFField.DisplayValue.Count - 1
+                                                Values = xFDFField.DisplayValue(valCntr) & ""
+                                                DisplayNames = xFDFField.DisplayName(valCntr) & ""
+                                                FldValue &= " [(" & FDFCheckChar(Values) & ")(" & FDFCheckChar(DisplayNames) & ")] "
+                                            Next
+                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /Opt [" & FldValue & "] " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
+                                        End If
+                                    ElseIf xFDFField.FieldType = FieldType.FldMultiSelect And Not xFDFField.FieldValue.Count <= 0 Then
+                                        Dim valCntr As Integer
+                                        Dim Values, DisplayNames As String
+                                        FldValue = ""
+                                        If xFDFField.DisplayValue.Count <= 0 And xFDFField.DisplayName.Count <= 0 Then
+                                            FldValue = xFDFField.FieldValue(0) & ""
+                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /V ["
+                                            If xFDFField.FieldValue.Count > 0 Then
+                                                For Each FldValue In xFDFField.FieldValue
+                                                    retString = retString & "(" & FDFCheckChar(FldValue) & ")"
+                                                Next
+                                            End If
+                                            retString = retString & "] " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
+                                        Else
+                                            For valCntr = 0 To xFDFField.DisplayValue.Count - 1
+                                                Values = xFDFField.DisplayValue(valCntr) & ""
+                                                DisplayNames = xFDFField.DisplayName(valCntr) & ""
+                                                FldValue &= " [(" & FDFCheckChar(Values) & ")(" & FDFCheckChar(DisplayNames) & ")] "
+                                            Next
+                                            retString = retString & "<< /T (" & xFDFField.FieldName & ") /Opt [" & FldValue & "] /V ["
+                                            If xFDFField.FieldValue.Count > 0 Then
+                                                For Each FldValue In xFDFField.FieldValue
+                                                    retString = retString & "(" & FDFCheckChar(FldValue) & ")"
+                                                Next
+                                            End If
+                                            retString = retString & "] " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
+                                        End If
+                                    ElseIf xFDFField.FieldType = FieldType.FldTextual And Not xFDFField.FieldValue.Count <= 0 Then
+                                        FldValue = xFDFField.FieldValue(0)
+                                        retString = retString & "<< /T (" & xFDFField.FieldName & ") /V (" & FDFCheckChar(FldValue) & ") " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
+                                    ElseIf xFDFField.FieldType = FieldType.FldSubform And xFDFField.Subforms.Count > 0 Then
+                                        retString &= WriteFields(FDFType.FDF, xFDFField.Subforms) & ""
+                                    ElseIf xFDFField.FieldType = FieldType.FldButton Then
+                                        retString = retString & "<< /T (" & xFDFField.FieldName & ") " & " " & FDFGetAllActionsForField(xFDFField.FieldName) & " >> "
                                     End If
                                 End If
                             Next
+                        End If
+
+                        '    End If
+                        'End If
+                        'Next
+                        If retString.Contains(" /Fields [") Then
                             retString = retString & " " & Me.FDFGetRemainingActions(True)
-                            If retString.Contains(" /Fields [") Then
-                                retString = retString & "] "
-                            Else
-                                retString = ""
-                            End If
-                            If _CurFDFDoc = 0 Then
-                                If HasDocJavaScripts() Or HasDocOnImportJavaScripts() Then
-                                    retString = retString & " /JavaScript "
-                                    If HasDocJavaScripts() Then
-                                        retString = retString & " << " & " /Doc [ " & GetDocJavaScripts(False) & "] "
-                                        If HasDocOnImportJavaScripts() Then
-                                            retString = retString & Me.FDFGetImportJSActions(False)
-                                        Else
-                                            retString = retString
-                                        End If
-                                        retString = retString & " >>"
+                            retString = retString & "] "
+                            If HasDocJavaScripts() Or HasDocOnImportJavaScripts() Then
+                                retString = retString & " /JavaScript "
+                                If HasDocJavaScripts() Then
+                                    retString = retString & " << " & " /Doc [ " & GetDocJavaScripts(False) & "] "
+                                    If HasDocOnImportJavaScripts() Then
+                                        retString = retString & Me.FDFGetImportJSActions(False)
                                     Else
-                                        If HasDocOnImportJavaScripts() Then
-                                            retString = retString & Me.FDFGetImportJSActions(True)
-                                        Else
-                                            retString = retString
-                                        End If
                                         retString = retString
                                     End If
-
+                                    retString = retString & " >>"
+                                Else
+                                    If HasDocOnImportJavaScripts() Then
+                                        retString = retString & Me.FDFGetImportJSActions(True)
+                                    Else
+                                        retString = retString
+                                    End If
+                                    retString = retString
                                 End If
                             End If
+                            Me.ResetActions()
                         End If
+                        'End If
                     Case FDFType.xFDF
-                        retString = "<fields>"
-                        If Not _FDF.Count <= 0 Then
+                        If _FDFTmp Is Nothing Then
+                            _FDFTmp = _FDF
+                            retString = "<fields>"
+                        End If
+                        If Not _FDFTmp.Count <= 0 Then
                             Dim FormIndex As Integer = -1
-                            For Each XDPDoc1 As FDFDoc_Class In _FDF
-                                FormIndex += 1
-                                If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                                    For Each xFDFField In XDPDoc1.struc_FDFFields
-                                        If xFDFField.FieldEnabled Then
-                                            Select Case xFDFField.FieldType
-                                                Case FieldType.FldOption And Not xFDFField.FieldValue.Count <= 0
-                                                    retString = retString & "<field name=""" & xFDFField.FieldName & """><value>" & xFDFField.FieldValue(0) & "</value></field>"
-                                                Case FieldType.FldMultiSelect And Not xFDFField.FieldValue.Count <= 0
-                                                    Dim FldsVal() As String = xFDFField.FieldValue.ToArray
-                                                    Dim FldVal As String, FldNum As Integer = 0
-                                                    For Each FldVal In FldsVal
-                                                        FldNum += 1
-                                                        If FldNum = 1 Then
-                                                            FldValue = FldValue & "<value>" & FldVal.TrimStart("(") & "</value>"
-                                                        ElseIf FldNum = FldsVal.Length Then
-                                                            FldValue = FldValue & "<value>" & FldVal.TrimEnd(")") & "</value>"       '
-                                                        Else
-                                                            FldValue = FldValue & "<value>" & FldVal & "</value>"
-                                                        End If
-                                                    Next
-
-                                                    retString = retString & "<field name=""" & xFDFField.FieldName & """>" & FldValue & "</field>"
-                                                Case FieldType.FldTextual
-                                                    retString = retString & "<field name=""" & xFDFField.FieldName & """><value>" & xFDFField.FieldValue(0) & "</value></field>"
-                                            End Select
-                                        End If
-                                    Next
+                            'For Each XDPDoc1 As FDFDoc_Class In _FDFTmp
+                            FormIndex += 1
+                            'If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+                            For Each xFDFField In FDFGetAllFields() 'XDPDoc1.struc_FDFFields
+                                If xFDFField.FieldEnabled Or xFDFField.FieldType = FieldType.FldSubform Then
+                                    Select Case xFDFField.FieldType
+                                        Case FieldType.FldOption And Not xFDFField.FieldValue.Count <= 0
+                                            retString = retString & "<field name=""" & xFDFField.FieldName & """><value>" & XMLCheckChar(xFDFField.FieldValue(0) & "") & "</value></field>"
+                                        Case FieldType.FldMultiSelect And Not xFDFField.FieldValue.Count <= 0
+                                            Dim FldsVal() As String = xFDFField.FieldValue.ToArray
+                                            Dim FldVal As String, FldNum As Integer = 0
+                                            For Each FldVal In FldsVal
+                                                FldNum += 1
+                                                If FldNum = 1 Then
+                                                    FldValue = FldValue & "<value>" & XMLCheckChar(FldVal.TrimStart("(") & "") & "</value>"
+                                                ElseIf FldNum = FldsVal.Length Then
+                                                    FldValue = FldValue & "<value>" & XMLCheckChar(FldVal.TrimEnd(")") & "") & "</value>"       '
+                                                Else
+                                                    FldValue = FldValue & "<value>" & XMLCheckChar(FldVal & "") & "</value>"
+                                                End If
+                                            Next
+                                            retString = retString & "<field name=""" & xFDFField.FieldName & """>" & XMLCheckChar(FldValue & "") & "</field>"
+                                        Case FieldType.FldSubform And xFDFField.Subforms.Count > 0
+                                            retString &= WriteFields(FDFType.xFDF, xFDFField.Subforms) & ""
+                                        Case FieldType.FldTextual
+                                            retString = retString & "<field name=""" & xFDFField.FieldName & """><value>" & XMLCheckChar(xFDFField.FieldValue(0) & "") & "</value></field>"
+                                    End Select
                                 End If
                             Next
                         End If
-                        retString = retString & "</fields>"
-                        Dim intX As Integer = InStrRev(retString, "</fields>", -1, CompareMethod.Text)
-                        retString = retString.Substring(0, intX + 8)
-
+                        '    Next
+                        'End If
+                        If retString.Contains("<fields>") Then
+                            retString = retString & "</fields>"
+                            Dim intX As Integer = InStrRev(retString, "</fields>", -1, CompareMethod.Text)
+                            retString = retString.Substring(0, intX + 8)
+                            Me.ResetActions()
+                        End If
                     Case FDFType.XML
                         retString = "<root>" & WriteXMLFormFields() & "</root>"
                         Dim intX As Integer = InStrRev(retString, "</root>", -1, CompareMethod.Text)
                         retString = retString.Substring(0, intX + 6)
+                        Me.ResetActions()
                         'retString = retString.Trim()
                     Case FDFType.XDP
                         retString = WriteXDPFormFields()
+                        Me.ResetActions()
                 End Select
-                Me.ResetActions()
                 Return retString
                 'Return retString.Trim(" ".ToCharArray) & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
             Return ""
@@ -8739,7 +9688,6 @@ continue_setting_value:
             strInput = strInput.Replace("'", "_")
             strInput = strInput.Replace(" ", "_")
             Return strInput & ""
-            'strInput = strInput.Replace("", "")
         End Function
         Private Function CheckXMLReservedWords(ByVal strInput As String) As String
             strInput = strInput.Replace("&amp;", "&")
@@ -8764,18 +9712,25 @@ continue_setting_value:
                         'Else
                         '    retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ")") & ">> >> " & vbNewLine & "endobj" & vbNewLine & "trailer" & vbNewLine & "<</Root 1 0 R>>" & vbNewLine & "%%EOF"
                         'End If
+                        'Dim _status As String = FDFGetStatus & ""
+                        'For Each chrReplace As Char In "\$#~%*^()+=[]{};""<>?|!'".ToCharArray
+                        '    If Not _status.IndexOf("\" & chrReplace) >= 0 Then
+                        '        _status = _status.Replace(chrReplace, "\" & chrReplace)
+                        '    End If
+                        'Next
+
                         If AppendSaves And FDFHasChanges Then
                             '/Target (_blank)
-                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ") ") & IIf(_FDF(_CurFDFDoc).Differences <> "" And AppendSaves = True, " /Differences " & _FDF(_CurFDFDoc).Differences, "") & ">> >>" & Chr(10) & "endobj" & Chr(10) & IIf(FDFHasChanges = True And AppendSaves = True, WriteAppendSaves(xType), "") & Chr(10) & "trailer" & Chr(10) & "<</Root 1 0 R>>" & Chr(10) & "%%EOF" & Chr(10)
+                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFCheckChar(FDFGetFile) & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFCheckChar(FDFGetTargetFrame) & ") ") & IIf(FDFCheckChar(FDFGetStatus() & "") = "", "", " /Status (" & FDFCheckChar(FDFGetStatus() & "") & ") ") & IIf(_FDF(_CurFDFDoc).Differences <> "" And AppendSaves = True, " /Differences " & _FDF(_CurFDFDoc).Differences, "") & ">> >>" & Chr(10) & "endobj" & Chr(10) & IIf(FDFHasChanges = True And AppendSaves = True, WriteAppendSaves(xType), "") & Chr(10) & "trailer" & Chr(10) & "<</Root 1 0 R>>" & Chr(10) & "%%EOF" & Chr(10)
                         Else
-                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFGetFile & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFGetTargetFrame & ") ") & IIf(FDFGetStatus = "", "", " /Status (" & FDFGetStatus & ")") & ">> >>" & Chr(10) & "endobj" & Chr(10) & "trailer" & Chr(10) & "<</Root 1 0 R>>" & Chr(10) & "%%EOF" & Chr(10)
+                            retString = IIf(FDFGetFile = "", "", " /F (" & FDFCheckChar(FDFGetFile) & ") ") & IIf(FDFGetTargetFrame = "", "", " /Target (" & FDFCheckChar(FDFGetTargetFrame) & ") ") & IIf(FDFCheckChar(FDFGetStatus() & "") = "", "", " /Status (" & FDFCheckChar(FDFGetStatus() & "") & ")") & ">> >>" & Chr(10) & "endobj" & Chr(10) & "trailer" & Chr(10) & "<</Root 1 0 R>>" & Chr(10) & "%%EOF" & Chr(10)
                         End If
                     Case FDFType.xFDF
-                        retString = IIf(FDFGetFile = "", "", "<f href=""" & FDFGetFile & """/>") & "</xfdf>"
+                        retString = IIf(FDFGetFile = "", "", "<f href=""" & XMLCheckChar(FDFGetFile) & """/>") & "</xfdf>"
                     Case FDFType.XML
                         retString = ""
                     Case FDFType.XDP
-                        retString = "</xfa:data></xfa:datasets><pdf href=""" & FDFGetFile & """ xmlns=""http://ns.adobe.com/xdp/pdf/""/></xdp:xdp>"
+                        retString = "</xfa:data></xfa:datasets><pdf href=""" & XMLCheckChar(FDFGetFile) & """ xmlns=""http://ns.adobe.com/xdp/pdf/""/></xdp:xdp>"
                 End Select
                 Return retString
             Catch Ex As Exception
@@ -9151,7 +10106,11 @@ continue_setting_value:
                     reader = Nothing
                     xfaFrm = Nothing
                     If isXFA Then
-                        Return FDFType.XPDF
+                        If PDFisXFADynamic(bytes) Then
+                            Return FDFType.XFA
+                        Else
+                            Return FDFType.XPDF
+                        End If
                     Else
                         Return FDFType.PDF
                     End If
@@ -9201,7 +10160,11 @@ continue_setting_value:
                     reader = Nothing
                     xfaFrm = Nothing
                     If isXFA Then
-                        Return FDFType.XPDF
+                        If PDFisXFADynamic(PDFData) Then
+                            Return FDFType.XFA
+                        Else
+                            Return FDFType.XPDF
+                        End If
                     Else
                         Return FDFType.PDF
                     End If
@@ -9250,7 +10213,11 @@ continue_setting_value:
                     reader = Nothing
                     xfaFrm = Nothing
                     If isXFA Then
-                        Return FDFType.XPDF
+                        If PDFisXFADynamic(PDFData) Then
+                            Return FDFType.XFA
+                        Else
+                            Return FDFType.XPDF
+                        End If
                     Else
                         Return FDFType.PDF
                     End If
@@ -9292,7 +10259,11 @@ continue_setting_value:
                     reader = Nothing
                     xfaFrm = Nothing
                     If isXFA Then
-                        Return FDFType.XPDF
+                        If PDFisXFADynamic(PDFData) Then
+                            Return FDFType.XFA
+                        Else
+                            Return FDFType.XPDF
+                        End If
                     Else
                         Return FDFType.PDF
                     End If
@@ -9361,6 +10332,7 @@ continue_setting_value:
         Public Function FDFSave(ByVal FileName As String, Optional ByVal eFDFType As FDFType = FDFType.FDF, Optional ByVal AppendSaves As Boolean = True) As Boolean
             Dim strFDFData As String = ""
             Try
+                XDPAdjustSubforms()
                 If Determine_Type(FDFData) = FDFType.PDF Then
                     strFDFData = PDFExportString()
                 ElseIf Determine_Type(FDFData) = FDFType.XPDF Then
@@ -9419,6 +10391,7 @@ continue_setting_value:
         Public Function FDFSavetoFile(ByVal FileName As String, Optional ByVal eFDFType As FDFType = FDFType.FDF, Optional ByVal AppendSaves As Boolean = True) As Boolean
             Dim strFDFData As String = ""
             Try
+                XDPAdjustSubforms()
                 Select Case eFDFType
                     Case FDFType.PDF
                         strFDFData = PDFExportString()
@@ -9487,6 +10460,7 @@ continue_setting_value:
         Public Function FDFSavetoBuf(Optional ByVal eFDFType As FDFType = FDFType.FDF, Optional ByVal AppendSaves As Boolean = True) As Byte()
             Dim strFDFData As String = ""
             Try
+                XDPAdjustSubforms()
                 If Not FDFData Is Nothing Then
                     If Determine_Type(FDFData) = FDFType.PDF Then
                         strFDFData = PDFExportString()
@@ -9526,7 +10500,7 @@ continue_setting_value:
                 End If
                 Return _defaultEncoding.GetBytes(strFDFData)
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return Nothing
             End Try
 
@@ -9921,6 +10895,7 @@ continue_setting_value:
         Public Function FDFSavetoStream(Optional ByVal eFDFType As FDFType = FDFType.FDF, Optional ByVal AppendSaves As Boolean = True) As Stream
             Dim strFDFData As String = ""
             Try
+                XDPAdjustSubforms()
                 If Not FDFData Is Nothing Then
                     If Determine_Type(FDFData) = FDFType.PDF Then
                         Return New MemoryStream(PDFExportByte)
@@ -9962,7 +10937,7 @@ continue_setting_value:
                 End If
                 Return New MemoryStream(_defaultEncoding.GetBytes(strFDFData))
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return Nothing
             End Try
 
@@ -10021,6 +10996,7 @@ continue_setting_value:
         Public Function FDFSavetoStr(Optional ByVal eFDFType As FDFType = FDFType.FDF, Optional ByVal AppendSaves As Boolean = True) As String
             Dim strFDFData As String = ""
             Try
+                XDPAdjustSubforms()
                 Select Case eFDFType
                     Case FDFType.FDF
                         ' Create FDF Document
@@ -10052,11 +11028,14 @@ continue_setting_value:
         Public Function FDFSavetoArray(Optional ByVal eFDFType As FDFType = FDFType.FDF, Optional ByVal AppendSaves As Boolean = True) As Char()
             Dim strFDFData As String = ""
             Try
+                XDPAdjustSubforms()
                 If Not FDFData Is Nothing Then
                     If Determine_Type(FDFData) = FDFType.PDF Then
                         strFDFData = PDFExportBuffer()
                     ElseIf Determine_Type(FDFData) = FDFType.XPDF Then
                         strFDFData = PDFExportBuffer()
+                        'ElseIf Determine_Type(FDFData) = FDFType.xfa Then
+                        '    strFDFData = PDFExportBuffer()
                     Else
                         Select Case eFDFType
                             Case FDFType.FDF
@@ -10093,7 +11072,7 @@ continue_setting_value:
                 End If
                 Return strFDFData & ""
             Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
                 Return ""
             End Try
         End Function
@@ -10266,9 +11245,14 @@ continue_setting_value:
                             _PDF.FileName = bstrFileName
                             Try
                                 'ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & bstrFormName
-                                ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & bstrFormName
+                                If _FDF.Count > _CurFDFDoc Then
+                                    ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & bstrFormName
+                                Else
+                                    ParentFormName = bstrFormName
+                                End If
                             Catch ex As Exception
                                 ParentFormName = bstrFormName
+                                Err.Clear()
                             End Try
                             _f.FormLevel = ParentFormName
                             _f.FormName = bstrFormName
@@ -10288,13 +11272,19 @@ continue_setting_value:
             _f.FormName = bstrFormName
             _f.DocType = FDFDocType.XDPForm
             Try
-                ParentFormName = _FDF(_CurFDFDoc).FormLevel.TrimEnd("/") & "/" & bstrFormName
+                If _FDF.Count > _CurFDFDoc Then
+                    ParentFormName = bstrFormName
+                Else
+                    ParentFormName = bstrFormName
+                End If
             Catch ex As Exception
                 ParentFormName = bstrFormName
+                Err.Clear()
             End Try
             _f.FormLevel = ParentFormName
             _FDF.Add(_f)
             _CurFDFDoc = _FDF.Count - 1
+            XDPAdjustSubforms()
             Exit Sub
             'Return _FDF(_CurFDFDoc)
         End Sub
@@ -10306,23 +11296,53 @@ continue_setting_value:
         ''' <param name="PDFFilePath">Live-Cycle form path</param>
         ''' <remarks></remarks>
         Public Function XDPAddSubForm(ByVal ParentFormNames() As String, ByVal SubFormName As String, ByVal PDFFilePath As String) As Integer
-            Dim ParentFormName As String = String.Join("/", ParentFormNames) & "/" & SubFormName
-            Dim _f As New FDFDoc_Class
+            Dim ParentFormName As String = "" 'String.Join("/", ParentFormNames).ToString.TrimStart(CStr("/")).TrimEnd(CStr("/"))
+            If ParentFormNames.Length > 0 Then
+                For Each StrParent As String In ParentFormNames
+                    If Not String.IsNullOrEmpty(StrParent) Then
+                        If String.IsNullOrEmpty(ParentFormName & "") Then
+                            ParentFormName &= getFieldName(StrParent)
+                        Else
+                            ParentFormName &= "/" & getFieldName(StrParent)
+                        End If
+                    End If
+                Next
+            Else
+                ParentFormName = ""
+            End If
             If Not String_IsNullOrEmpty(SubFormName) Then
                 Try
-                    _f.FileName = PDFFilePath
-                    _PDF.FileName = PDFFilePath
-                    _f.FormName = SubFormName
-                    _f.DocType = FDFDocType.XDPForm
-                    _f.FormLevel = ParentFormName.ToString
-                    _f.FormLevel = _f.FormLevel.TrimStart("/")
-                    _f.FormLevel = _f.FormLevel.TrimEnd("/")
-                    _f.FormLevel = _f.FormLevel.Replace("//", "/")
+                    'Dim strFormLevelParent As String = String.Join("/", ParentFormNames).ToString.TrimStart(CStr("/")).TrimEnd(CStr("/"))
+                    If Not XDPSubform(ParentFormName) Is Nothing Then
+                        Dim _f As New FDFDoc_Class
+                        _f.FileName = PDFFilePath
+                        _PDF.FileName = PDFFilePath
+                        _f.FormName = SubFormName
+                        _f.DocType = FDFDocType.XDPForm
+                        _f.FormLevel = (ParentFormName).ToString & "/" & SubFormName
+                        _f.FormLevel = _f.FormLevel.TrimStart("/")
+                        _f.FormLevel = _f.FormLevel.TrimEnd("/")
+                        _f.FormLevel = _f.FormLevel.Replace("//", "/")
+                        '_FDF.Add(_f)
+                        XDPSubform(ParentFormName).XDPAppendSubform(_f)
+                    Else
+                        Dim _f As New FDFDoc_Class
+                        _f.FileName = PDFFilePath
+                        _PDF.FileName = PDFFilePath
+                        _f.FormName = SubFormName
+                        _f.DocType = FDFDocType.XDPForm
+                        _f.FormLevel = ParentFormName.ToString & "/" & SubFormName
+                        _f.FormLevel = _f.FormLevel.TrimStart("/")
+                        _f.FormLevel = _f.FormLevel.TrimEnd("/")
+                        _f.FormLevel = _f.FormLevel.Replace("//", "/")
+                        _FDF.Add(_f)
+                    End If
                 Catch ex As Exception
-
+                    Err.Clear()
                 End Try
-                _FDF.Add(_f)
+                'XDPAddField(_f, _f.FormName, _f.FormLevel.ToString.Split(CStr("/")), True, False)
                 _CurFDFDoc = _FDF.Count - 1
+                XDPAdjustSubforms()
                 Return _CurFDFDoc
             End If
             Return 0
@@ -10366,10 +11386,40 @@ continue_setting_value:
                             End Try
                             _FDF.Add(_f)
                             _CurFDFDoc = _FDF.Count - 1
+                            XDPAdjustSubforms()
                             Return _CurFDFDoc
                         End If
                     End If
                 End If
+            End If
+            Return Nothing
+        End Function
+        Public Function XDPAddSubForm(ByVal formLevelLongParent As String, ByVal FormName As String, ByVal PDFFilePath As String) As Integer
+            Dim _f As New FDFDoc_Class
+            If _FDF.Count >= 1 Then
+                Dim strFormLevelLong As String = formLevelLongParent '& "/" & FormName & "[0]"
+                Dim _subformAdd As New FDFApp.FDFDoc_Class.FDFDoc_Class
+                _subformAdd.DocType = FDFDocType.XDPForm
+                _subformAdd.FormName = FormName & ""
+                If formLevelLongParent.Contains(FormName & "") Then
+                    _subformAdd.FormLevelLong = formLevelLongParent
+                    formLevelLongParent = formLevelLongParent.Substring(0, formLevelLongParent.LastIndexOf("/"))
+                Else
+                    strFormLevelLong = formLevelLongParent & "/" & FormName & "[0]"
+                End If
+                _subformAdd.FormLevelLong = strFormLevelLong
+                _subformAdd.FileName = PDFFilePath
+                Dim strFormLevel() As String = strFormLevelLong.Split("/")
+                For i As Integer = 0 To strFormLevel.Length - 1
+                    If strFormLevel(i).Contains("[") Then
+                        strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                    End If
+                Next
+                _subformAdd.FormLevel = CStr(String.Join("/", strFormLevel) & "").Replace("//", "/")
+                XDPSubform(formLevelLongParent).XDPAppendSubform(_subformAdd)
+                _CurFDFDoc = _FDF.Count - 1
+                XDPAdjustSubforms()
+                Return _CurFDFDoc
             End If
             Return Nothing
         End Function
@@ -10437,10 +11487,12 @@ continue_setting_value:
                     _f.FormLevel = _f.FormLevel.TrimEnd("/")
                     _f.FormLevel = _f.FormLevel.Replace("//", "/")
                 Catch ex As Exception
-
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 End Try
                 _FDF.Add(_f)
+                'XDPAddField(_f, _f.FormName, _f.FormLevel.ToString.Split(CStr("/")), True, False)
                 _CurFDFDoc = _FDF.Count - 1
+                XDPAdjustSubforms()
                 Return _CurFDFDoc
             End If
             Return 0
@@ -10457,82 +11509,364 @@ continue_setting_value:
             Return Nothing
         End Function
         ''' <summary>
-        ''' Gets XDP form
+        ''' Gets/Sets XDP form
         ''' </summary>
         ''' <param name="intFormNumber">Form number</param>
         ''' <value></value>
         ''' <returns>XDP Form</returns>
         ''' <remarks></remarks>
-        Public ReadOnly Property XDPForm(ByVal intFormNumber As Integer) As FDFDoc_Class
+        Public Property XDPForm(ByVal intFormNumber As Integer) As FDFDoc_Class
             Get
                 ' ADD NEW DOC TO _FDF() ARRAY
-                Dim TmpCurFDFDoc As Integer = 0
-                If _FDF.Count > 0 Then
-                    For XDPFDF As Integer = 0 To _FDF.Count - 1
-                        If intFormNumber = XDPFDF Then
-                            _CurFDFDoc = XDPFDF
-                        End If
-                    Next
-                    Return _FDF(intFormNumber)
-                Else
-                    Return Nothing
-                End If
-                Return _FDF(0)
+                Try
+                    Dim TmpCurFDFDoc As Integer = 0
+                    If _FDF.Count > 0 Then
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        Return XDPForms(intFormNumber)
+                    End If
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+                Return Nothing
             End Get
+            Set(ByVal value As FDFDoc_Class)
+                Try
+                    Dim TmpCurFDFDoc As Integer = 0
+                    If _FDF.Count > 0 Then
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        XDPForms(intFormNumber) = value
+                    End If
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+            End Set
         End Property
 
         ''' <summary>
-        ''' Gets XDP Form
+        ''' Gets/Sets XDP Form/Subform
         ''' </summary>
-        ''' <param name="FormName">Form name</param>
+        ''' <param name="FormNameOrLevel">Form name or level</param>
         ''' <value>XDP Form</value>
         ''' <returns>XDP Form</returns>
         ''' <remarks></remarks>
-        Public ReadOnly Property XDPForm(ByVal FormName As String) As FDFDoc_Class
+        Public Property XDPForm(ByVal FormNameOrLevel As String) As FDFDoc_Class
             Get
                 Dim TmpCurFDFDoc As Integer = 0
                 If _FDF.Count > 0 Then
-                    For XDPFDF As Integer = 0 To _FDF.Count - 1
-                        If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormName) Then
-                            If FormName.ToLower = _FDF(XDPFDF).FormName.ToLower Then
-                                _CurFDFDoc = XDPFDF
-                                Return _FDF(XDPFDF)
+                    For Each frm As FDFDoc_Class In XDPGetAllSubformsFormLevel(_FDF.ToArray, "")
+                        If FormNameOrLevel.ToString = frm.FormName Then
+                            Return frm
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevel Then
+                            Return frm
+                        ElseIf FormNameOrLevel.ToString = frm.FormName.ToString & "[" & frm.FormNumber & "]" Then
+                            Return frm
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevelLong Then
+                            Return frm
+                        End If
+                    Next
+                    Dim XDPFormsTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    XDPFormsTmp = (XDPForms)
+                    For XDPFDF As Integer = 0 To XDPFormsTmp.Count - 1
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        If Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower & "[" & XDPFormsTmp(XDPFDF).FormNumber & "]" Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevel) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevel.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevelLong) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevelLong.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
                             End If
                         End If
                     Next
-                Else
-                    Return Nothing
                 End If
-                Return _FDF(0)
+                Return Nothing
             End Get
+            Set(ByVal value As FDFDoc_Class)
+                Dim TmpCurFDFDoc As Integer = 0
+                If _FDF.Count > 0 Then
+                    For Each frm As FDFDoc_Class In XDPGetAllSubformsFormLevel(_FDF.ToArray, "")
+                        If FormNameOrLevel.ToString = frm.FormName Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevel Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormName.ToString & "[" & frm.FormNumber & "]" Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevelLong Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        End If
+                    Next
+                    Dim XDPFormsTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    XDPFormsTmp = (XDPForms)
+                    For XDPFDF As Integer = 0 To XDPFormsTmp.Count - 1
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        If Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower & "[" & XDPFormsTmp(XDPFDF).FormNumber & "]" Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevel) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevel.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevelLong) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevelLong.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        End If
+                    Next
+                    'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                    '    If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormName) Then
+                    '        If FormName.ToLower = _FDF(XDPFDF).FormName.ToLower Then
+                    '            _CurFDFDoc = XDPFDF
+                    '            _FDF(XDPFDF) = value
+                    '        End If
+                    '    End If
+                    'Next
+                End If
+            End Set
         End Property
 
         ''' <summary>
-        ''' Gets XDP Form and subforms
+        ''' Gets/Sets XDPSubform based on Formlevel or Form Name
         ''' </summary>
-        ''' <param name="FormLevel">Form name</param>
+        ''' <param name="FormNameOrLevel">Form name or level</param>
         ''' <value>XDP Form</value>
         ''' <returns>XDP Form</returns>
         ''' <remarks></remarks>
-        Public ReadOnly Property XDPForm_FormLevel(ByVal FormLevel As String) As FDFDoc_Class
+        Public Property XDPForm_FormLevel(ByVal FormNameOrLevel As String) As FDFDoc_Class
             Get
                 Dim TmpCurFDFDoc As Integer = 0
                 If _FDF.Count > 0 Then
-                    For XDPFDF As Integer = 0 To _FDF.Count - 1
-                        If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormLevel) Then
-                            If _FDF(XDPFDF).FormLevel.ToLower.StartsWith(FormLevel.ToLower) Then
-                                _CurFDFDoc = XDPFDF
-                                Return _FDF(XDPFDF)
+                    For Each frm As FDFDoc_Class In XDPGetAllSubformsFormLevel(_FDF.ToArray, "")
+                        If FormNameOrLevel.ToString = frm.FormName Then
+                            Return frm
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevel Then
+                            Return frm
+                        ElseIf FormNameOrLevel.ToString = frm.FormName.ToString & "[" & frm.FormNumber & "]" Then
+                            Return frm
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevelLong Then
+                            Return frm
+                        End If
+                    Next
+                    Dim XDPFormsTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    XDPFormsTmp = (XDPForms)
+                    For XDPFDF As Integer = 0 To XDPFormsTmp.Count - 1
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        If Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower & "[" & XDPFormsTmp(XDPFDF).FormNumber & "]" Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevel) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevel.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevelLong) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevelLong.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                Return XDPForms(XDPFDF)
                             End If
                         End If
                     Next
+                End If
+                Return Nothing
+            End Get
+            Set(ByVal value As FDFDoc_Class)
+                Dim TmpCurFDFDoc As Integer = 0
+                If _FDF.Count > 0 Then
+                    For Each frm As FDFDoc_Class In XDPGetAllSubformsFormLevel(_FDF.ToArray, "")
+                        If FormNameOrLevel.ToString = frm.FormName Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevel Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormName.ToString & "[" & frm.FormNumber & "]" Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevelLong Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        End If
+                    Next
+                    Dim XDPFormsTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    XDPFormsTmp = (XDPForms)
+                    For XDPFDF As Integer = 0 To XDPFormsTmp.Count - 1
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        If Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower & "[" & XDPFormsTmp(XDPFDF).FormNumber & "]" Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevel) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevel.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevelLong) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevelLong.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        End If
+                    Next
+                    'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                    '    If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormName) Then
+                    '        If FormName.ToLower = _FDF(XDPFDF).FormName.ToLower Then
+                    '            _CurFDFDoc = XDPFDF
+                    '            _FDF(XDPFDF) = value
+                    '        End If
+                    '    End If
+                    'Next
+                End If
+            End Set
+        End Property
+        ''' <summary>
+        ''' Gets/Set XDP Subform (Internal)
+        ''' </summary>
+        ''' <param name="_FDFDoc_Classes">FDFDoc Classes to search</param>
+        ''' <param name="FormNameOrLevel"></param>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Private Property XDPForm_FormLevel(ByVal _FDFDoc_Classes As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal FormNameOrLevel As String) As FDFDoc_Class
+            Get
+                Dim TmpCurFDFDoc As Integer = 0
+                If _FDF.Count > 0 Then
+                    If _FDF.Count > 0 Then
+                        For Each frm As FDFDoc_Class In XDPGetAllSubformsFormLevel(_FDF.ToArray, "")
+                            If FormNameOrLevel.ToString = frm.FormName Then
+                                Return frm
+                            ElseIf FormNameOrLevel.ToString = frm.FormLevel Then
+                                Return frm
+                            ElseIf FormNameOrLevel.ToString = frm.FormName.ToString & "[" & frm.FormNumber & "]" Then
+                                Return frm
+                            ElseIf FormNameOrLevel.ToString = frm.FormLevelLong Then
+                                Return frm
+                            End If
+                        Next
+                        Dim XDPFormsTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                        XDPFormsTmp = (XDPForms)
+                        For XDPFDF As Integer = 0 To XDPFormsTmp.Count - 1
+                            'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                            If Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                                If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower Then
+                                    '_CurFDFDoc = XDPFDF
+                                    Return XDPForms(XDPFDF)
+                                End If
+                            ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                                If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower & "[" & XDPFormsTmp(XDPFDF).FormNumber & "]" Then
+                                    '_CurFDFDoc = XDPFDF
+                                    Return XDPForms(XDPFDF)
+                                End If
+                            ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevel) Then
+                                If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevel.ToLower Then
+                                    '_CurFDFDoc = XDPFDF
+                                    Return XDPForms(XDPFDF)
+                                End If
+                            ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevelLong) Then
+                                If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevelLong.ToLower Then
+                                    '_CurFDFDoc = XDPFDF
+                                    Return XDPForms(XDPFDF)
+                                End If
+                            End If
+                        Next
+                    End If
+                    Return Nothing
                 Else
                     Return Nothing
                 End If
-                Return _FDF(0)
+                Return Nothing
             End Get
+            Set(ByVal value As FDFDoc_Class)
+                Dim TmpCurFDFDoc As Integer = 0
+                If _FDF.Count > 0 Then
+                    For Each frm As FDFDoc_Class In XDPGetAllSubformsFormLevel(_FDF.ToArray, "")
+                        If FormNameOrLevel.ToString = frm.FormName Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevel Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormName.ToString & "[" & frm.FormNumber & "]" Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        ElseIf FormNameOrLevel.ToString = frm.FormLevelLong Then
+                            XDPSubform(frm.FormLevelLong) = value
+                            Return
+                        End If
+                    Next
+                    Dim XDPFormsTmp As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                    XDPFormsTmp = (XDPForms)
+                    For XDPFDF As Integer = 0 To XDPFormsTmp.Count - 1
+                        'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                        If Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormName) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormName.ToLower & "[" & XDPFormsTmp(XDPFDF).FormNumber & "]" Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevel) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevel.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        ElseIf Not String_IsNullOrEmpty(XDPFormsTmp(XDPFDF).FormLevelLong) Then
+                            If FormNameOrLevel.ToLower = XDPFormsTmp(XDPFDF).FormLevelLong.ToLower Then
+                                '_CurFDFDoc = XDPFDF
+                                XDPForms(XDPFDF) = value
+                            End If
+                        End If
+                    Next
+                    'For XDPFDF As Integer = 0 To _FDF.Count - 1
+                    '    If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormName) Then
+                    '        If FormName.ToLower = _FDF(XDPFDF).FormName.ToLower Then
+                    '            _CurFDFDoc = XDPFDF
+                    '            _FDF(XDPFDF) = value
+                    '        End If
+                    '    End If
+                    'Next
+                End If
+            End Set
         End Property
-
         ''' <summary>
         ''' Gets or sets current XDP Form name
         ''' </summary>
@@ -10563,6 +11897,12 @@ continue_setting_value:
                 End If
             End Set
         End Property
+        ''' <summary>
+        ''' XDP File Name
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Public Property XDPFileName() As String
             Get
                 If _FDF.Count > 0 Then
@@ -10598,7 +11938,7 @@ continue_setting_value:
             Get
                 Dim TmpCurFDFDoc As Integer = 0
                 If _FDF.Count > 0 Then
-                    For Each XDPFDF As FDFDoc_Class In _FDF
+                    For Each XDPFDF As FDFDoc_Class In XDPForms
                         TmpCurFDFDoc += 1
                         If XDPFDF.FormName.ToLower = FormName.ToLower Then
                             _CurFDFDoc = TmpCurFDFDoc
@@ -10619,7 +11959,7 @@ continue_setting_value:
             Get
                 Dim TmpCurFDFDoc As Integer = 0
                 If _FDF.Count > 0 Then
-                    For Each XDPFDF As FDFDoc_Class In _FDF
+                    For Each XDPFDF As FDFDoc_Class In XDPForms
                         Dim str As String = String.Join("/", FormNames)
                         str = str.TrimStart("/")
                         str = str.TrimEnd("/")
@@ -10786,6 +12126,7 @@ continue_setting_value:
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(XDPFDF).struc_FDFFields.Add(_fld)
                 End Try
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -10955,6 +12296,109 @@ continue_setting_value:
                     _fld.FieldEnabled = FieldEnabled
                     _FDF(XDPFDF).struc_FDFFields.Add(_fld)
                 End Try
+                XDPAdjustSubforms()
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+        End Sub
+        ''' <summary>
+        ''' Add Field
+        ''' </summary>
+        ''' <param name="subFormValue">Subform</param>
+        ''' <param name="FormName">Form name</param>
+        ''' <param name="ParentFormNames">Parent form names</param>
+        ''' <param name="FieldEnabled">Field enabled</param>
+        ''' <param name="ReplaceField">Replace field</param>
+        ''' <remarks></remarks>
+        Public Sub XDPAddField(ByVal subFormValue As FDFDoc_Class, ByVal FormName As String, ByVal ParentFormNames As String(), Optional ByVal FieldEnabled As Boolean = True, Optional ByVal ReplaceField As Boolean = True)
+            Dim fldNumber As Integer = 0
+            Try
+                Dim TmpCurFDFDoc As Integer = 0
+                Dim XDPFDF As Integer = _CurFDFDoc
+                If _FDF.Count > 0 Then
+                    If XDPFDF = _FDF.Count Then
+                        XDPFDF = _FDF.Count - 1
+                    End If
+                Else
+                    Exit Sub
+                End If
+
+                Try
+                    If ReplaceField = False Then
+                        For Each fld As FDFField In _FDF(XDPFDF).struc_FDFFields
+                            If Not fld.FieldName Is Nothing Then
+                                If fld.FieldName = FormName Then
+                                    fldNumber += 1
+                                End If
+                            End If
+                        Next
+                    End If
+                Catch ex As Exception
+                    fldNumber = 0
+                End Try
+                Try
+
+                    If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormName) Then
+                        If Not _FDF(XDPFDF).struc_FDFFields.Count <= 0 Then
+                            Dim blnFound As Boolean = False
+                            If ReplaceField = True Then
+                                If Not _FDF(XDPFDF).struc_FDFFields.Count <= 0 Then
+                                    If _FDF(XDPFDF).struc_FDFFields.Count > 0 Then
+                                        For Each xField In _FDF(XDPFDF).struc_FDFFields
+                                            If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                                If FormName.ToLower = xField.FieldName.ToLower Then
+                                                    xField.FieldValue.Clear()
+                                                    xField.Subforms.Add(subFormValue)
+                                                    xField.FieldEnabled = FieldEnabled
+                                                    xField.FieldNum = fldNumber
+                                                    xField.FieldType = FieldType.FldSubform
+                                                    blnFound = True
+                                                    Exit For
+                                                End If
+                                            End If
+                                        Next
+                                    End If
+                                End If
+                            End If
+                            If blnFound = True Then
+                                Exit Sub
+                            Else
+                                Dim _fld As New FDFField
+                                _fld.FieldName = FormName
+                                _fld.FieldNum = fldNumber
+                                _fld.FieldType = FieldType.FldSubform
+                                _fld.Subforms.Add(subFormValue)
+                                _fld.FieldEnabled = FieldEnabled
+                                _FDF(XDPFDF).struc_FDFFields.Add(_fld)
+                            End If
+                        ElseIf Not FormName = "" Then
+                            Dim _fld As New FDFField
+                            _fld.FieldName = FormName
+                            _fld.FieldNum = fldNumber
+                            _fld.FieldType = FieldType.FldSubform
+                            _fld.Subforms.Add(subFormValue)
+                            _fld.FieldEnabled = FieldEnabled
+                            _FDF(XDPFDF).struc_FDFFields.Add(_fld)
+                        End If
+                    ElseIf Not FormName = "" Then
+                        Dim _fld As New FDFField
+                        _fld.FieldName = FormName
+                        _fld.FieldNum = fldNumber
+                        _fld.FieldType = FieldType.FldSubform
+                        _fld.Subforms.Add(subFormValue)
+                        _fld.FieldEnabled = FieldEnabled
+                        _FDF(XDPFDF).struc_FDFFields.Add(_fld)
+                    End If
+                Catch ex As Exception
+                    Dim _fld As New FDFField
+                    _fld.FieldName = FormName
+                    _fld.FieldNum = fldNumber
+                    _fld.FieldType = FieldType.FldSubform
+                    _fld.Subforms.Add(subFormValue)
+                    _fld.FieldEnabled = FieldEnabled
+                    _FDF(XDPFDF).struc_FDFFields.Add(_fld)
+                End Try
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -11072,8 +12516,7 @@ continue_setting_value:
                         _FDF(FormNumber).struc_FDFFields.Add(_fld)
                     End If
                 End If
-                Dim x As Integer
-                x = 0
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -11194,12 +12637,56 @@ contintue_here:
                         _FDF(XDPFDF).struc_FDFFields.Add(_fld)
                     End If
                 End If
-                Dim x As Integer
-                x = 0
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
+        Private Function XMLCheckChar(ByVal strXML As String) As String
+            Try
+                If strXML Is Nothing Then
+                    Return ""
+                End If
+                If Not String_IsNullOrEmpty(strXML & "") Then
+                    strXML = strXML.Replace("&", "&amp;")
+                    strXML = strXML.Replace("<", "&lt;")
+                    strXML = strXML.Replace(">", "&gt;")
+                    strXML = strXML.Replace("&amp;amp;", "&amp;")
+                    strXML = strXML.Replace("&amp;apos;", "&apos;")
+                    strXML = strXML.Replace("&amp;quot;", "&quot;")
+                    strXML = strXML.Replace("&amp;lt;", "&lt;")
+                    strXML = strXML.Replace("&amp;gt;", "&gt;")
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return strXML & ""
+        End Function
+        Private Function XMLCheckCharReverse(ByVal strXML As String) As String
+            Try
+                If strXML Is Nothing Then
+                    Return ""
+                End If
+                If Not String_IsNullOrEmpty(strXML & "") Then
+                    strXML = strXML.Replace("&amp;amp;", "&amp;")
+                    strXML = strXML.Replace("&amp;apos;", "&apos;")
+                    strXML = strXML.Replace("&amp;quot;", "&quot;")
+                    strXML = strXML.Replace("&amp;lt;", "&lt;")
+                    strXML = strXML.Replace("&amp;gt;", "&gt;")
+
+                    strXML = strXML.Replace("&amp;", "&")
+                    strXML = strXML.Replace("&lt;", "<")
+                    strXML = strXML.Replace("&apos;", "'")
+                    strXML = strXML.Replace("&quot;", """")
+                    strXML = strXML.Replace("&lt;", "<")
+                    strXML = strXML.Replace("&gt;", ">")
+                    strXML = strXML.Replace("&amp;", "&")
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return strXML & ""
+        End Function
         ''' <summary>
         ''' Adds XDP Form field
         ''' </summary>
@@ -11308,8 +12795,7 @@ contintue_here:
                         _FDF(XDPFDF).struc_FDFFields.Add(_fld)
                     End If
                 End If
-                Dim x As Integer
-                x = 0
+                XDPAdjustSubforms()
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
@@ -11510,342 +12996,321 @@ contintue_here:
             End Try
 
         End Function
-        Private Function XDPCheckChar(ByVal strINPUT As String) As String
-            If strINPUT.Length <= 0 Then
-                Return ""
-                Exit Function
-            End If
-            strINPUT = strINPUT.Replace("&", "&amp;")
-            strINPUT = strINPUT.Replace("<", "&lt;")
-            strINPUT = strINPUT.Replace(">", "&gt;")
-            strINPUT = strINPUT.Replace("""", "&quot;")
-            strINPUT = strINPUT.Replace("'", "&apos;")
-            strINPUT = strINPUT.Replace("'", "&apos;")
-            strINPUT = strINPUT.Replace("`", "&apos;")
-            strINPUT = strINPUT.Replace("""", "&apos;")
-            strINPUT = strINPUT.Replace("’", "&apos;")
-
-            'strINPUT = strINPUT.Replace("&", "&&38;")
-            'strINPUT = strINPUT.Replace("#", "&#35;")
-            'strINPUT = strINPUT.Replace("&&38;", "&#38;")
-            'strINPUT = strINPUT.Replace("<", "&#60;")
-            'strINPUT = strINPUT.Replace(">", "&#62;")
-            'strINPUT = strINPUT.Replace("(", "&#40;")
-            'strINPUT = strINPUT.Replace(")", "&#41;")
-            'strINPUT = strINPUT.Replace("'", "&#39;")
-            'strINPUT = strINPUT.Replace("`", "&#39;")
-            'strINPUT = strINPUT.Replace("""", "&#34;")
-            'strINPUT = strINPUT.Replace("‚", "&#44;")
-            'strINPUT = strINPUT.Replace("’", "&#8217;")
-            'strINPUT = strINPUT.Replace("$", "&#36;")
-            'strINPUT = strINPUT.Replace("", "")
-            'strINPUT = strINPUT.Replace("", "")
-
-            Return strINPUT & ""
+        
+        Private Function XDPCheckChar(ByVal strXML As String) As String
+            Try
+                If strXML Is Nothing Then
+                    Return ""
+                End If
+                If Not String_IsNullOrEmpty(strXML & "") Then
+                    strXML = strXML.Replace("&", "&amp;")
+                    strXML = strXML.Replace("<", "&lt;")
+                    strXML = strXML.Replace(">", "&gt;")
+                    strXML = strXML.Replace("&amp;amp;", "&amp;")
+                    strXML = strXML.Replace("&amp;apos;", "&apos;")
+                    strXML = strXML.Replace("&amp;quot;", "&quot;")
+                    strXML = strXML.Replace("&amp;lt;", "&lt;")
+                    strXML = strXML.Replace("&amp;gt;", "&gt;")
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return strXML & ""
 
         End Function
-        Private Function XDPCheckCharReverse(ByVal strINPUT As String) As String
-            If strINPUT.Length <= 0 Then
+        Private Function XDPCheckCharReverse(ByVal strXML As String) As String
+            If strXML Is Nothing Then
                 Return ""
-                Exit Function
             End If
-            Return strINPUT & ""
-            Exit Function
-            'strINPUT = strINPUT.Replace("&&38;", "&#38;")
-            'strINPUT = strINPUT.Replace("&#60;", "<")
-            'strINPUT = strINPUT.Replace("&#62;", ">")
-            'strINPUT = strINPUT.Replace("&#40;", "(")
-            'strINPUT = strINPUT.Replace("&#41;", ")")
-            'strINPUT = strINPUT.Replace("&#39;", "'")
-            'strINPUT = strINPUT.Replace("&#39;", "`")
-            'strINPUT = strINPUT.Replace("&#34;", """")
-            'strINPUT = strINPUT.Replace("&#44;", "‚")
-            'strINPUT = strINPUT.Replace("&#39;", "'")
-            'strINPUT = strINPUT.Replace("&#8217;", "’")
-            'strINPUT = strINPUT.Replace("&#36;", "$")
-            'strINPUT = strINPUT.Replace("&#35;", "#")
-            'strINPUT = strINPUT.Replace("&#38;", "&")
+            If Not String_IsNullOrEmpty(strXML & "") Then
+                strXML = strXML.Replace("&amp;amp;", "&amp;")
+                strXML = strXML.Replace("&amp;apos;", "&apos;")
+                strXML = strXML.Replace("&amp;quot;", "&quot;")
+                strXML = strXML.Replace("&amp;lt;", "&lt;")
+                strXML = strXML.Replace("&amp;gt;", "&gt;")
 
-            strINPUT = strINPUT.Replace("&amp;", "&")
-            strINPUT = strINPUT.Replace("&lt;", "<")
-            strINPUT = strINPUT.Replace("&gt;", ">")
-            strINPUT = strINPUT.Replace("&quot;", """")
-            strINPUT = strINPUT.Replace("&apos;", "'")
-            'strINPUT = strINPUT.Replace("&apos;", "'")
-            'strINPUT = strINPUT.Replace("`", "&apos;")
-            'strINPUT = strINPUT.Replace("""", "&apos;")
-            'strINPUT = strINPUT.Replace("’", "&apos;")
-            Return strINPUT & ""
-
+                strXML = strXML.Replace("&amp;", "&")
+                strXML = strXML.Replace("&lt;", "<")
+                strXML = strXML.Replace("&apos;", "'")
+                strXML = strXML.Replace("&quot;", """")
+                strXML = strXML.Replace("&lt;", "<")
+                strXML = strXML.Replace("&gt;", ">")
+                strXML = strXML.Replace("&amp;", "&")
+            End If
+            Return strXML & ""
         End Function
         Private Function getXFADataElement(ByVal strXDP As String) As Xml.XmlElement
             Dim xmlDataDoc As New Xml.XmlDocument()
-            xmlDataDoc.LoadXml(strXDP)
-            Dim xmlNodeLst As Xml.XmlNodeList = xmlDataDoc.GetElementsByTagName("xfa:data")
-            If Not xmlNodeLst Is Nothing And xmlNodeLst.Count > 0 Then
-                Return xmlNodeLst(0)
-            Else
-                Return Nothing
-            End If
-
-        End Function
-        Private Function WriteXDPFormFields_Original_Keep() As String
-            Dim retString As String = ""
             Try
-                '	"%FDF-1.2" & vbNewLine & 
-                If Not _FDF.Count <= 0 Then
-                    Dim FormIndex As Integer = 0
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        FormIndex += 1
-                        If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                            If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                If XDPDoc1.FormName & "" = "" Then
-                                    XDPDoc1.FormName = "Page" & FormIndex
-                                End If
-                                retString &= "<" & XDPDoc1.FormName & ">"
-                                For Each fld As FDFField In XDPDoc1.struc_FDFFields
-                                    If Not fld.FieldName Is Nothing Then
-                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                            If Not fld.ImageBase64 Is Nothing Then
-                                                'retString &= "<" & fld.FieldName & ">" & fld.FieldValue(0) & "</" & fld.FieldName & ">"
-                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                retString &= fld.ImageBase64
-                                                retString &= "</" & fld.FieldName & ">"
-                                            End If
-                                        Else
-                                            If fld.FieldValue.Count > 0 Then
-                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                Else
-                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        End If
-                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                        If Not fld.ImageBase64 Is Nothing Then
-                                            'retString &= "<" & fld.FieldName & ">" & fld.FieldValue(0) & "</" & fld.FieldName & ">"
-                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                            retString &= fld.ImageBase64
-                                            retString &= "</" & fld.FieldName & ">"
-                                        End If
-                                    End If
-                                Next
-                                retString &= "</" & XDPDoc1.FormName & ">"
-                            End If
-                            'End If
-                        Else
-                            'retString = "<Form" & FormIndex & ">"
-                        End If
-                    Next
+                xmlDataDoc.LoadXml(strXDP)
+                Dim xmlNodeLst As Xml.XmlNodeList = xmlDataDoc.GetElementsByTagName("xfa:data")
+                If Not xmlNodeLst Is Nothing And xmlNodeLst.Count > 0 Then
+                    Return xmlNodeLst(0)
+                Else
+                    Return Nothing
                 End If
-                Return retString & ""
-            Catch Ex As Exception
+            Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return ""
             End Try
+            Return Nothing
         End Function
-        Private Function WriteXDPFormFields_OLD2() As String
-            Dim retString As String = ""
-            Try
-                If Not _FDF.Count <= 0 Then
-                    Dim FormIndex As Integer = 0
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        FormIndex += 1
-                        If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                            If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                If XDPDoc1.FormName & "" = "" Then
-                                    XDPDoc1.FormName = "Page" & FormIndex
-                                End If
-                                retString &= "<" & XDPDoc1.FormName & ">"
-                                For Each fld As FDFField In XDPDoc1.struc_FDFFields
-                                    If Not fld.FieldName Is Nothing Then
-                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                            If Not fld.ImageBase64 Is Nothing Then
-                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                retString &= fld.ImageBase64
-                                                retString &= "</" & fld.FieldName & ">"
-                                            End If
-                                        Else
-                                            If fld.FieldValue.Count > 0 Then
-                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                Else
-                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        End If
-                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                        If Not fld.ImageBase64 Is Nothing Then
-                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                            retString &= fld.ImageBase64
-                                            retString &= "</" & fld.FieldName & ">"
-                                        End If
-                                    End If
-                                Next
-                                retString &= "</" & XDPDoc1.FormName & ">"
-                            End If
-                        Else
-                        End If
-                    Next
-                End If
-                Return retString & ""
-            Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
-                Return ""
-            End Try
-        End Function
-        Private Function WriteXDPFormFields_Original() As String
-            Dim retString As String = ""
-            Try
-                If Not _FDF.Count <= 0 Then
-                    Dim FormIndex As Integer = 0
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        FormIndex += 1
-                        If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                            If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                If XDPDoc1.FormName & "" = "" Then
-                                    XDPDoc1.FormName = "Page" & FormIndex
-                                End If
-                                retString &= "<" & XDPDoc1.FormName & ">"
-                                For Each fld As FDFField In XDPDoc1.struc_FDFFields
-                                    If Not fld.FieldName Is Nothing Then
-                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                            If Not fld.ImageBase64 Is Nothing Then
-                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                retString &= fld.ImageBase64
-                                                retString &= "</" & fld.FieldName & ">"
-                                            End If
-                                        Else
-                                            If fld.FieldValue.Count > 0 Then
-                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                Else
-                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        End If
-                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                        If Not fld.ImageBase64 Is Nothing Then
-                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                            retString &= fld.ImageBase64
-                                            retString &= "</" & fld.FieldName & ">"
-                                        End If
-                                    End If
-                                Next
-                                retString &= "</" & XDPDoc1.FormName & ">"
-                            End If
-                        Else
-                        End If
-                    Next
-                End If
-                Return retString & ""
-            Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return ""
-            End Try
-        End Function
-        Private Function WriteXDPFormFields_Errors() As String
-            Dim retString As String = ""
-            For intForm As Integer = 0 To _FDF.Count - 1
-                Dim _f As FDFDoc_Class = _FDF(intForm)
-                _f.WrittenXDP = False
-                _FDF(intForm) = _f
-            Next
-            Dim StartForm As String = ""
-            Dim blnInLevel As Boolean = False, CurDepth As Integer = -1, PreviousDepth As Integer = 0
-            Try
-                If Not _FDF.Count <= 0 Then
-                    Dim FormIndex As Integer = 0, SubformIndex As Integer = 0, PreviousDocumentLevels() As String = {}, CurrentDocumentLevels() As String = {}
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        'If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
-                        If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-                            XDPDoc1.FormName = "form" & FormIndex + 1
-                        End If
-                        If String_IsNullOrEmpty(XDPDoc1.FormLevel & "") Then
-                            XDPDoc1.FormLevel = XDPDoc1.FormName & ""
-                        End If
-                        If Not _FDF(FormIndex).WrittenXDP = True Then
-                            If Not _FDF(FormIndex).struc_FDFFields.Count <= 0 Then
-                                Try
-                                    ' SETUP HISTORY
-                                    PreviousDepth = CurDepth
-                                    PreviousDocumentLevels = CurrentDocumentLevels
+        'Private Function WriteXDPFormFields_Original_Keep() As String
+        '    Dim retString As String = ""
+        '    Try
+        '        '	"%FDF-1.2" & vbNewLine & 
+        '        If Not _FDF.Count <= 0 Then
+        '            Dim FormIndex As Integer = 0
+        '            For Each XDPDoc1 As FDFDoc_Class In _FDF
+        '                FormIndex += 1
+        '                If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+        '                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
+        '                        If XDPDoc1.FormName & "" = "" Then
+        '                            XDPDoc1.FormName = "Page" & FormIndex
+        '                        End If
+        '                        retString &= "<" & XDPDoc1.FormName & ">"
+        '                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
+        '                            If Not fld.FieldName Is Nothing Then
+        '                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                    If Not fld.ImageBase64 Is Nothing Then
+        '                                        'retString &= "<" & fld.FieldName & ">" & fld.FieldValue(0) & "</" & fld.FieldName & ">"
+        '                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                        retString &= fld.ImageBase64
+        '                                        retString &= "</" & fld.FieldName & ">"
+        '                                    End If
+        '                                Else
+        '                                    If fld.FieldValue.Count > 0 Then
+        '                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                        Else
+        '                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                End If
+        '                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                If Not fld.ImageBase64 Is Nothing Then
+        '                                    'retString &= "<" & fld.FieldName & ">" & fld.FieldValue(0) & "</" & fld.FieldName & ">"
+        '                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                    retString &= fld.ImageBase64
+        '                                    retString &= "</" & fld.FieldName & ">"
+        '                                End If
+        '                            End If
+        '                        Next
+        '                        retString &= "</" & XDPDoc1.FormName & ">"
+        '                    End If
+        '                    'End If
+        '                Else
+        '                    'retString = "<Form" & FormIndex & ">"
+        '                End If
+        '            Next
+        '        End If
+        '        Return retString & ""
+        '    Catch Ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+        '        Return ""
+        '    End Try
+        'End Function
+        'Private Function WriteXDPFormFields_OLD2() As String
+        '    Dim retString As String = ""
+        '    Try
+        '        If Not _FDF.Count <= 0 Then
+        '            Dim FormIndex As Integer = 0
+        '            For Each XDPDoc1 As FDFDoc_Class In _FDF
+        '                FormIndex += 1
+        '                If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+        '                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
+        '                        If XDPDoc1.FormName & "" = "" Then
+        '                            XDPDoc1.FormName = "Page" & FormIndex
+        '                        End If
+        '                        retString &= "<" & XDPDoc1.FormName & ">"
+        '                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
+        '                            If Not fld.FieldName Is Nothing Then
+        '                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                    If Not fld.ImageBase64 Is Nothing Then
+        '                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                        retString &= fld.ImageBase64
+        '                                        retString &= "</" & fld.FieldName & ">"
+        '                                    End If
+        '                                Else
+        '                                    If fld.FieldValue.Count > 0 Then
+        '                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                        Else
+        '                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                End If
+        '                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                If Not fld.ImageBase64 Is Nothing Then
+        '                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                    retString &= fld.ImageBase64
+        '                                    retString &= "</" & fld.FieldName & ">"
+        '                                End If
+        '                            End If
+        '                        Next
+        '                        retString &= "</" & XDPDoc1.FormName & ">"
+        '                    End If
+        '                Else
+        '                End If
+        '            Next
+        '        End If
+        '        Return retString & ""
+        '    Catch Ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & Ex.Message, "FDFDoc.WriteTemplates", 1)
+        '        Return ""
+        '    End Try
+        'End Function
+        'Private Function WriteXDPFormFields_Original() As String
+        '    Dim retString As String = ""
+        '    Try
+        '        If Not _FDF.Count <= 0 Then
+        '            Dim FormIndex As Integer = 0
+        '            For Each XDPDoc1 As FDFDoc_Class In _FDF
+        '                FormIndex += 1
+        '                If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+        '                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
+        '                        If XDPDoc1.FormName & "" = "" Then
+        '                            XDPDoc1.FormName = "Page" & FormIndex
+        '                        End If
+        '                        retString &= "<" & XDPDoc1.FormName & ">"
+        '                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
+        '                            If Not fld.FieldName Is Nothing Then
+        '                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                    If Not fld.ImageBase64 Is Nothing Then
+        '                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                        retString &= fld.ImageBase64
+        '                                        retString &= "</" & fld.FieldName & ">"
+        '                                    End If
+        '                                Else
+        '                                    If fld.FieldValue.Count > 0 Then
+        '                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                        Else
+        '                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                End If
+        '                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                If Not fld.ImageBase64 Is Nothing Then
+        '                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                    retString &= fld.ImageBase64
+        '                                    retString &= "</" & fld.FieldName & ">"
+        '                                End If
+        '                            End If
+        '                        Next
+        '                        retString &= "</" & XDPDoc1.FormName & ">"
+        '                    End If
+        '                Else
+        '                End If
+        '            Next
+        '        End If
+        '        Return retString & ""
+        '    Catch Ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+        '        Return ""
+        '    End Try
+        'End Function
+        'Private Function WriteXDPFormFields_Errors() As String
+        '    Dim retString As String = ""
+        '    For intForm As Integer = 0 To _FDF.Count - 1
+        '        Dim _f As FDFDoc_Class = _FDF(intForm)
+        '        _f.WrittenXDP = False
+        '        _FDF(intForm) = _f
+        '    Next
+        '    Dim StartForm As String = ""
+        '    Dim blnInLevel As Boolean = False, CurDepth As Integer = -1, PreviousDepth As Integer = 0
+        '    Try
+        '        If Not _FDF.Count <= 0 Then
+        '            Dim FormIndex As Integer = 0, SubformIndex As Integer = 0, PreviousDocumentLevels() As String = {}, CurrentDocumentLevels() As String = {}
+        '            For Each XDPDoc1 As FDFDoc_Class In _FDF
+        '                'If Not XDPDoc1.struc_FDFFields.Count <= 0 Then
+        '                If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
+        '                    XDPDoc1.FormName = "form" & FormIndex + 1
+        '                End If
+        '                If String_IsNullOrEmpty(XDPDoc1.FormLevel & "") Then
+        '                    XDPDoc1.FormLevel = XDPDoc1.FormName & ""
+        '                End If
+        '                If Not _FDF(FormIndex).WrittenXDP = True Then
+        '                    If Not _FDF(FormIndex).struc_FDFFields.Count <= 0 Then
+        '                        Try
+        '                            ' SETUP HISTORY
+        '                            PreviousDepth = CurDepth
+        '                            PreviousDocumentLevels = CurrentDocumentLevels
 
-                                    CurrentDocumentLevels = XDPDoc1.FormLevel.Split("/")
-                                    CurDepth = CurrentDocumentLevels.Length
+        '                            CurrentDocumentLevels = XDPDoc1.FormLevel.Split("/")
+        '                            CurDepth = CurrentDocumentLevels.Length
 
-                                    If CurDepth >= PreviousDepth Then
-                                        retString &= "<" & XDPDoc1.FormName & ">"
-                                        ReDim Preserve CurrentDocumentLevels(CurrentDocumentLevels.Length - 1)
-                                        CurrentDocumentLevels(CurrentDocumentLevels.Length - 1) = XDPDoc1.FormName
-                                    End If
-                                    StartForm = XDPDoc1.FormName
-                                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                    If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                        retString &= fld.ImageBase64
-                                                        retString &= "</" & fld.FieldName & ">"
-                                                    End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
-                                                End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        Next
-                                    End If
-                                    retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
-                                Catch ex As Exception
-                                    'Throw New Exception(ex.Message, ex)
-                                Finally
+        '                            If CurDepth >= PreviousDepth Then
+        '                                retString &= "<" & XDPDoc1.FormName & ">"
+        '                                ReDim Preserve CurrentDocumentLevels(CurrentDocumentLevels.Length - 1)
+        '                                CurrentDocumentLevels(CurrentDocumentLevels.Length - 1) = XDPDoc1.FormName
+        '                            End If
+        '                            StartForm = XDPDoc1.FormName
+        '                            If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
+        '                                For Each fld As FDFField In XDPDoc1.struc_FDFFields
+        '                                    If Not fld.FieldName Is Nothing Then
+        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                            If Not fld.ImageBase64 Is Nothing Then
+        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                                retString &= fld.ImageBase64
+        '                                                retString &= "</" & fld.FieldName & ">"
+        '                                            End If
+        '                                        Else
+        '                                            If fld.FieldValue.Count > 0 Then
+        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
+        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+        '                                                Else
+        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+        '                                                End If
+        '                                            End If
+        '                                        End If
+        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+        '                                        If Not fld.ImageBase64 Is Nothing Then
+        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+        '                                            retString &= fld.ImageBase64
+        '                                            retString &= "</" & fld.FieldName & ">"
+        '                                        End If
+        '                                    End If
+        '                                Next
+        '                            End If
+        '                            retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
+        '                        Catch ex As Exception
+        '                            'Throw New Exception(ex.Message, ex)
+        '                        Finally
 
-                                End Try
-                                Dim NextDepth As Integer = 0, NextDepthLevel As String() = {}
-                                If _FDF.Count - 1 > FormIndex Then
-                                    NextDepthLevel = _FDF(FormIndex + 1).FormLevel.Split("/")
-                                    NextDepth = NextDepthLevel.Length
-                                Else
-                                    NextDepthLevel = _FDF(FormIndex).FormLevel.Split("/")
-                                    NextDepth = NextDepthLevel.Length
-                                End If
-                                If CurDepth >= NextDepth Then
-                                    For intDepthDifference As Integer = CurDepth To NextDepth Step -1
-                                        retString &= "</" & CurrentDocumentLevels(intDepthDifference - 1) & ">"
-                                    Next
-                                    'retString &= "</" & XDPDoc1.FormName & ">"
-                                End If
-                            End If
+        '                        End Try
+        '                        Dim NextDepth As Integer = 0, NextDepthLevel As String() = {}
+        '                        If _FDF.Count - 1 > FormIndex Then
+        '                            NextDepthLevel = _FDF(FormIndex + 1).FormLevel.Split("/")
+        '                            NextDepth = NextDepthLevel.Length
+        '                        Else
+        '                            NextDepthLevel = _FDF(FormIndex).FormLevel.Split("/")
+        '                            NextDepth = NextDepthLevel.Length
+        '                        End If
+        '                        If CurDepth >= NextDepth Then
+        '                            For intDepthDifference As Integer = CurDepth To NextDepth Step -1
+        '                                retString &= "</" & CurrentDocumentLevels(intDepthDifference - 1) & ">"
+        '                            Next
+        '                            'retString &= "</" & XDPDoc1.FormName & ">"
+        '                        End If
+        '                    End If
 
-                            'If StartForm = XDPDoc1.FormName Then
-                            '    Exit For
-                            'End If
-                        End If
-                        'End If
-                        Dim _f2 As FDFDoc_Class = _FDF(FormIndex)
-                        _f2.WrittenXDP = True
-                        _FDF(FormIndex) = _f2
-                        FormIndex += 1
-                    Next
-                End If
-                Return retString & ""
-            Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return ""
-            End Try
-        End Function
+        '                    'If StartForm = XDPDoc1.FormName Then
+        '                    '    Exit For
+        '                    'End If
+        '                End If
+        '                'End If
+        '                Dim _f2 As FDFDoc_Class = _FDF(FormIndex)
+        '                _f2.WrittenXDP = True
+        '                _FDF(FormIndex) = _f2
+        '                FormIndex += 1
+        '            Next
+        '        End If
+        '        Return retString & ""
+        '    Catch Ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+        '        Return ""
+        '    End Try
+        'End Function
         Public Function WriteXMLFormFields() As String
 
             '' SUBFORMS
@@ -11858,15 +13323,10 @@ contintue_here:
                 Next
                 FormIndex = 0
             Catch ex As Exception
-                Err.Clear()
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
             FormIndex = 0
             Try
-                For intForm As Integer = 0 To _FDF.Count - 1
-                    Dim _f As FDFDoc_Class = _FDF(intForm)
-                    _f.WrittenXDP = False
-                    _FDF(intForm) = _f
-                Next
                 Dim PrevFormLevel As String = "", PrevFormLevelSubform As String
                 Dim StartForm As String = ""
                 If Not _FDF.Count <= 0 Then
@@ -11899,6 +13359,11 @@ contintue_here:
                                                             retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                             retString &= fld.ImageBase64
                                                             retString &= "</" & fld.FieldName & ">"
+                                                        End If
+                                                    ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                        If Not fld.Subforms Is Nothing Then
+                                                            'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                            retString &= WriteXMLFormFields(fld.Subforms.ToArray())
                                                         End If
                                                     Else
                                                         If fld.FieldValue.Count > 0 Then
@@ -11971,12 +13436,16 @@ contintue_here:
                                         'If Subform1.struc_FDFFields.Count >= 1 Then	'_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
                                         Try
                                             If _FDF(XDPDoc1 + 1).FormLevel.Contains(_FDF(XDPDoc1).FormLevel & "/") Then
-                                                retString &= WriteXMLSubforms(_FDF(XDPDoc1).FormLevel & "/")
+                                                Try
+                                                    retString &= WriteXMLSubforms(_FDF(XDPDoc1).FormLevel & "/")
+                                                Catch ex3 As Exception
+                                                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
+                                                    Err.Clear()
+                                                End Try
                                             End If
                                         Catch exSubforms As Exception
                                             Err.Clear()
                                         End Try
-
                                         If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
                                             If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
                                                 retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
@@ -12000,7 +13469,7 @@ contintue_here:
                     Next
                     FormIndex = 0
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
@@ -12008,119 +13477,6 @@ contintue_here:
                 Return ""
             End Try
 
-
-
-            '' XML ORIGINAL SUBFORMS
-            'Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
-            'Dim retString As String = ""
-            'Try
-            '    Try
-            '        For FormIndex = 0 To _FDF.Count - 1
-            '            _FDF(FormIndex).FormNumber = FormIndex
-            '            _FDF(FormIndex).WrittenXDP = False
-            '        Next
-            '    Catch ex As Exception
-            '        Err.Clear()
-            '    End Try
-            '    FormIndex = 0
-            '    Dim PrevFormLevel As String = ""
-            '    Dim StartForm As String = ""
-            '    Dim frmName As String = ""
-            '    If Not _FDF.Count <= 0 Then
-
-            '        For Each XDPDoc1 As FDFDoc_Class In _FDF
-            '            If PrevFormLevel = "" Or PrevFormLevel <> XDPDoc1.FormLevel Or String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-            '                If Not XDPDoc1.struc_FDFFields.Count <= 0 And Not _FDF(FormIndex).WrittenXDP = True Then
-            '                    Try
-            '                        frmName = XDPDoc1.FormName & ""
-            '                        If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-            '                            frmName = "form" & FormIndex + 1
-            '                        End If
-            '                        If Not String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-            '                            frmName = XDPDoc1.FormName & ""
-            '                        End If
-            '                        If Not String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-            '                            If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-            '                                If Not XDPDoc1.FormName = "root" Then
-            '                                    retString &= "<" & ReplaceBracketsString(frmName) & ">"
-            '                                End If
-            '                            End If
-            '                        Else
-            '                            If Not XDPDoc1.FormName = "root" Then
-            '                                retString &= "<" & ReplaceBracketsString(frmName) & ">"
-            '                            End If
-            '                        End If
-            '                        'retString &= "<" & XDPDoc1.FormName & ">"
-            '                        StartForm = XDPDoc1.FormName
-            '                        If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-            '                            For Each fld As FDFField In XDPDoc1.struc_FDFFields
-            '                                If Not fld.FieldName Is Nothing Then
-
-            '                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
-            '                                        If Not fld.ImageBase64 Is Nothing Then
-            '                                            ' EDITED 2012-04-07 NK-INC NK - Removed XFA
-            '                                            retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-            '                                            retString &= fld.ImageBase64
-            '                                            retString &= "</" & fld.FieldName & ">"
-            '                                        End If
-            '                                    Else
-            '                                        If fld.FieldValue.Count > 0 Then
-            '                                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
-            '                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-            '                                            Else
-            '                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-            '                                            End If
-            '                                        End If
-            '                                    End If
-            '                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-            '                                    If Not fld.ImageBase64 Is Nothing Then
-            '                                        ' EDITED 2012-04-07 NK-INC NK - Removed XFA
-            '                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-            '                                        retString &= fld.ImageBase64
-            '                                        retString &= "</" & fld.FieldName & ">"
-            '                                    End If
-            '                                End If
-            '                            Next
-            '                        End If
-            '                        retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
-            '                    Catch ex As Exception
-            '                        Throw New Exception(ex.Message, ex)
-            '                    Finally
-            '                        'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-            '                        If Not String_IsNullOrEmpty(XDPDoc1.FormLevel) Then
-            '                            If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-            '                                If Not frmName = "root" Then
-            '                                    retString &= "</" & ReplaceBracketsString(frmName) & ">"
-            '                                End If
-            '                            End If
-            '                            PrevFormLevel = XDPDoc1.FormLevel
-            '                        Else
-            '                            If Not frmName = "root" Then
-            '                                retString &= "</" & ReplaceBracketsString(frmName) & ">"
-            '                            End If
-            '                        End If
-            '                        'retString &= "</" & XDPDoc1.FormName & ">"
-            '                    End Try
-            '                End If
-            '                FormIndex += 1
-            '            End If
-            '        Next
-            '    End If
-            '    Try
-            '        For FormIndex = 0 To _FDF.Count - 1
-            '            Dim _f3 As FDFDoc_Class = _FDF(FormIndex)
-            '            _f3.WrittenXDP = True
-            '            _FDF(FormIndex) = _f3
-            '        Next
-            '        FormIndex = 0
-            '    Catch ex3 As Exception
-            '        Err.Clear()
-            '    End Try
-            '    Return retString & ""
-            'Catch Ex As Exception
-            '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
-            '    Return ""
-            'End Try
         End Function
         ' ADDED 2013-03-19
         Private Function ReplaceBracketsString(ByVal str As String) As String
@@ -12165,7 +13521,7 @@ contintue_here:
                 Next
                 FormIndex = 0
             Catch ex As Exception
-                Err.Clear()
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
             FormIndex = 0
             Try
@@ -12180,7 +13536,7 @@ contintue_here:
                     For XDPDoc1 As Integer = 0 To _FDF.Count - 1
                         '_FDF.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
                         If PrevFormLevel = "" Or String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel) Or XDPDoc1 >= 0 Then
-                            If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(XDPDoc1).FormLevel).Length > 1) And _FDF(XDPDoc1).WrittenXDP = False Then
+                            If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllSubforms(_FDF(XDPDoc1).FormLevel).Length > 1) And _FDF(XDPDoc1).WrittenXDP = False Then
                                 If String_IsNullOrEmpty(_FDF(XDPDoc1).FormName & "") Then
                                     _FDF(XDPDoc1).FormName = "form" & XDPDoc1 + 1
                                 End If
@@ -12206,6 +13562,11 @@ contintue_here:
                                                             retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                             retString &= fld.ImageBase64
                                                             retString &= "</" & fld.FieldName & ">"
+                                                        End If
+                                                    ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                        If Not fld.Subforms Is Nothing Then
+                                                            'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                            retString &= WriteXDPFormFields(fld.Subforms.ToArray())
                                                         End If
                                                     Else
                                                         If fld.FieldValue.Count > 0 Then
@@ -12277,20 +13638,22 @@ contintue_here:
                                     Finally
                                         'If Subform1.struc_FDFFields.Count >= 1 Then	'_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
                                         Try
-                                            If _FDF(XDPDoc1 + 1).FormLevel.Contains(_FDF(XDPDoc1).FormLevel & "/") Then
-                                                retString &= WriteXDPSubforms(_FDF(XDPDoc1).FormLevel & "/")
+                                            If XDPDoc1 + 1 < _FDF.Count Then
+                                                If _FDF(XDPDoc1 + 1).FormLevel.Contains(_FDF(XDPDoc1).FormLevel & "/") Then
+                                                    retString &= WriteXDPSubforms(_FDF(XDPDoc1).FormLevel & "/")
+                                                End If
                                             End If
                                         Catch exSubforms As Exception
-                                            Err.Clear()
+                                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, exSubforms)
                                         End Try
 
-                                        If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                            If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
-                                                retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
-                                                _FDF(XDPDoc1).WrittenXDP = True
-                                                'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
-                                            End If
+                                        'If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not _FDF(XDPDoc1).FormName = "root" And Not _FDF(XDPDoc1).FormName = "form1" Then
+                                            retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
+                                            _FDF(XDPDoc1).WrittenXDP = True
+                                            'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
                                         End If
+                                        'End If
                                         PrevFormLevel = _FDF(XDPDoc1).FormLevel
                                         PrevFormLevelSubform = _FDF(XDPDoc1).FormLevel
                                         'retString &= "</" & _fdf(XDPDoc1).FormName & ">"
@@ -12309,7 +13672,7 @@ contintue_here:
                     Next
                     FormIndex = 0
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
@@ -12317,105 +13680,169 @@ contintue_here:
                 Return ""
             End Try
         End Function
-        Private Function WriteXDPFormFields_OLD() As String
+        Private Function WriteXDPFormFields(ByRef subform() As FDFDoc_Class) As String
             '' SUBFORMS
             Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
             Dim retString As String = ""
             Try
-                For FormIndex = 0 To _FDF.Count - 1
-                    _FDF(FormIndex).FormNumber = FormIndex
+                For FormIndex = 0 To subform.Length - 1
+                    subform(FormIndex).FormNumber = FormIndex
+                    subform(FormIndex).WrittenXDP = False
                 Next
                 FormIndex = 0
             Catch ex As Exception
-                Err.Clear()
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
             FormIndex = 0
             Try
-                For intForm As Integer = 0 To _FDF.Count - 1
-                    Dim _f As FDFDoc_Class = _FDF(intForm)
+                For intForm As Integer = 0 To subform.Length - 1
+                    Dim _f As FDFDoc_Class = subform(intForm)
                     _f.WrittenXDP = False
-                    _FDF(intForm) = _f
+                    subform(intForm) = _f
                 Next
-                Dim PrevFormLevel As String = ""
+                Dim PrevFormLevel As String = "", PrevFormLevelSubform As String
                 Dim StartForm As String = ""
-                If Not _FDF.Count <= 0 Then
-                    For XDPDoc1 As Integer = 0 To _FDF.Count - 1
-                        '_FDF.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
-                        If PrevFormLevel = "" Or String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel) Then
-                            If (_FDF(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(XDPDoc1).FormLevel).Length > 1) And _FDF(FormIndex).WrittenXDP = False Then
-                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormName & "") Then
-                                    _FDF(XDPDoc1).FormName = "form" & FormIndex + 1
+                If Not subform.Length <= 0 Then
+                    For XDPDoc1 As Integer = 0 To subform.Length - 1
+                        'subform.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
+                        If PrevFormLevel = "" Or String_IsNullOrEmpty(subform(XDPDoc1).FormLevel) Or XDPDoc1 >= 0 Then
+                            If (subform(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllSubforms(subform, subform(XDPDoc1).FormLevel).Length > 1) And subform(XDPDoc1).WrittenXDP = False Then
+                                If String_IsNullOrEmpty(subform(XDPDoc1).FormName & "") Then
+                                    subform(XDPDoc1).FormName = "form" & XDPDoc1 + 1
                                 End If
-                                If String_IsNullOrEmpty(_FDF(XDPDoc1).FormLevel & "") Then
-                                    _FDF(XDPDoc1).FormLevel = _FDF(XDPDoc1).FormName & ""
+                                If String_IsNullOrEmpty(subform(XDPDoc1).FormLevel & "") Then
+                                    subform(XDPDoc1).FormLevel = subform(XDPDoc1).FormName & ""
                                 End If
-                                Try
-                                    If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                        If Not _FDF(XDPDoc1).FormName = "root" Then
+                                If (subform(XDPDoc1).FormLevel IsNot Nothing) And XDPDoc1 >= 0 Then
+                                    'If (subform(XDPDoc1).strucsubformFields.Count > 0 And subform(XDPDoc1).FormLevel IsNot Nothing) Or (XDPDoc1 > 0 And subform(XDPDoc1).FormName <> "form1") Or (subform(XDPDoc1).strucsubformFields.Count > 0 And subform(XDPDoc1).FormName = "form1") And Not subform(XDPDoc1).FormName = "root" Then
+                                    Try
+                                        'If Not subform(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not subform(XDPDoc1).FormName = "root" And Not subform(XDPDoc1).FormName = "form1" Then
                                             ' MODIFIED 2013-03-19
-                                            retString &= "<" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
-                                            'retString &= "<" & (_fdf(XDPDoc1).FormName) & ">"
+                                            retString &= "<" & ReplaceBracketsString(subform(XDPDoc1).FormName) & ">"
+                                            'retString &= "<" & (subform(XDPDoc1).FormName) & ">"
                                         End If
-                                    End If
-                                    'retString &= "<" & _fdf(XDPDoc1).FormName & ">"
-                                    StartForm = _FDF(XDPDoc1).FormName
-                                    If _FDF(XDPDoc1).struc_FDFFields.Count >= 1 Then  '_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
-                                        For Each fld As FDFField In _FDF(XDPDoc1).struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        'retString &= "<" & subform(XDPDoc1).FormName & ">"
+                                        StartForm = subform(XDPDoc1).FormName
+                                        If subform(XDPDoc1).struc_FDFFields.Count >= 1 Then  'subform(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                            For Each fld As FDFField In subform(XDPDoc1).struc_FDFFields
+                                                If Not fld.FieldName Is Nothing Then
+                                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                        If Not fld.ImageBase64 Is Nothing Then
+                                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                            retString &= fld.ImageBase64
+                                                            retString &= "</" & fld.FieldName & ">"
+                                                        End If
+                                                    ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                        If Not fld.Subforms Is Nothing Then
+                                                            'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                            retString &= WriteXDPFormFields(fld.Subforms.ToArray())
+                                                        End If
+                                                    Else
+                                                        If fld.FieldValue.Count > 0 Then
+                                                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                            Else
+                                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                            End If
+                                                        End If
+                                                    End If
+                                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
                                                     If Not fld.ImageBase64 Is Nothing Then
                                                         retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
                                                     End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
                                                 End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
+                                            Next
+                                        End If
+                                        'End If
+                                        'For XDPDoc2 As Integer = (XDPDoc1 + 1) To subform.Length - 1
+                                        '    If Not subform(XDPDoc2).FormLevel.Contains(PrevFormLevelSubform & "/") Then
+                                        '        Exit For
+                                        '    Else
+                                        '        If Not subform(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "<" & ReplaceBracketsString(subform(XDPDoc2).FormName) & ">"
+                                        '            'retString &= "<" & (subform(XDPDoc2).FormName) & ">"
+                                        '        End If
+                                        '        If subform(XDPDoc2).strucsubformFields.Count >= 1 Then  'subform(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        '            For Each fld As FDFField In subform(XDPDoc1).strucsubformFields
+                                        '                If Not fld.FieldName Is Nothing Then
+                                        '                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                        If Not fld.ImageBase64 Is Nothing Then
+                                        '                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                            retString &= fld.ImageBase64
+                                        '                            retString &= "</" & fld.FieldName & ">"
+                                        '                        End If
+                                        '                    Else
+                                        '                        If fld.FieldValue.Count > 0 Then
+                                        '                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                        '                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                        '                            Else
+                                        '                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                        '                            End If
+                                        '                        End If
+                                        '                    End If
+                                        '                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                    If Not fld.ImageBase64 Is Nothing Then
+                                        '                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                        retString &= fld.ImageBase64
+                                        '                        retString &= "</" & fld.FieldName & ">"
+                                        '                    End If
+                                        '                End If
+                                        '            Next
+                                        '        End If
+
+                                        '        If Not subform(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "</" & ReplaceBracketsString(subform(XDPDoc2).FormName) & ">"
+                                        '            subform(XDPDoc2).WrittenXDP = True
+                                        '            PrevFormLevelSubform = subform(XDPDoc2).FormLevel
+                                        '            'retString &= "</" & (subform(XDPDoc1).FormName) & ">"
+                                        '        End If
+                                        '    End If
+                                        'Next
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        'If Subform1.strucsubformFields.Count >= 1 Then	'subform(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        Try
+                                            If XDPDoc1 + 1 < subform.Length Then
+                                                If subform(XDPDoc1 + 1).FormLevel.Contains(subform(XDPDoc1).FormLevel & "/") Then
+                                                    retString &= WriteXDPSubforms(subform(XDPDoc1).FormLevel & "/")
                                                 End If
                                             End If
-                                        Next
-                                    End If
-                                    retString &= WriteXDPSubforms(_FDF(XDPDoc1).FormLevel)
-                                Catch ex As Exception
-                                    Throw New Exception(ex.Message, ex)
-                                Finally
-                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'_fdf(XDPDoc1).DocType = FDFDocType.XDPForm And
-                                    If Not _FDF(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                        If Not _FDF(XDPDoc1).FormName = "root" Then
-                                            ' MODIFIED 2013-03-19
-                                            retString &= "</" & ReplaceBracketsString(_FDF(XDPDoc1).FormName) & ">"
-                                            _FDF(XDPDoc1).WrittenXDP = True
-                                            'retString &= "</" & (_fdf(XDPDoc1).FormName) & ">"
+                                        Catch exSubforms As Exception
+                                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, exSubforms)
+                                        End Try
+
+                                        'If Not subform(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not subform(XDPDoc1).FormName = "root" And Not subform(XDPDoc1).FormName = "form1" Then
+                                            retString &= "</" & ReplaceBracketsString(subform(XDPDoc1).FormName) & ">"
+                                            subform(XDPDoc1).WrittenXDP = True
+                                            'retString &= "</" & (subform(XDPDoc1).FormName) & ">"
                                         End If
-                                    End If
-                                    PrevFormLevel = _FDF(XDPDoc1).FormLevel
-                                    'retString &= "</" & _fdf(XDPDoc1).FormName & ">"
-                                End Try
+                                        'End If
+                                        PrevFormLevel = subform(XDPDoc1).FormLevel
+                                        PrevFormLevelSubform = subform(XDPDoc1).FormLevel
+                                        'retString &= "</" & subform(XDPDoc1).FormName & ">"
+                                    End Try
+                                End If
                             End If
                             FormIndex += 1
                         End If
                     Next
                 End If
                 Try
-                    For FormIndex = 0 To _FDF.Count - 1
-                        Dim _f3 As FDFDoc_Class = _FDF(FormIndex)
+                    For FormIndex = 0 To subform.Length - 1
+                        Dim _f3 As FDFDoc_Class = subform(FormIndex)
                         _f3.WrittenXDP = True
-                        _FDF(FormIndex) = _f3
+                        subform(FormIndex) = _f3
                     Next
                     FormIndex = 0
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
@@ -12423,99 +13850,221 @@ contintue_here:
                 Return ""
             End Try
         End Function
-        Private Function WriteXDPFormFields_3D_Works_Good() As String
-            '' SUBFORMS
-            Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
-            Dim retString As String = ""
-            Try
-                For intForm As Integer = 0 To _FDF.Count - 1
-                    Dim _f As FDFDoc_Class = _FDF(intForm)
-                    _f.WrittenXDP = False
-                    _FDF(intForm) = _f
-                Next
-                Dim PrevFormLevel As String = ""
-                Dim StartForm As String = ""
-                If Not _FDF.Count <= 0 Then
-
-                    For Each XDPDoc1 As FDFDoc_Class In _FDF
-                        If PrevFormLevel = "" Or PrevFormLevel = XDPDoc1.FormLevel Then
-                            If Not XDPDoc1.struc_FDFFields.Count <= 0 And Not _FDF(FormIndex).WrittenXDP = True Then
-                                If String_IsNullOrEmpty(XDPDoc1.FormName & "") Then
-                                    XDPDoc1.FormName = "form" & FormIndex + 1
+        Public Function XDPGetAllSubforms(ByVal _fdfdoc_classes() As FDFApp.FDFDoc_Class.FDFDoc_Class, Optional ByVal _formLevel As String = "") As FDFApp.FDFDoc_Class.FDFDoc_Class()
+            Dim _forms As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            For Each frm As FDFApp.FDFDoc_Class.FDFDoc_Class In _fdfdoc_classes
+                If Not frm.FormLevel Is Nothing Then
+                    'If frm.FormLevel.StartsWith(_formLevel) Or frm.FormLevelLong.StartsWith(_formLevel) Or String.IsNullOrEmpty(_formLevel & "") Then
+                    If _formLevel.StartsWith(frm.FormLevel) Or _formLevel.StartsWith(frm.FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                        Try
+                            If Not String.IsNullOrEmpty(frm.FormLevel) Then
+                                If frm.FormLevel.StartsWith(_formLevel) Or frm.FormLevelLong.StartsWith(_formLevel) Then
+                                    _forms.Add(frm)
                                 End If
-                                If String_IsNullOrEmpty(XDPDoc1.FormLevel & "") Then
-                                    XDPDoc1.FormLevel = XDPDoc1.FormName & ""
-                                End If
-                                Try
-                                    If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                        If Not XDPDoc1.FormName = "root" Then
-                                            retString &= "<" & XDPDoc1.FormName & ">"
-                                        End If
-                                    End If
-                                    'retString &= "<" & XDPDoc1.FormName & ">"
-                                    StartForm = XDPDoc1.FormName
-                                    If XDPDoc1.struc_FDFFields.Count >= 1 Then  'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                        For Each fld As FDFField In XDPDoc1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                    If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                        retString &= fld.ImageBase64
-                                                        retString &= "</" & fld.FieldName & ">"
-                                                    End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
-                                                End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        Next
-                                    End If
-                                    retString &= WriteXDPSubforms(XDPDoc1.FormLevel)
-                                Catch ex As Exception
-                                    Throw New Exception(ex.Message, ex)
-                                Finally
-                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                    If Not XDPDoc1.FormLevel.ToLower = PrevFormLevel.ToLower Then
-                                        If Not XDPDoc1.FormName = "root" Then
-                                            retString &= "</" & XDPDoc1.FormName & ">"
-                                        End If
-                                    End If
-                                    PrevFormLevel = XDPDoc1.FormLevel.ToLower
-                                    'retString &= "</" & XDPDoc1.FormName & ">"
-                                End Try
                             End If
-                            FormIndex += 1
-                        End If
-                    Next
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+
+                        For Each fld As FDFApp.FDFDoc_Class.FDFField In frm.struc_FDFFields.ToArray
+                            Try
+                                If fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                    '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                    _forms.AddRange(XDPGetAllSubforms(fld.Subforms.ToArray(), _formLevel & ""))
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    End If
                 End If
-                Try
-                    For FormIndex = 0 To _FDF.Count - 1
-                        Dim _f3 As FDFDoc_Class = _FDF(FormIndex)
-                        _f3.WrittenXDP = True
-                        _FDF(FormIndex) = _f3
-                    Next
-                    FormIndex = 0
-                Catch ex3 As Exception
-                    Err.Clear()
-                End Try
-                Return retString & ""
-            Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return ""
-            End Try
+            Next
+            Return _forms.ToArray
         End Function
-        
+        Public Function XDPGetAllSubforms(Optional ByVal _formLevel As String = "") As FDFApp.FDFDoc_Class.FDFDoc_Class()
+            Dim _forms As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            If _formLevel Is Nothing Then _formLevel = ""
+            For Each frm As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetForms()
+                If Not frm.FormLevel Is Nothing Then
+                    If _formLevel.StartsWith(frm.FormLevel) Or _formLevel.StartsWith(frm.FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                        Try
+                            If Not String.IsNullOrEmpty(frm.FormLevel) Then
+                                If frm.FormLevel.StartsWith(_formLevel) Or frm.FormLevelLong.StartsWith(_formLevel) Then
+                                    _forms.Add(frm)
+                                End If
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+
+                        For Each fld As FDFApp.FDFDoc_Class.FDFField In frm.struc_FDFFields.ToArray
+                            Try
+                                If fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                    '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                    _forms.AddRange(XDPGetAllSubforms(fld.Subforms.ToArray(), _formLevel & ""))
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    End If
+                End If
+            Next
+            Return _forms.ToArray
+        End Function
+        ''' <summary>
+        ''' Gets/Set XDPSubform 
+        ''' </summary>
+        ''' <param name="_formLevel">Form Level, Level Long, or Form Name</param>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Property XDPSubform(Optional ByVal _formLevel As String = "") As FDFApp.FDFDoc_Class.FDFDoc_Class
+            Get
+                XDPAdjustSubforms()
+                Dim _forms As FDFApp.FDFDoc_Class.FDFDoc_Class = Nothing
+                If _formLevel Is Nothing Then _formLevel = ""
+                For frm As Integer = 0 To _FDF.Count - 1
+                    If Not _FDF(frm).FormLevel Is Nothing Then
+                        If _formLevel.StartsWith(_FDF(frm).FormLevel) Or _formLevel.StartsWith(_FDF(frm).FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                            Try
+                                If Not String.IsNullOrEmpty(_FDF(frm).FormLevel) Then
+                                    If _FDF(frm).FormLevel = (_formLevel) Or _FDF(frm).FormLevelLong = (_formLevel) Or _FDF(frm).FormName & "[" & _FDF(frm).FormNumber & "]" = (_formLevel) Or _FDF(frm).FormName = (_formLevel) Then
+                                        Return (_FDF(frm))
+                                    End If
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+
+                            For Each fld As FDFApp.FDFDoc_Class.FDFField In _FDF(frm).struc_FDFFields
+                                Try
+                                    If fld.FieldType = FieldType.FldSubform Then
+                                        '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                        _forms = (XDPGetSubform(fld.Subforms, _formLevel & ""))
+                                        If Not _forms Is Nothing Then
+                                            Return _forms
+                                        End If
+                                    End If
+                                Catch ex As Exception
+                                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                                End Try
+                            Next
+                        End If
+                    End If
+                Next
+                If Not _forms Is Nothing Then
+                    Return _forms
+                Else
+                    Return Nothing
+                End If
+            End Get
+            Set(ByVal value As FDFApp.FDFDoc_Class.FDFDoc_Class)
+                Dim _forms As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+                If _formLevel Is Nothing Then _formLevel = ""
+                For frm As Integer = 0 To _FDF.Count - 1
+                    If Not _FDF(frm).FormLevel Is Nothing Then
+                        If _formLevel.StartsWith(_FDF(frm).FormLevel) Or _formLevel.StartsWith(_FDF(frm).FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                            Try
+                                If Not String.IsNullOrEmpty(_FDF(frm).FormLevel) Then
+                                    If _FDF(frm).FormLevel = (_formLevel) Or _FDF(frm).FormLevelLong = (_formLevel) Then
+                                        _FDF(frm) = value
+                                        Return
+                                    End If
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+
+                            For Each fld As FDFApp.FDFDoc_Class.FDFField In _FDF(frm).struc_FDFFields
+                                Try
+                                    If fld.FieldType = FieldType.FldSubform Then
+                                        '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                        If (XDPSetSubform(fld.Subforms, _formLevel & "", value)) Then
+                                            Return
+                                        End If
+                                    End If
+                                Catch ex As Exception
+                                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                                End Try
+                            Next
+                        End If
+                    End If
+                Next
+            End Set
+        End Property
+        Public Function XDPGetSubform(ByVal _subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal _formLevel As String) As FDFApp.FDFDoc_Class.FDFDoc_Class
+            Dim _forms As FDFApp.FDFDoc_Class.FDFDoc_Class = Nothing
+            If _formLevel Is Nothing Then _formLevel = ""
+            For frm As Integer = 0 To _subforms.Count - 1
+                If Not _subforms(frm).FormLevel Is Nothing Then
+                    If _formLevel.StartsWith(_subforms(frm).FormLevel) Or _formLevel.StartsWith(_subforms(frm).FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                        Try
+                            If Not String.IsNullOrEmpty(_subforms(frm).FormLevel) Then
+                                If _subforms(frm).FormLevel = (_formLevel) Or _subforms(frm).FormLevelLong = (_formLevel) Or _subforms(frm).FormName & "[" & _subforms(frm).FormNumber & "]" = (_formLevel) Or _subforms(frm).FormName = (_formLevel) Then
+                                    Return (_subforms(frm))
+                                End If
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+
+                        For Each fld As FDFApp.FDFDoc_Class.FDFField In _subforms(frm).struc_FDFFields
+                            Try
+                                If fld.FieldType = FieldType.FldSubform Then
+                                    '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                    _forms = XDPGetSubform(fld.Subforms, _formLevel & "")
+                                    If Not _forms Is Nothing Then
+                                        Return _forms
+                                    End If
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    End If
+                End If
+            Next
+            If Not _forms Is Nothing Then
+                Return _forms
+            Else
+                Return Nothing
+            End If
+        End Function
+        Public Function XDPSetSubform(ByVal _subforms As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByVal _formLevel As String, ByVal value As FDFApp.FDFDoc_Class.FDFDoc_Class) As Boolean
+            Dim _forms As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            If _formLevel Is Nothing Then _formLevel = ""
+            For frm As Integer = 0 To _subforms.Count - 1
+                If Not _subforms(frm).FormLevel Is Nothing Then
+                    If _formLevel.StartsWith(_subforms(frm).FormLevel) Or _formLevel.StartsWith(_subforms(frm).FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                        Try
+                            If Not String.IsNullOrEmpty(_subforms(frm).FormLevel) Then
+                                If _subforms(frm).FormLevel = (_formLevel) Or _subforms(frm).FormLevelLong = (_formLevel) Then
+                                    _subforms(frm) = value
+                                    Return True
+                                End If
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+
+                        For Each fld As FDFApp.FDFDoc_Class.FDFField In _subforms(frm).struc_FDFFields
+                            Try
+                                If fld.FieldType = FieldType.FldSubform Then
+                                    '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                    If (XDPSetSubform(fld.Subforms, _formLevel & "", value)) Then
+                                        Return True
+                                    End If
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    End If
+                End If
+            Next
+            Return False
+        End Function
         Private Function WriteXDPSubforms(ByVal formLevel As String) As String
 
             Dim FormIndex As Integer, SubformIndex As Integer = 0
@@ -12527,7 +14076,7 @@ contintue_here:
 
                 If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
                 Dim previousFormNumber As Integer = 0
-                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllSubforms(formLevel.TrimEnd("/") & "/")
                     'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
                     If String_IsNullOrEmpty(subForm1.FormName & "") Then
                         subForm1.FormName = "subform" & "1"
@@ -12535,7 +14084,7 @@ contintue_here:
                     If (subForm1.FormLevel.StartsWith(formLevel)) Then
                         If Not subForm1.WrittenXDP = True Then
                             previousFormNumber = subForm1.FormNumber
-                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllSubforms(subForm1.FormLevel).Length > 1 Then
 
                                 If String_IsNullOrEmpty(subForm1.FormName & "") Then
                                     subForm1.FormName = "subform" & SubformIndex + 1
@@ -12570,6 +14119,11 @@ contintue_here:
                                                         retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                    If Not fld.Subforms Is Nothing Then
+                                                        'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                        retString &= WriteXDPFormFields(fld.Subforms.ToArray())
                                                     End If
                                                 Else
                                                     If fld.FieldValue.Count > 0 Then
@@ -12618,7 +14172,7 @@ contintue_here:
                 Try
 
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
@@ -12731,7 +14285,7 @@ contintue_here:
             '                    End If
             '                Next
             '            Catch ex As Exception
-            '                Err.Clear()
+            '                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             '            End Try
 
             '            If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not _FDF(Subform1).WrittenXDP = True Then
@@ -12810,7 +14364,7 @@ contintue_here:
             '    Try
 
             '    Catch ex3 As Exception
-            '        Err.Clear()
+            '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             '    End Try
             '    Return retString & ""
             'Catch Ex As Exception
@@ -12828,7 +14382,7 @@ contintue_here:
 
                 If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
                 Dim previousFormNumber As Integer = 0
-                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllSubforms(formLevel.TrimEnd("/") & "/")
                     'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
                     If String_IsNullOrEmpty(subForm1.FormName & "") Then
                         subForm1.FormName = "subform" & "1"
@@ -12836,7 +14390,7 @@ contintue_here:
                     If (subForm1.FormLevel.StartsWith(formLevel)) Then
                         If Not subForm1.WrittenXDP = True Then
                             previousFormNumber = subForm1.FormNumber
-                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllSubforms(subForm1.FormLevel).Length > 1 Then
 
                                 If String_IsNullOrEmpty(subForm1.FormName & "") Then
                                     subForm1.FormName = "subform" & SubformIndex + 1
@@ -12871,6 +14425,11 @@ contintue_here:
                                                         retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                    If Not fld.Subforms Is Nothing Then
+                                                        'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                        retString &= WriteXMLFormFields(fld.Subforms.ToArray())
                                                     End If
                                                 Else
                                                     If fld.FieldValue.Count > 0 Then
@@ -12919,7 +14478,7 @@ contintue_here:
                 Try
 
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
@@ -12927,6 +14486,178 @@ contintue_here:
                 Return ""
             End Try
 
+        End Function
+        Private Function WriteXMLFormFields(ByRef subform() As FDFDoc_Class) As String
+            '' SUBFORMS
+            Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
+            Dim retString As String = ""
+            Try
+                For FormIndex = 0 To subform.Length - 1
+                    subform(FormIndex).FormNumber = FormIndex
+                    subform(FormIndex).WrittenXDP = False
+                Next
+                FormIndex = 0
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            FormIndex = 0
+            Try
+                For intForm As Integer = 0 To subform.Length - 1
+                    Dim _f As FDFDoc_Class = subform(intForm)
+                    _f.WrittenXDP = False
+                    subform(intForm) = _f
+                Next
+                Dim PrevFormLevel As String = "", PrevFormLevelSubform As String
+                Dim StartForm As String = ""
+                If Not subform.Length <= 0 Then
+                    For XDPDoc1 As Integer = 0 To subform.Length - 1
+                        'subform.Sort(Function(x, y) x.FormLevel.CompareTo(y.FormLevel))
+                        If PrevFormLevel = "" Or String_IsNullOrEmpty(subform(XDPDoc1).FormLevel) Or XDPDoc1 >= 0 Then
+                            If (subform(XDPDoc1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subform(XDPDoc1).FormLevel).Length > 1) And subform(XDPDoc1).WrittenXDP = False Then
+                                If String_IsNullOrEmpty(subform(XDPDoc1).FormName & "") Then
+                                    subform(XDPDoc1).FormName = "form" & XDPDoc1 + 1
+                                End If
+                                If String_IsNullOrEmpty(subform(XDPDoc1).FormLevel & "") Then
+                                    subform(XDPDoc1).FormLevel = subform(XDPDoc1).FormName & ""
+                                End If
+                                If (subform(XDPDoc1).FormLevel IsNot Nothing) And XDPDoc1 >= 0 Then
+                                    'If (subform(XDPDoc1).strucsubformFields.Count > 0 And subform(XDPDoc1).FormLevel IsNot Nothing) Or (XDPDoc1 > 0 And subform(XDPDoc1).FormName <> "form1") Or (subform(XDPDoc1).strucsubformFields.Count > 0 And subform(XDPDoc1).FormName = "form1") And Not subform(XDPDoc1).FormName = "root" Then
+                                    Try
+                                        'If Not subform(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                        If Not subform(XDPDoc1).FormName = "root" And Not subform(XDPDoc1).FormName = "form1" Then
+                                            ' MODIFIED 2013-03-19
+                                            retString &= "<" & ReplaceBracketsString(subform(XDPDoc1).FormName) & ">"
+                                            'retString &= "<" & (subform(XDPDoc1).FormName) & ">"
+                                        End If
+                                        'retString &= "<" & subform(XDPDoc1).FormName & ">"
+                                        StartForm = subform(XDPDoc1).FormName
+                                        If subform(XDPDoc1).struc_FDFFields.Count >= 1 Then  'subform(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                            For Each fld As FDFField In subform(XDPDoc1).struc_FDFFields
+                                                If Not fld.FieldName Is Nothing Then
+                                                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                        If Not fld.ImageBase64 Is Nothing Then
+                                                            retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                            retString &= fld.ImageBase64
+                                                            retString &= "</" & fld.FieldName & ">"
+                                                        End If
+                                                    ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                        If Not fld.Subforms Is Nothing Then
+                                                            'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                            retString &= WriteXMLFormFields(fld.Subforms.ToArray())
+                                                        End If
+                                                    Else
+                                                        If fld.FieldValue.Count > 0 Then
+                                                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                                            Else
+                                                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                                            End If
+                                                        End If
+                                                    End If
+                                                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                                    If Not fld.ImageBase64 Is Nothing Then
+                                                        retString &= "<" & fld.FieldName & " contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                                        retString &= fld.ImageBase64
+                                                        retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                End If
+                                            Next
+                                        End If
+                                        'End If
+                                        'For XDPDoc2 As Integer = (XDPDoc1 + 1) To subform.Length - 1
+                                        '    If Not subform(XDPDoc2).FormLevel.Contains(PrevFormLevelSubform & "/") Then
+                                        '        Exit For
+                                        '    Else
+                                        '        If Not subform(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "<" & ReplaceBracketsString(subform(XDPDoc2).FormName) & ">"
+                                        '            'retString &= "<" & (subform(XDPDoc2).FormName) & ">"
+                                        '        End If
+                                        '        If subform(XDPDoc2).strucsubformFields.Count >= 1 Then  'subform(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        '            For Each fld As FDFField In subform(XDPDoc1).strucsubformFields
+                                        '                If Not fld.FieldName Is Nothing Then
+                                        '                    If fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                        If Not fld.ImageBase64 Is Nothing Then
+                                        '                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                            retString &= fld.ImageBase64
+                                        '                            retString &= "</" & fld.FieldName & ">"
+                                        '                        End If
+                                        '                    Else
+                                        '                        If fld.FieldValue.Count > 0 Then
+                                        '                            If String_IsNullOrEmpty(fld.FieldValue(0)) = True Then
+                                        '                                retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
+                                        '                            Else
+                                        '                                retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
+                                        '                            End If
+                                        '                        End If
+                                        '                    End If
+                                        '                ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
+                                        '                    If Not fld.ImageBase64 Is Nothing Then
+                                        '                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
+                                        '                        retString &= fld.ImageBase64
+                                        '                        retString &= "</" & fld.FieldName & ">"
+                                        '                    End If
+                                        '                End If
+                                        '            Next
+                                        '        End If
+
+                                        '        If Not subform(XDPDoc2).FormName = "root" Then
+                                        '            ' MODIFIED 2013-03-19
+                                        '            retString &= "</" & ReplaceBracketsString(subform(XDPDoc2).FormName) & ">"
+                                        '            subform(XDPDoc2).WrittenXDP = True
+                                        '            PrevFormLevelSubform = subform(XDPDoc2).FormLevel
+                                        '            'retString &= "</" & (subform(XDPDoc1).FormName) & ">"
+                                        '        End If
+                                        '    End If
+                                        'Next
+                                    Catch ex As Exception
+                                        Throw New Exception(ex.Message, ex)
+                                    Finally
+                                        'If Subform1.strucsubformFields.Count >= 1 Then	'subform(XDPDoc1).DocType = FDFDocType.XDPForm And
+                                        Try
+                                            If subform(XDPDoc1 + 1).FormLevel.Contains(subform(XDPDoc1).FormLevel & "/") Then
+                                                Try
+                                                    retString &= WriteXDPSubforms(subform(XDPDoc1).FormLevel & "/")
+                                                Catch ex3 As Exception
+                                                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
+                                                End Try
+                                            End If
+                                        Catch exSubforms As Exception
+                                            Err.Clear()
+                                        End Try
+
+                                        If Not subform(XDPDoc1).FormLevel.ToLower = PrevFormLevel.ToLower Then
+                                            If Not subform(XDPDoc1).FormName = "root" And Not subform(XDPDoc1).FormName = "form1" Then
+                                                retString &= "</" & ReplaceBracketsString(subform(XDPDoc1).FormName) & ">"
+                                                subform(XDPDoc1).WrittenXDP = True
+                                                'retString &= "</" & (subform(XDPDoc1).FormName) & ">"
+                                            End If
+                                        End If
+                                        PrevFormLevel = subform(XDPDoc1).FormLevel
+                                        PrevFormLevelSubform = subform(XDPDoc1).FormLevel
+                                        'retString &= "</" & subform(XDPDoc1).FormName & ">"
+                                    End Try
+                                End If
+                            End If
+                            FormIndex += 1
+                        End If
+                    Next
+                End If
+                Try
+                    For FormIndex = 0 To subform.Length - 1
+                        Dim _f3 As FDFDoc_Class = subform(FormIndex)
+                        _f3.WrittenXDP = True
+                        subform(FormIndex) = _f3
+                    Next
+                    FormIndex = 0
+                Catch ex3 As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
+                End Try
+                Return retString & ""
+            Catch Ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
+                Return ""
+            End Try
         End Function
         Private Function WriteXMLSubforms(ByVal formLevel As String) As String
 
@@ -12983,6 +14714,11 @@ contintue_here:
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
                                                     End If
+                                                ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                    If Not fld.Subforms Is Nothing Then
+                                                        'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                        retString &= WriteXMLFormFields(fld.Subforms.ToArray())
+                                                    End If
                                                 Else
                                                     If fld.FieldValue.Count > 0 Then
                                                         If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
@@ -13030,7 +14766,7 @@ contintue_here:
                 Try
 
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
@@ -13143,7 +14879,7 @@ contintue_here:
             '                    End If
             '                Next
             '            Catch ex As Exception
-            '                Err.Clear()
+            '                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             '            End Try
 
             '            If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not _FDF(Subform1).WrittenXDP = True Then
@@ -13222,7 +14958,7 @@ contintue_here:
             '    Try
 
             '    Catch ex3 As Exception
-            '        Err.Clear()
+            '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             '    End Try
             '    Return retString & ""
             'Catch Ex As Exception
@@ -13240,7 +14976,7 @@ contintue_here:
 
                 If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
                 Dim previousFormNumber As Integer = 0
-                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel.TrimEnd("/") & "/")
+                For Each subForm1 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetAllSubforms(formLevel.TrimEnd("/") & "/")
                     'For Subform1 As Integer = FormIndexSequence To _FDF.Count - 1
                     If String_IsNullOrEmpty(subForm1.FormName & "") Then
                         subForm1.FormName = "subform" & "1"
@@ -13248,7 +14984,7 @@ contintue_here:
                     If (subForm1.FormLevel.StartsWith(formLevel)) Then
                         If Not subForm1.WrittenXDP = True Then
                             previousFormNumber = subForm1.FormNumber
-                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(subForm1.FormLevel).Length > 1 Then
+                            If subForm1.struc_FDFFields.Count > 0 Or XDPGetAllSubforms(subForm1.FormLevel).Length > 1 Then
 
                                 If String_IsNullOrEmpty(subForm1.FormName & "") Then
                                     subForm1.FormName = "subform" & SubformIndex + 1
@@ -13283,6 +15019,13 @@ contintue_here:
                                                         retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
                                                         retString &= fld.ImageBase64
                                                         retString &= "</" & fld.FieldName & ">"
+                                                    End If
+                                                ElseIf fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                                    If Not fld.Subforms Is Nothing Then
+                                                        'retString &= "<" & fld.FieldName & ">" & WriteXDPFormFields(fld.Subforms.toArray()) & "</" & fld.FieldName & ">"
+                                                        If fld.Subforms.Count > 0 Then
+                                                            retString &= WriteXDPFormFields(fld.Subforms.ToArray())
+                                                        End If
                                                     End If
                                                 Else
                                                     If fld.FieldValue.Count > 0 Then
@@ -13331,559 +15074,11 @@ contintue_here:
                 Try
 
                 Catch ex3 As Exception
-                    Err.Clear()
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex3)
                 End Try
                 Return retString & ""
             Catch Ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
-                Return ""
-            End Try
-
-        End Function
-        'Private Function WriteXDPSubforms(ByVal formLevel As String, ByVal formNumber As Integer) As String
-        '    Dim FormIndex As Integer, SubformIndex As Integer = formNumber
-        '    Dim retString As String = ""
-        '    Try
-        '        'For Each _fdf(Subform1). As FDFDoc_Class In _FDF
-        '        'For Each _fdf(Subform1). As FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel)
-        '        If _FDF Is Nothing Or _FDF.Count <= 0 Then Return ""
-        '        For Subform1 As Integer = formNumber To _FDF.Count - 1
-        '            If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
-        '                _FDF(Subform1).FormName = "subform" & "1"
-        '            End If
-        '            If (_FDF(Subform1).FormLevel.StartsWith(formLevel & "/")) Then
-        '                If Not _FDF(FormIndex).WrittenXDP = True Then
-        '                    If _FDF(Subform1).struc_FDFFields.Count > 0 Or XDPGetAllForms_FormLevel(_FDF(Subform1).FormLevel).Length > 1 Then
-        '                        If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
-        '                            _FDF(Subform1).FormName = "subform" & SubformIndex + 1
-        '                        End If
-        '                        If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
-        '                            _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
-        '                        End If
-        '                        If Not _FDF(FormIndex).WrittenXDP = True Then
-        '                            If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
-        '                                retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
-        '                            End If
-
-        '                            Try
-        '                                For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
-        '                                    If Not fld.FieldName Is Nothing Then
-        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                                            If Not fld.ImageBase64 Is Nothing Then
-        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                                                retString &= fld.ImageBase64
-        '                                                retString &= "</" & fld.FieldName & ">"
-        '                                            End If
-        '                                        Else
-        '                                            If fld.FieldValue.Count > 0 Then
-        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-        '                                                Else
-        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-        '                                                End If
-        '                                            End If
-        '                                        End If
-        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                                        If Not fld.ImageBase64 Is Nothing Then
-        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                                            retString &= fld.ImageBase64
-        '                                            retString &= "</" & fld.FieldName & ">"
-        '                                        End If
-        '                                    End If
-        '                                Next
-        '                                retString &= WriteXDPSubforms(_FDF(Subform1).FormLevel, Subform1)
-        '                            Catch ex As Exception
-        '                                Throw New Exception(ex.Message, ex)
-        '                            Finally
-        '                                If _FDF(Subform1).FormName = "Table4" Then
-        '                                    Dim str As String = ""
-        '                                End If
-        '                                If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
-        '                                    retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
-        '                                Else
-        '                                    retString = retString
-        '                                End If
-        '                                _FDF(Subform1).WrittenXDP = True
-        '                            End Try
-
-        '                            'End If
-        '                        End If
-        '                    End If
-        '                    SubformIndex += 1
-        '                End If
-        '                'ElseIf Not String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") And Not _FDF(Subform1).FormLevel = "" And Not _FDF(Subform1).WrittenXDP = True Then
-        '                '    Dim frms() As String = _FDF(Subform1).FormLevel.Split("/")
-        '                '    Dim curFrms() As String = formLevel.Split("/"), intFoundSubform As Integer = -1
-        '                '    Try
-        '                '        For intFrm As Integer = 0 To curFrms.Length - 1
-        '                '            If intFrm < frms.Length Then
-        '                '                If frms(intFrm) = curFrms(intFrm) Then
-        '                '                    intFoundSubform += 1
-        '                '                Else
-        '                '                    Exit For
-        '                '                End If
-        '                '            Else
-        '                '                Exit For
-        '                '            End If
-        '                '        Next
-        '                '    Catch ex As Exception
-        '                '        Err.Clear()
-        '                '    End Try
-
-        '                '    If intFoundSubform = curFrms.Length - 1 And frms.Length > curFrms.Length And Not _FDF(Subform1).WrittenXDP = True Then
-        '                '        If Not _FDF(Subform1).struc_FDFFields.Count <= 0 Then
-        '                '            If String_IsNullOrEmpty(_FDF(Subform1).FormName & "") Then
-        '                '                _FDF(Subform1).FormName = "subform" & SubformIndex + 1
-        '                '            End If
-        '                '            If String_IsNullOrEmpty(_FDF(Subform1).FormLevel & "") Then
-        '                '                _FDF(Subform1).FormLevel = _FDF(Subform1).FormName & ""
-        '                '            End If
-        '                '            If Not _FDF(FormIndex).WrittenXDP = True Then
-        '                '                If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
-        '                '                    retString &= "<" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
-        '                '                End If
-
-        '                '                Try
-        '                '                    For Each fld As FDFField In _FDF(Subform1).struc_FDFFields
-        '                '                        If Not fld.FieldName Is Nothing Then
-        '                '                            If fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                '                                If Not fld.ImageBase64 Is Nothing Then
-        '                '                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                '                                    retString &= fld.ImageBase64
-        '                '                                    retString &= "</" & fld.FieldName & ">"
-        '                '                                End If
-        '                '                            Else
-        '                '                                If fld.FieldValue.Count > 0 Then
-        '                '                                    If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-        '                '                                        retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-        '                '                                    Else
-        '                '                                        retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-        '                '                                    End If
-        '                '                                End If
-        '                '                            End If
-        '                '                        ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                '                            If Not fld.ImageBase64 Is Nothing Then
-        '                '                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                '                                retString &= fld.ImageBase64
-        '                '                                retString &= "</" & fld.FieldName & ">"
-        '                '                            End If
-        '                '                        End If
-        '                '                    Next
-        '                '                    retString &= WriteXDPSubforms(_FDF(Subform1).FormLevel)
-        '                '                Catch ex As Exception
-        '                '                    Throw New Exception(ex.Message, ex)
-        '                '                Finally
-        '                '                    If _FDF(Subform1).FormName = "Table4" Then
-        '                '                        Dim str As String = ""
-        '                '                    End If
-        '                '                    If Not formLevel.ToLower = _FDF(Subform1).FormLevel.ToLower Then
-        '                '                        retString &= "</" & ReplaceBracketsString(_FDF(Subform1).FormName) & ">"
-        '                '                    Else
-        '                '                        retString = retString
-        '                '                    End If
-        '                '                    _FDF(Subform1).WrittenXDP = True
-        '                '                End Try
-
-        '                '                'End If
-        '                '            End If
-        '                '        End If
-        '                '        SubformIndex += 1
-        '                '           End If
-        '            Else
-        '                Exit For
-        '            End If
-        '            FormIndex += 1
-        '        Next
-        '        Try
-
-        '        Catch ex3 As Exception
-        '            Err.Clear()
-        '        End Try
-        '        Return retString & ""
-        '    Catch Ex As Exception
-        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
-        '        Return ""
-        '    End Try
-
-        'End Function
-        'Private Function WriteXDPSubformsGood(ByVal formLevel As String, ByVal formIndex As Integer) As String
-        '    Dim SubformIndex As Integer = formIndex ',FormIndex As Integer, 
-        '    Dim retString As String = ""
-        '    Try
-        '        'For Each Subform1 As FDFDoc_Class In _FDF
-        '        For Each subform1 As FDFDoc_Class In XDPGetAllForms_FormLevel(formLevel)
-        '            If String_IsNullOrEmpty(subform1.FormName & "") Then
-        '                subform1.FormName = "subform" & "1"
-        '            End If
-        '            If (formLevel = subform1.FormLevel) And formIndex = -100 Then
-        '                If Not _FDF(formIndex).WrittenXDP = True Then
-        '                    If Not subform1.struc_FDFFields.Count <= 0 Then
-        '                        If String_IsNullOrEmpty(subform1.FormName & "") Then
-        '                            subform1.FormName = "subform" & SubformIndex + 1
-        '                        End If
-        '                        If String_IsNullOrEmpty(subform1.FormLevel & "") Then
-        '                            subform1.FormLevel = subform1.FormName & ""
-        '                        End If
-        '                        If Not _FDF(formIndex).WrittenXDP = True Then
-        '                            '_f3.WrittenXDP = True
-        '                            'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-        '                            If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
-        '                                retString &= "<" & subform1.FormName & ">"
-        '                            End If
-
-        '                            Try
-        '                                For Each fld As FDFField In subform1.struc_FDFFields
-        '                                    If Not fld.FieldName Is Nothing Then
-        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                                            If Not fld.ImageBase64 Is Nothing Then
-        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                                                retString &= fld.ImageBase64
-        '                                                retString &= "</" & fld.FieldName & ">"
-        '                                            End If
-        '                                        Else
-        '                                            If fld.FieldValue.Count > 0 Then
-        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-        '                                                Else
-        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-        '                                                End If
-        '                                            End If
-        '                                        End If
-        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                                        If Not fld.ImageBase64 Is Nothing Then
-        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                                            retString &= fld.ImageBase64
-        '                                            retString &= "</" & fld.FieldName & ">"
-        '                                        End If
-        '                                    End If
-        '                                Next
-        '                                retString &= WriteXDPSubforms(subform1.FormLevel)
-        '                            Catch ex As Exception
-        '                                Throw New Exception(ex.Message, ex)
-        '                            Finally
-        '                                If subform1.FormName = "Table4" Then
-        '                                    Dim str As String = ""
-        '                                End If
-        '                                If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
-        '                                    retString &= "</" & subform1.FormName & ">"
-        '                                Else
-        '                                    retString = retString
-        '                                End If
-        '                            End Try
-
-        '                            'End If
-        '                        End If
-        '                    End If
-        '                    SubformIndex += 1
-        '                End If
-        '            ElseIf Not String_IsNullOrEmpty(subform1.FormLevel & "") And Not subform1.FormLevel = "" And Not subform1.WrittenXDP = True Then
-        '                Dim SubForms() As String = formLevel.Split("/")
-        '                If subform1.FormLevel.StartsWith(formLevel) Then
-        '                    If SubformIndex = 0 Or SubformIndex = subform1.FormNumber - 1 Then
-        '                        SubformIndex = subform1.FormNumber
-        '                    Else
-        '                        Return retString
-        '                    End If
-        '                    If Not subform1.struc_FDFFields.Count <= 0 Then
-        '                        If String_IsNullOrEmpty(subform1.FormName & "") Then
-        '                            subform1.FormName = "subform" & SubformIndex + 1
-        '                        End If
-        '                        If String_IsNullOrEmpty(subform1.FormLevel & "") Then
-        '                            subform1.FormLevel = subform1.FormName & ""
-        '                        End If
-        '                        If Not _FDF(formIndex).WrittenXDP = True Then
-        '                            If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
-        '                                retString &= "<" & subform1.FormName & ">"
-        '                            End If
-
-        '                            Try
-        '                                For Each fld As FDFField In subform1.struc_FDFFields
-        '                                    If Not fld.FieldName Is Nothing Then
-        '                                        If fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                                            If Not fld.ImageBase64 Is Nothing Then
-        '                                                retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                                                retString &= fld.ImageBase64
-        '                                                retString &= "</" & fld.FieldName & ">"
-        '                                            End If
-        '                                        Else
-        '                                            If fld.FieldValue.Count > 0 Then
-        '                                                If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-        '                                                    retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-        '                                                Else
-        '                                                    retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-        '                                                End If
-        '                                            End If
-        '                                        End If
-        '                                    ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-        '                                        If Not fld.ImageBase64 Is Nothing Then
-        '                                            retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-        '                                            retString &= fld.ImageBase64
-        '                                            retString &= "</" & fld.FieldName & ">"
-        '                                        End If
-        '                                    End If
-        '                                Next
-        '                                retString &= WriteXDPSubforms(subform1.FormLevel, SubformIndex)
-        '                            Catch ex As Exception
-        '                                Throw New Exception(ex.Message, ex)
-        '                            Finally
-        '                                If subform1.FormName = "Table4" Then
-        '                                    Dim str As String = ""
-        '                                End If
-        '                                If Not formLevel.ToLower = subform1.FormLevel.ToLower Then
-        '                                    retString &= "</" & subform1.FormName & ">"
-        '                                Else
-        '                                    retString = retString
-        '                                End If
-        '                            End Try
-
-        '                            'End If
-        '                        End If
-        '                    End If
-        '                    SubformIndex += 1
-        '                End If
-        '            End If
-        '            formIndex += 1
-        '        Next
-        '        Try
-        '            For formIndex = 0 To _FDF.Count - 1
-        '                _FDF(formIndex).WrittenXDP = True
-        '            Next
-        '        Catch ex3 As Exception
-        '            Err.Clear()
-        '        End Try
-        '        Return retString & ""
-        '    Catch Ex As Exception
-        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, Ex)
-        '        Return ""
-        '    End Try
-
-        'End Function
-
-        Private Function WriteXDPSubforms_3D_Works_Good(ByVal formLevel As String) As String
-            Dim FormIndex As Integer, SubformIndex As Integer = 0
-            Dim retString As String = ""
-            Try
-                For Each Subform1 As FDFDoc_Class In _FDF
-                    If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                        Subform1.FormName = "subform" & "1"
-                    End If
-
-                    If (formLevel = Subform1.FormLevel) And FormIndex = -100 Then
-                        If Not _FDF(FormIndex).WrittenXDP = True Then
-                            If Not Subform1.struc_FDFFields.Count <= 0 Then
-                                If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                                    Subform1.FormName = "subform" & SubformIndex + 1
-                                End If
-                                If String_IsNullOrEmpty(Subform1.FormLevel & "") Then
-                                    Subform1.FormLevel = Subform1.FormName & ""
-                                End If
-                                If Not _FDF(FormIndex).WrittenXDP = True Then
-                                    '_f3.WrittenXDP = True
-                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                    If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                        retString &= "<" & Subform1.FormName & ">"
-                                    End If
-
-                                    Try
-                                        For Each fld As FDFField In Subform1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                    If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                        retString &= fld.ImageBase64
-                                                        retString &= "</" & fld.FieldName & ">"
-                                                    End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
-                                                End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        Next
-                                        retString &= WriteXDPSubforms(Subform1.FormLevel)
-                                    Catch ex As Exception
-                                        Throw New Exception(ex.Message, ex)
-                                    Finally
-                                        If Subform1.FormName = "Table4" Then
-                                            Dim str As String = ""
-                                        End If
-                                        If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                            retString &= "</" & Subform1.FormName & ">"
-                                        Else
-                                            retString = retString
-                                        End If
-                                    End Try
-
-                                    'End If
-                                End If
-                            End If
-                            SubformIndex += 1
-                        End If
-                    ElseIf Not String_IsNullOrEmpty(Subform1.FormLevel & "") And Not Subform1.FormLevel = "" And Not Subform1.WrittenXDP = True Then
-                        Dim SubForms() As String = formLevel.Split("/")
-                        If (Subform1.FormLevel.IndexOf(formLevel) >= 0 And (Subform1.FormLevel.Split("/").Length >= formLevel.Split("/").Length)) Then
-                            If Not Subform1.struc_FDFFields.Count <= 0 Then
-                                If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                                    Subform1.FormName = "subform" & SubformIndex + 1
-                                End If
-                                If String_IsNullOrEmpty(Subform1.FormLevel & "") Then
-                                    Subform1.FormLevel = Subform1.FormName & ""
-                                End If
-                                If Not _FDF(FormIndex).WrittenXDP = True Then
-                                    If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                        retString &= "<" & Subform1.FormName & ">"
-                                    End If
-
-                                    Try
-                                        For Each fld As FDFField In Subform1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                    If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                        retString &= fld.ImageBase64
-                                                        retString &= "</" & fld.FieldName & ">"
-                                                    End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
-                                                End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        Next
-                                        retString &= WriteXDPSubforms(Subform1.FormLevel)
-                                    Catch ex As Exception
-                                        Throw New Exception(ex.Message, ex)
-                                    Finally
-                                        If Subform1.FormName = "Table4" Then
-                                            Dim str As String = ""
-                                        End If
-                                        If Not formLevel.ToLower = Subform1.FormLevel.ToLower Then
-                                            retString &= "</" & Subform1.FormName & ">"
-                                        Else
-                                            retString = retString
-                                        End If
-                                    End Try
-
-                                    'End If
-                                End If
-                            End If
-                            SubformIndex += 1
-                        End If
-                    End If
-                    FormIndex += 1
-                Next
-                Try
-                    For FormIndex = 0 To _FDF.Count - 1
-                        _FDF(FormIndex).WrittenXDP = True
-                    Next
-                    FormIndex = 0
-                Catch ex3 As Exception
-                    Err.Clear()
-                End Try
-                Return retString & ""
-            Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return ""
-            End Try
-
-        End Function
-        Private Function WriteXDPSubforms_Good(ByVal FDFDocs As FDFDoc_Class(), ByVal formLevel As String) As String
-            Dim FormIndex As Integer = 0, SubformIndex As Integer = 0
-            Dim retString As String = ""
-            Try
-                For Each Subform1 As FDFDoc_Class In FDFDocs
-                    If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                        Subform1.FormName = "subform" & "1"
-                    End If
-                    Dim SubForms() As String = formLevel.Split("/")
-                    If Not String_IsNullOrEmpty(Subform1.FormLevel & "") And Not Subform1.FormLevel & "" = "root" And Not Subform1.WrittenXDP = True Then
-                        If Subform1.FormLevel.IndexOf(formLevel) >= 0 And (Subform1.FormLevel.Split("/").Length = formLevel.Split("/").Length + 1) Then
-                            If Not Subform1.struc_FDFFields.Count <= 0 Then
-                                If String_IsNullOrEmpty(Subform1.FormName & "") Then
-                                    Subform1.FormName = "subform" & SubformIndex + 1
-                                End If
-                                If String_IsNullOrEmpty(Subform1.FormLevel & "") Then
-                                    Subform1.FormLevel = Subform1.FormName & ""
-                                End If
-                                If Not _FDF(FormIndex).WrittenXDP = True Then
-                                    'If Subform1.struc_FDFFields.Count >= 1 Then	'XDPDoc1.DocType = FDFDocType.XDPForm And
-                                    retString &= "<" & Subform1.FormName & ">"
-                                    Try
-                                        For Each fld As FDFField In Subform1.struc_FDFFields
-                                            If Not fld.FieldName Is Nothing Then
-                                                If fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                    If Not fld.ImageBase64 Is Nothing Then
-                                                        retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                        retString &= fld.ImageBase64
-                                                        retString &= "</" & fld.FieldName & ">"
-                                                    End If
-                                                Else
-                                                    If fld.FieldValue.Count > 0 Then
-                                                        If String_IsNullOrEmpty(fld.FieldValue(0).ToString) = True Then
-                                                            retString &= "<" & fld.FieldName & "></" & fld.FieldName & ">"
-                                                        Else
-                                                            retString &= "<" & fld.FieldName & ">" & XDPCheckChar(fld.FieldValue(0)) & "</" & fld.FieldName & ">"
-                                                        End If
-                                                    End If
-                                                End If
-                                            ElseIf fld.FieldType = FieldType.FldLiveCycleImage Then
-                                                If Not fld.ImageBase64 Is Nothing Then
-                                                    retString &= "<" & fld.FieldName & " xfa:contentType=""" & IIf(String_IsNullOrEmpty(fld.FieldValue(0)), "image/jpg", fld.FieldValue(0)) & """ href="""">"
-                                                    retString &= fld.ImageBase64
-                                                    retString &= "</" & fld.FieldName & ">"
-                                                End If
-                                            End If
-                                        Next
-                                        retString &= WriteXDPSubforms(Subform1.FormLevel)
-                                    Catch ex As Exception
-                                        Throw New Exception(ex.Message, ex)
-                                    Finally
-                                        If Subform1.FormName = "Table4" Then
-                                            Dim str As String = ""
-                                        End If
-                                        retString &= "</" & Subform1.FormName & ">"
-                                    End Try
-                                    'End If
-                                End If
-                            End If
-                            SubformIndex += 1
-                        End If
-                    End If
-                    FormIndex += 1
-                Next
-                Try
-                    For FormIndex = 0 To _FDF.Count - 1
-                        Dim _f3 As FDFDoc_Class = _FDF(FormIndex)
-                        _f3.WrittenXDP = True
-                        _FDF(FormIndex) = _f3
-                    Next
-                    FormIndex = 0
-                Catch ex3 As Exception
-                    Err.Clear()
-                End Try
-                Return retString & ""
-            Catch Ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
                 Return ""
             End Try
 
@@ -13951,8 +15146,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14031,8 +15226,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14116,8 +15311,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14203,8 +15398,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14289,8 +15484,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14368,8 +15563,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14457,8 +15652,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14546,8 +15741,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14632,8 +15827,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14767,8 +15962,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14862,8 +16057,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -14962,8 +16157,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -15043,8 +16238,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -15125,8 +16320,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -15218,8 +16413,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -15290,7 +16485,6 @@ contintue_here:
         ''' <remarks></remarks>
         Public Function PDFMergeXDP2File(ByVal XDPData As String, ByVal newPDFFile As String, ByVal OpenPassword As String, ByVal ModificationPassword As String, ByVal Permissions As Integer, Optional ByVal PDFFormPath As String = "", Optional ByVal Flatten As Boolean = False, Optional ByVal EncryptionStrength As EncryptionStrength = EncryptionStrength.STRENGTH128BITS, Optional ByVal ownerPassword As String = "") As Boolean
             Dim formFile As String = PDFFormPath
-            'http://www.1t3xt.info/examples/browse/?page=example&id=348
             If formFile = "" Then
                 If FDFGetFile = "" Then
                     Return Nothing
@@ -15340,8 +16534,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -15451,8 +16645,8 @@ contintue_here:
                         fields.MergeXfaData(inputDataElement)
                     Else
                         Dim xfaForm As iTextSharp.text.pdf.XfaForm = New iTextSharp.text.pdf.XfaForm(stamper.Reader)
-                        If xfaForm.XfaPresent Then
-                            If Not xfaForm Is Nothing Then
+                        If Not xfaForm Is Nothing Then
+                            If xfaForm.XfaPresent Then
                                 xfaForm.Changed = True
                                 iTextSharp.text.pdf.XfaForm.SetXfa(iTextSharp.text.pdf.XfaForm.SerializeDoc(inputDataElement), stamper.Reader, stamper.Writer)
                             End If
@@ -15642,7 +16836,7 @@ contintue_here:
                     If MemStream.CanSeek Then
                         MemStream.Position = 0
                     End If
-                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    System.IO.File.WriteAllBytes(NewPDFPath, GetUsedBytesOnly(MemStream, True))
                     '    'PDFData = MemStream.GetBuffer
                     '    With myFileStream
                     '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
@@ -15721,7 +16915,7 @@ contintue_here:
                     '        End With
                     '    End If
                     'End Try
-                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    System.IO.File.WriteAllBytes(NewPDFPath, GetUsedBytesOnly(MemStream, True))
                     Return True
                 Else
                     Return False
@@ -15983,7 +17177,7 @@ contintue_here:
                     If MemStream.CanSeek Then
                         MemStream.Position = 0
                     End If
-                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    System.IO.File.WriteAllBytes(NewPDFPath, GetUsedBytesOnly(MemStream, True))
                     '    'PDFData = MemStream.GetBuffer
                     '    With myFileStream
                     '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
@@ -16056,7 +17250,7 @@ contintue_here:
                     If MemStream.CanSeek Then
                         MemStream.Position = 0
                     End If
-                    System.IO.File.WriteAllBytes(NewPDFPath, MemStream.GetBuffer())
+                    System.IO.File.WriteAllBytes(NewPDFPath, GetUsedBytesOnly(MemStream, True))
                     '    'PDFData = MemStream.GetBuffer
                     '    With myFileStream
                     '        .Write(MemStream.GetBuffer, 0, MemStream.GetBuffer.Length)
@@ -16195,6 +17389,7 @@ contintue_here:
             End Try
         End Function
 
+        
         ''' <summary>
         ''' Get XDPField object array
         ''' </summary>
@@ -16204,71 +17399,78 @@ contintue_here:
         ''' <remarks></remarks>
         Public Function XDPGetFields(Optional ByVal FormName As String = "", Optional ByVal FieldNames As String = "") As FDFField()
             ' Inputs String and Splits it based on semicolin ";"
-            Dim xField As FDFField
-            Dim FoundField As Boolean
-            Dim FieldCount As Integer
-            FoundField = False
-            Dim _ExportFields(0) As FDFField
             Try
-                If String_IsNullOrEmpty(FieldNames & "") Then
-                    If Not String_IsNullOrEmpty(FormName) Then
-                        For curDoc As Integer = 0 To _FDF.Count - 1
-                            If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                                For Each xField In _FDF(curDoc).struc_FDFFields
-                                    If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                        If _FDF(curDoc).FormName.ToLower = FormName.ToLower Then
-                                            ReDim Preserve _ExportFields(FieldCount)
-                                            _ExportFields(FieldCount) = xField
-                                            FieldCount = FieldCount + 1
-                                        End If
-                                    End If
-                                Next
-                            End If
-                        Next
-                        Return _ExportFields
-                        Exit Function
-                    Else
-                        For curDoc As Integer = 0 To _FDF.Count - 1
-                            If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                                For Each xField In _FDF(curDoc).struc_FDFFields
-                                    If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                        ReDim Preserve _ExportFields(FieldCount)
-                                        _ExportFields(FieldCount) = xField
-                                        FieldCount = FieldCount + 1
-                                    End If
-                                Next
-                            End If
-                        Next
-                        Return _ExportFields
-                        Exit Function
-                    End If
+                If String.IsNullOrEmpty(FormName & "") And String.IsNullOrEmpty(FieldNames & "") Then
+                    Return XDPGetAllFields()
                 Else
-                    Dim FldNames() As String = FieldNames.Split(";")
-                    Dim FldName As String
-
-                    FieldCount = 0
-                    For Each FldName In FldNames
-                        For curDoc As Integer = 0 To _FDF.Count - 1
-                            If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
-                                For Each xField In _FDF(curDoc).struc_FDFFields
-                                    If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                        If FldName.ToLower = xField.FieldName.ToLower And FormName = _FDF(curDoc).FormName Then
-                                            ReDim Preserve _ExportFields(FieldCount)
-                                            _ExportFields(FieldCount) = xField
-                                            FieldCount = FieldCount + 1
-                                        End If
-                                    End If
-                                Next
-                            End If
-                        Next
-                    Next
-                    Return _ExportFields
-                    Exit Function
+                    Return XDPGetAllFields(FormName, FieldNames)
                 End If
+                'Dim xField As FDFField
+                'Dim FoundField As Boolean
+                'Dim FieldCount As Integer
+                'FoundField = False
+                'Dim _ExportFields(0) As FDFField
+                'Try
+                '    If String_IsNullOrEmpty(FieldNames & "") Then
+                '        If Not String_IsNullOrEmpty(FormName) Then
+                '            For curDoc As Integer = 0 To _FDF.Count - 1
+                '                If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                '                    For Each xField In _FDF(curDoc).struc_FDFFields
+                '                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+                '                            If _FDF(curDoc).FormName.ToLower = FormName.ToLower Then
+                '                                ReDim Preserve _ExportFields(FieldCount)
+                '                                _ExportFields(FieldCount) = xField
+                '                                FieldCount = FieldCount + 1
+                '                            End If
+                '                        End If
+                '                    Next
+                '                End If
+                '            Next
+                '            Return _ExportFields
+                '            Exit Function
+                '        Else
+                '            For curDoc As Integer = 0 To _FDF.Count - 1
+                '                If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                '                    For Each xField In _FDF(curDoc).struc_FDFFields
+                '                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+                '                            ReDim Preserve _ExportFields(FieldCount)
+                '                            _ExportFields(FieldCount) = xField
+                '                            FieldCount = FieldCount + 1
+                '                        End If
+                '                    Next
+                '                End If
+                '            Next
+                '            Return _ExportFields
+                '            Exit Function
+                '        End If
+                '    Else
+                '        Dim FldNames() As String = FieldNames.Split(";")
+                '        Dim FldName As String
+
+                '        FieldCount = 0
+                '        For Each FldName In FldNames
+                '            For curDoc As Integer = 0 To _FDF.Count - 1
+                '                If Not _FDF(curDoc).struc_FDFFields.Count <= 0 Then
+                '                    For Each xField In _FDF(curDoc).struc_FDFFields
+                '                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+                '                            If FldName.ToLower = xField.FieldName.ToLower And FormName = _FDF(curDoc).FormName Then
+                '                                ReDim Preserve _ExportFields(FieldCount)
+                '                                _ExportFields(FieldCount) = xField
+                '                                FieldCount = FieldCount + 1
+                '                            End If
+                '                        End If
+                '                    Next
+                '                End If
+                '            Next
+                '        Next
+                '        Return _ExportFields
+                '        Exit Function
+                '    End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return _ExportFields
-                Exit Function
+                'Return _ExportFields
+                'Exit Function
+                Return Nothing
             End Try
         End Function
         ''' <summary>
@@ -16335,6 +17537,13 @@ contintue_here:
                                     _ExportForms.Add(_FDF(curDoc))
                                     FormCount += 1
                                 End If
+                            ElseIf _FDF(curDoc).FormLevelLong.ToLower.StartsWith(FormLevel.ToLower) Then
+                                'ReDim Preserve _ExportForms(FormCount)
+                                '_ExportForms(FormCount) = _FDF(curDoc)
+                                If _FDF(curDoc).WrittenXDP = False Then
+                                    _ExportForms.Add(_FDF(curDoc))
+                                    FormCount += 1
+                                End If
                             ElseIf _ExportForms.Count > 0 Then
                                 Exit For
                             End If
@@ -16365,46 +17574,62 @@ contintue_here:
         ''' <summary>
         ''' Get FDFDoc_Class object
         ''' </summary>
-        ''' <param name="FormXMLPath">Optional Form Path (=Nothing)</param>
+        ''' <param name="FormNameOrLevel">Optional Form Path (=Nothing)</param>
         ''' <param name="Include_Subforms">Include Subform paths</param>
         ''' <returns>FDFDoc_Class object array</returns>
         ''' <remarks></remarks>
-        Public Function XDPGetForm(ByVal FormXMLPath As String, Optional ByVal Include_Subforms As Boolean = False) As FDFApp.FDFDoc_Class.FDFDoc_Class()
+        Public Function XDPGetForm(ByVal FormNameOrLevel As String, Optional ByVal Include_Subforms As Boolean = False) As FDFApp.FDFDoc_Class.FDFDoc_Class()
             ' Inputs String and Splits it based on semicolin ";"
             Dim FoundField As Boolean
             Dim FormCount As Integer
             FoundField = False
             Dim _ExportForms As New System.Collections.Generic.List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
             Try
-                If Not String_IsNullOrEmpty(FormXMLPath) Then
-                    For Each frm As FDFDoc_Class In _FDF
+                If Not String_IsNullOrEmpty(FormNameOrLevel) Then
+                    For Each frm As FDFDoc_Class In XDPGetAllSubforms()
                         'If Not frm.struc_FDFFields.Count <= 0 Then
                         Try
-                            If frm.FormLevel.ToLower.Contains(FormXMLPath.ToLower) Then
-                                If frm.FormLevel.ToLower = FormXMLPath.ToLower Then
-                                    'ReDim Preserve _ExportForms(FormCount)
-                                    '_ExportForms(FormCount) = frm
-                                    _ExportForms.Add(frm)
-                                    FormCount += 1
-                                Else
-                                    If Include_Subforms = True Then
+                            If Not String.IsNullOrEmpty(frm.FormName & "") Then
+                                If frm.FormLevelLong.ToLower.StartsWith(FormNameOrLevel.ToLower) Then
+                                    If frm.FormLevelLong.ToLower = FormNameOrLevel.ToLower Then
                                         'ReDim Preserve _ExportForms(FormCount)
                                         '_ExportForms(FormCount) = frm
                                         _ExportForms.Add(frm)
                                         FormCount += 1
+                                    Else
+                                        If Include_Subforms = True Then
+                                            'ReDim Preserve _ExportForms(FormCount)
+                                            '_ExportForms(FormCount) = frm
+                                            _ExportForms.Add(frm)
+                                            FormCount += 1
+                                        End If
                                     End If
+                                ElseIf frm.FormLevel.ToLower.StartsWith(FormNameOrLevel.ToLower) Then
+                                    If frm.FormLevel.ToLower = FormNameOrLevel.ToLower Then
+                                        'ReDim Preserve _ExportForms(FormCount)
+                                        '_ExportForms(FormCount) = frm
+                                        _ExportForms.Add(frm)
+                                        FormCount += 1
+                                    Else
+                                        If Include_Subforms = True Then
+                                            'ReDim Preserve _ExportForms(FormCount)
+                                            '_ExportForms(FormCount) = frm
+                                            _ExportForms.Add(frm)
+                                            FormCount += 1
+                                        End If
+                                    End If
+                                ElseIf frm.FormName.ToLower = FormNameOrLevel.ToLower And _ExportForms.Count = 0 Then
+                                    'ReDim Preserve _ExportForms(FormCount)
+                                    '_ExportForms(FormCount) = frm
+                                    _ExportForms.Add(frm)
+                                    FormCount += 1
+                                    Exit For
                                 End If
-                            ElseIf frm.FormName.ToLower = FormXMLPath.ToLower And _ExportForms.Count = 0 Then
-                                'ReDim Preserve _ExportForms(FormCount)
-                                '_ExportForms(FormCount) = frm
-                                _ExportForms.Add(frm)
-                                FormCount += 1
-                                Exit For
                             End If
                         Catch ex As Exception
 
                             Try
-                                If frm.FormName.ToLower = FormXMLPath.ToLower Then
+                                If frm.FormName.ToLower = FormNameOrLevel.ToLower Then
                                     'ReDim Preserve _ExportForms(FormCount)
                                     '_ExportForms(FormCount) = frm
                                     _ExportForms.Add(frm)
@@ -16861,6 +18086,12 @@ contintue_here:
         ' END ADDED 2008-09-03
 #Region "ADDED 2009-09-14 - USAGE RIGHTS"
         Private _removeUsageRights As Boolean = False
+        ''' <summary>
+        ''' Remove usage rights during merge
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Public Property RemoveUsageRights() As Boolean
             Get
                 Return _removeUsageRights
@@ -16871,6 +18102,12 @@ contintue_here:
         End Property
         ' ADDED NK-INC 2010-10-29 @ 9:07PM
         Private _preserveUsageRights As Boolean = False
+        ''' <summary>
+        ''' Preserve usage rights during merge
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Public Property PreserveUsageRights() As Boolean
             Get
                 Return _preserveUsageRights
@@ -17746,7 +18983,7 @@ contintue_here:
         ''' Gets Image Base64 value of Live-Cycle form image field
         ''' </summary>
         ''' <param name="FieldName">Field name</param>
-        ''' ''' <param name="FieldNumber">Field Number</param>
+        ''' <param name="FieldNumber">Field Number</param>
         ''' <param name="xdpFormName">Live-Cycle Form Name</param>
         ''' <param name="CaseSensitive">If true, must match case</param>
         ''' <returns></returns>
@@ -17902,7 +19139,7 @@ contintue_here:
             FoundField = False
             Try
                 If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                    For Each xField In FDFGetAllFields()
                         If CaseSensitive = True Then
                             If Not String_IsNullOrEmpty(xField.FieldName) Then
                                 If xField.FieldName & "" = FieldName Then
@@ -17982,7 +19219,7 @@ contintue_here:
         ''' Gets MIME value of FDF Field
         ''' </summary>
         ''' <param name="FieldName">Field name</param>
-        ''' ''' <param name="FieldNumber">Field Number</param>
+        ''' <param name="FieldNumber">Field Number</param>
         ''' <param name="xdpFormName">Live-Cycle Form Name</param>
         ''' <param name="CaseSensitive">If true, must match case</param>
         ''' <returns></returns>
@@ -18424,43 +19661,35 @@ contintue_here:
                 End Try
                 'FieldValue = Me.XDPCheckChar(FieldValue)
                 If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName)  Then
-                    If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
-                        If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                            Dim blnFound As Boolean = False
-                            If ReplaceField = True Then
-                                If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
-                                    If _FDF(_CurFDFDoc).struc_FDFFields.Count > 0 Then
-                                        For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
-                                            If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                                If FieldName.ToLower = xField.FieldName.ToLower Then
-                                                    'xField.FieldValue = New String() {Me.XDPCheckChar(FieldValue)}
-                                                    xField.FieldName = FieldName
-                                                    xField.ImageBase64 = ImageFieldStringBase64
-                                                    xField.FieldEnabled = True
-                                                    xField.FieldNum = fldNumber
-                                                    xField.FieldType = FieldType.FldLiveCycleImage
-                                                    xField.FieldValue.Add(XDP_IMAGE_MIME_TYPES(ImageMIME))
-                                                    blnFound = True
-                                                    Exit For
-                                                End If
+                    'If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
+                    If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
+                        Dim blnFound As Boolean = False
+                        If ReplaceField = True Then
+                            'FINDME1234
+
+                            If Not _FDF(_CurFDFDoc).struc_FDFFields.Count <= 0 Then
+                                If _FDF(_CurFDFDoc).struc_FDFFields.Count > 0 Then
+                                    For Each xField In _FDF(_CurFDFDoc).struc_FDFFields
+                                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                            If FieldName.ToLower = xField.FieldName.ToLower Then
+                                                'xField.FieldValue = New String() {Me.XDPCheckChar(FieldValue)}
+                                                xField.FieldName = FieldName
+                                                xField.ImageBase64 = ImageFieldStringBase64
+                                                xField.FieldEnabled = True
+                                                xField.FieldNum = fldNumber
+                                                xField.FieldType = FieldType.FldLiveCycleImage
+                                                xField.FieldValue.Add(XDP_IMAGE_MIME_TYPES(ImageMIME))
+                                                blnFound = True
+                                                Exit For
                                             End If
-                                        Next
-                                    End If
+                                        End If
+                                    Next
                                 End If
                             End If
-                            If blnFound = True Then
-                                Exit Sub
-                            Else
-                                Dim _fld As New FDFField
-                                _fld.FieldName = FieldName
-                                _fld.FieldNum = fldNumber
-                                _fld.FieldType = FieldType.FldLiveCycleImage
-                                _fld.FieldValue.Add(XDP_IMAGE_MIME_TYPES(ImageMIME))
-                                _fld.FieldEnabled = True
-                                _fld.ImageBase64 = ImageFieldStringBase64
-                                _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
-                            End If
-                        ElseIf Not FieldName = "" Then
+                        End If
+                        If blnFound = True Then
+                            Exit Sub
+                        Else
                             Dim _fld As New FDFField
                             _fld.FieldName = FieldName
                             _fld.FieldNum = fldNumber
@@ -18470,54 +19699,60 @@ contintue_here:
                             _fld.ImageBase64 = ImageFieldStringBase64
                             _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                         End If
-                    Else
-                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
+                    ElseIf Not FieldName = "" Then
+                        Dim _fld As New FDFField
+                        _fld.FieldName = FieldName
+                        _fld.FieldNum = fldNumber
+                        _fld.FieldType = FieldType.FldLiveCycleImage
+                        _fld.FieldValue.Add(XDP_IMAGE_MIME_TYPES(ImageMIME))
+                        _fld.FieldEnabled = True
+                        _fld.ImageBase64 = ImageFieldStringBase64
+                        _FDF(_CurFDFDoc).struc_FDFFields.Add(_fld)
                     End If
                 Else
                     _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
                 End If
+                'Else
+                '_FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: XDP Form Needed", "FDFDoc.XDP_Add_ImageField", 1)
+                'End If
             Catch ex As Exception
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
             End Try
         End Sub
 #End Region
 #Region "ADDED 2010-10-16"
-        ''' <summary>
-        ''' Gets value of Live-Cycle form field, in any Live-Cycle form
-        ''' </summary>
-        ''' <param name="FieldName">Field name</param>
-        ''' <returns>Field value</returns>
-        ''' <remarks></remarks>
-        Public Function XDPGetValue(ByVal FieldName As String) As String
-            Dim xField As FDFField
-            Dim FoundField As Boolean
-            FoundField = False
-            Dim xdpFrm As New FDFDoc_Class
-            Try
-                For Each xdpFrm In _FDF
-                    If Not xdpFrm.struc_FDFFields.Count <= 0 Then
-                        If xdpFrm.struc_FDFFields.Count >= 1 Then
-                            For Each xField In xdpFrm.struc_FDFFields
-                                If Not String_IsNullOrEmpty(xField.FieldName) Then
-                                    If LCase(xField.FieldName) & "" = LCase(FieldName) Then
-                                        Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
-                                        Exit Function
-                                    End If
-                                End If
-                            Next
-                        End If
-                    End If
-                Next
-                Return Nothing
-            Catch ex As Exception
-                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
-                Return Nothing
-                Exit Function
-            End Try
-            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
-            Return Nothing
-        End Function
+        'Public Function XDPGetValue(ByVal FieldName As String) As String
+        '    Dim xField As FDFField
+        '    Dim FoundField As Boolean
+        '    FoundField = False
+        '    Dim xdpFrm As New FDFDoc_Class
+        '    Try
+        '        For Each xdpFrm In _FDF
+        '            If Not xdpFrm.struc_FDFFields.Count <= 0 Then
+        '                If xdpFrm.struc_FDFFields.Count >= 1 Then
+        '                    For Each xField In xdpFrm.struc_FDFFields
+        '                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+        '                            If LCase(xField.FieldName) & "" = LCase(FieldName) Then
+        '                                Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+        '                                Exit Function
+        '                            End If
+        '                        End If
+        '                    Next
+        '                End If
+        '            End If
+        '        Next
+        '        Return Nothing
+        '    Catch ex As Exception
+        '        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+        '        Return Nothing
+        '        Exit Function
+        '    End Try
+        '    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+        '    Return Nothing
+        'End Function
+        
 #End Region
+
 #Region "STRING FUNCTIONS"
         ' ADDED 2009/01/30
         ' Return 0 if object is null, else decimal value
@@ -18609,25 +19844,43 @@ contintue_here:
 
 #Region "FULL VERSION - COMMENT FOR DEMO ONLY"
         Public Sub New()
-            Initialize()
+            'Initialize()
+            _CurFDFDoc = 0
+            _FDF = New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            _PDF = New PDFDoc
+            _FDF.Add(New FDFApp.FDFDoc_Class.FDFDoc_Class)
+            PreserveUsageRights = True
+            _FDFErrors = New FDFErrors
+            _FDFErrors.ThrowErrors = ThrowErrors
+        End Sub
+        Public Sub New(ByVal Initilize As Boolean)
+            'Initialize()
+            _CurFDFDoc = 0
+            _FDF = New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            _PDF = New PDFDoc
+            If Initilize Then
+                _FDF.Add(New FDFApp.FDFDoc_Class.FDFDoc_Class)
+            End If
+            PreserveUsageRights = True
+            _FDFErrors = New FDFErrors
+            _FDFErrors.ThrowErrors = ThrowErrors
         End Sub
         Public Sub Initialize(ByVal _encoding As System.Text.Encoding)
             Initialize()
             _defaultEncoding = _encoding
-            '_FDFErrors.ThrowErrors = ThrowErrors
         End Sub
         Public Sub Initialize()
             Try
                 _CurFDFDoc = 0
-                _FDF = New List(Of FDFDoc_Class)
+                _FDF = New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
                 _PDF = New PDFDoc
                 _FDF.Add(New FDFDoc_Class())
                 PreserveUsageRights = True
-                ResetErrors()
+                _FDFErrors = New FDFErrors
+                _FDFErrors.ThrowErrors = ThrowErrors
             Catch ex As Exception
-
+                Err.Clear()
             End Try
-
         End Sub
 
 #End Region
@@ -18741,26 +19994,12 @@ contintue_here:
                 fields = form.Fields
                 Try
                     If form.Fields(fieldName) Is Nothing Then
-                        'http://stackoverflow.com/questions/1848930/how-to-add-a-form-field-to-an-existing-pdf-with-itextsharp
-                        'http://kuujinbo.info/iTextInAction2Ed/index.aspx?ch=Chapter13&ex=AddJavaScriptToForm
                         Dim field As iTextSharp.text.pdf.PdfFormField = iTextSharp.text.pdf.PdfFormField.CreateTextField(stamper.Writer, True, False, 5000)
                         field.Flags = iTextSharp.text.pdf.PdfFormField.FLAGS_HIDDEN
-                        'field.Action = iTextSharp.text.pdf.PdfAction.JavaScript("alert('test');", stamper.Writer)
                         field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}", stamper.Writer))
-                        'if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}
-                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
-                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.K, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
                         field.SetWidget(New iTextSharp.text.Rectangle(0, 0, 100, 30), iTextSharp.text.pdf.PdfAnnotation.HIGHLIGHT_NONE)
                         field.FieldName = fieldName
-                        'add the field here, the second param is the page you want it on
                         stamper.AddAnnotation(field, 1)
-                        'stamper.Close()
-                        'stamper.AcroFields.ReplacePushbuttonField(fieldname, submitField)
-                        'stamper.Writer.CloseStream = False
-                        'stamper.Close()
-                        ' END NEW
-
-
                     End If
                 Catch ex As Exception
 
@@ -18810,15 +20049,11 @@ contintue_here:
                 fields = form.Fields
                 Try
                     If form.Fields(fieldName) Is Nothing Then
-                        'http://stackoverflow.com/questions/1848930/how-to-add-a-form-field-to-an-existing-pdf-with-itextsharp
-                        'http://kuujinbo.info/iTextInAction2Ed/index.aspx?ch=Chapter13&ex=AddJavaScriptToForm
                         Dim field As iTextSharp.text.pdf.PdfFormField = iTextSharp.text.pdf.PdfFormField.CreateTextField(stamper.Writer, True, False, 5000)
                         field.Flags = iTextSharp.text.pdf.PdfFormField.FLAGS_HIDDEN
                         field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}", stamper.Writer))
-                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.K, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
                         field.SetWidget(New iTextSharp.text.Rectangle(0, 0, 100, 30), iTextSharp.text.pdf.PdfAnnotation.HIGHLIGHT_NONE)
                         field.FieldName = fieldName
-                        'add the field here, the second param is the page you want it on
                         stamper.AddAnnotation(field, 1)
 
 
@@ -18872,20 +20107,12 @@ contintue_here:
                 fields = form.Fields
                 Try
                     If form.Fields(fieldName) Is Nothing Then
-                        'http://stackoverflow.com/questions/1848930/how-to-add-a-form-field-to-an-existing-pdf-with-itextsharp
-                        'http://kuujinbo.info/iTextInAction2Ed/index.aspx?ch=Chapter13&ex=AddJavaScriptToForm
                         Dim field As iTextSharp.text.pdf.PdfFormField = iTextSharp.text.pdf.PdfFormField.CreateTextField(stamper.Writer, True, False, 5000)
                         field.Flags = iTextSharp.text.pdf.PdfFormField.FLAGS_HIDDEN
-                        'field.Action = iTextSharp.text.pdf.PdfAction.JavaScript("alert('test');", stamper.Writer)
                         field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.V, iTextSharp.text.pdf.PdfAction.JavaScript("if (event.value != ''){app.alert({cMsg:event.value, nIcon:3});event.value = '';}", stamper.Writer))
-                        'field.SetAdditionalActions(iTextSharp.text.pdf.PdfName.K, iTextSharp.text.pdf.PdfAction.JavaScript("alert(event.change+'test');", stamper.Writer))
                         field.SetWidget(New iTextSharp.text.Rectangle(0, 0, 100, 30), iTextSharp.text.pdf.PdfAnnotation.HIGHLIGHT_NONE)
                         field.FieldName = fieldName
-                        'add the field here, the second param is the page you want it on
                         stamper.AddAnnotation(field, 1)
-
-
-
                     End If
                 Catch ex As Exception
 
@@ -18918,6 +20145,47 @@ contintue_here:
             reader = Nothing
             xfaFrm = Nothing
         End Function
+        Public Function PDFisXFADynamic(ByVal PDFStream As Stream) As Boolean
+            If PDFStream.CanSeek Then
+                PDFStream.Seek(0, SeekOrigin.Begin)
+            End If
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            'If String_IsNullOrEmpty(ownerPassword) Then
+            reader = New iTextSharp.text.pdf.PdfReader(PDFStream)
+            'Else
+            '    reader = New iTextSharp.text.pdf.PdfReader(PDFBuffer, _defaultEncoding.GetBytes(ownerPassword))
+            'End If
+            Dim xfaFrm As New iTextSharp.text.pdf.XfaForm(reader)
+            Dim isXFAPDF As Boolean = xfaFrm.XfaPresent
+            If isXFAPDF Then
+                Dim form As iTextSharp.text.pdf.AcroFields = reader.AcroFields
+                If form.Fields.Count <= 0 Then
+                    PDFisXFADynamic = True
+                Else
+                    PDFisXFADynamic = False
+                End If
+            End If
+            reader.Close()
+            reader = Nothing
+            xfaFrm = Nothing
+        End Function
+        Public Function PDFisXFA(ByVal PDFStream As Stream) As Boolean
+            If PDFStream.CanSeek Then
+                PDFStream.Seek(0, SeekOrigin.Begin)
+            End If
+            Dim reader As iTextSharp.text.pdf.PdfReader
+            'If String_IsNullOrEmpty(ownerPassword) Then
+            reader = New iTextSharp.text.pdf.PdfReader(PDFStream)
+            'Else
+            '    reader = New iTextSharp.text.pdf.PdfReader(PDFBuffer, _defaultEncoding.GetBytes(ownerPassword))
+            'End If
+            Dim xfaFrm As New iTextSharp.text.pdf.XfaForm(reader)
+
+            PDFisXFA = xfaFrm.XfaPresent
+            reader.Close()
+            reader = Nothing
+            xfaFrm = Nothing
+        End Function
         Public Function PDFisXFADynamic(ByVal PDFBuffer As Byte()) As Boolean
             Dim reader As iTextSharp.text.pdf.PdfReader
             'If String_IsNullOrEmpty(ownerPassword) Then
@@ -18940,7 +20208,2533 @@ contintue_here:
             xfaFrm = Nothing
         End Function
 #End Region
+#Region "5/3/2015"
+#Region "XDPApp/XDPAppend"
+        ''' <summary>
+        ''' Add XDP Field
+        ''' </summary>
+        ''' <param name="_fdfField">Field to add</param>
+        ''' <param name="FieldType">Field Type</param>
+        ''' <param name="FieldEnabled"></param>
+        ''' <param name="ReplaceField"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAddField(ByRef _fdfField As FDFApp.FDFDoc_Class.FDFField, Optional ByVal FieldType As FieldType = FieldType.FldTextual, Optional ByVal FieldEnabled As Boolean = True, Optional ByVal ReplaceField As Boolean = True)
+            Dim fldNumber As Integer = 0
+            Try
+                Dim TmpCurFDFDoc As Integer = 0
+                Dim XDPFDF As Integer = 0
+                If _FDF.Count > 0 Then
+                    If Not String_IsNullOrEmpty(_FDF(_CurFDFDoc).FormName) Then
+                        If _FDF(_CurFDFDoc).DocType = FDFDocType.XDPForm Then
+                            XDPFDF = _CurFDFDoc
+                            GoTo contintue_here
+                        Else
+                            XDPFDF = _CurFDFDoc
+                            GoTo contintue_here
+                        End If
+                    End If
+                End If
+                Exit Sub
+contintue_here:
 
+                Dim fldName As String = _fdfField.FieldName
+                Try
+                    If ReplaceField = False Then
+                        If _fdfField.FieldName.LastIndexOf("[") > 0 Then
+                            Dim int As Integer = _fdfField.FieldName.LastIndexOf("[") + 1
+                            fldNumber = _fdfField.FieldName.Substring(int, _fdfField.FieldName.LastIndexOf("]") - int)
+                        Else
+                            For Each fld As FDFField In _FDF(XDPFDF).struc_FDFFields
+                                If Not fld.FieldName Is Nothing Then
+                                    If fld.FieldName = _fdfField.FieldName Then
+                                        fldNumber += 1
+                                    End If
+                                End If
+                            Next
+                        End If
+                    End If
+                Catch ex As Exception
+                    fldNumber = 0
+                End Try
+                Try
+                    If _fdfField.FieldName.LastIndexOf("[") > 0 Then
+                        Dim int As Integer = _fdfField.FieldName.LastIndexOf("[") + 1
+                        _fdfField.FieldName = _fdfField.FieldName.Substring(0, _fdfField.FieldName.LastIndexOf("["))
+                    End If
+                Catch ex As Exception
+                    _fdfField.FieldName = fldName
+                End Try
+
+                If Not String_IsNullOrEmpty(_FDF(XDPFDF).FormName) Then
+                    If Not _FDF(XDPFDF).struc_FDFFields.Count <= 0 Then
+                        Dim blnFound As Boolean = False
+                        If ReplaceField = True Then
+                            If Not _FDF(XDPFDF).struc_FDFFields.Count <= 0 Then
+                                If _FDF(XDPFDF).struc_FDFFields.Count > 0 Then
+                                    For Each xField In _FDF(XDPFDF).struc_FDFFields
+                                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+                                            If _fdfField.FieldName.ToLower = xField.FieldName.ToLower Then
+                                                xField = _fdfField
+                                            End If
+                                        End If
+                                    Next
+                                End If
+                            End If
+                        End If
+                        If blnFound = True Then
+                            Exit Sub
+                        Else
+                            _FDF(XDPFDF).struc_FDFFields.Add(_fdfField)
+                        End If
+                    ElseIf Not _fdfField.FieldName = "" Then
+                        _FDF(XDPFDF).struc_FDFFields.Add(_fdfField)
+                    End If
+                End If
+                XDPAdjustSubforms()
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+        End Sub
+        ''' <summary>
+        ''' Appends subform field to list of fields
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFFields_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubformFields(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFDoc_Class
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFField
+            'cdoc.FileName = _pdfPath
+            'cdoc.FormName = _formName
+            'cdoc.FormLevel = _formLevel
+            'cdoc.DocType = FDFDocType.XDPForm
+            cdoc.FieldName = _formName
+            cdoc.FieldType = FieldType.FldSubform
+            cdoc.FieldEnabled = True
+            If Not _FDFFields_Structure Is Nothing Then
+                cdoc = cdoc.XDPAppendSubform(_formName, _formLevel, _pdfPath, _FDFFields_Structure)
+            End If
+            _cfdfdoc.struc_FDFFields.Add(cdoc)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform field to list of fields
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFFields_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubformField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            cdoc.DocType = FDFDocType.XDPForm
+            If _formLevel.Contains(_formName) Then
+                cdoc.FormLevelLong = _formLevel
+            Else
+                cdoc.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            cdoc.FormLevel = String.Join("/", strFormLevel)
+            If Not _FDFFields_Structure Is Nothing Then
+                cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+            End If
+            _cfdfdoc.XDPAddField(cdoc, _formName, New String() {}, True, False)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform field to list of fields
+        ''' </summary>
+        ''' <param name="_FDFSubform_Structure"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAppendSubformField(ByVal _FDFSubform_Structure As FDFApp.FDFDoc_Class.FDFField)
+            XDPAddField(_FDFSubform_Structure, FieldType.FldSubform, True, False)
+        End Sub
+        ''' <summary>
+        ''' Appends subform field to list of fields
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFSubform_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubformField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFSubform_Structure As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            cdoc.DocType = FDFDocType.XDPForm
+            cdoc.struc_FDFFields.Add(_FDFSubform_Structure)
+            If _formLevel.Contains(_formName) Then
+                cdoc.FormLevelLong = _formLevel
+            Else
+                cdoc.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            cdoc.FormLevel = String.Join("/", strFormLevel)
+            'If Not _FDFFields_Structure Is Nothing Then
+            'cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+            'End If
+            _cfdfdoc.XDPAddField(cdoc, _formName, New String() {}, True, False)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform field to list of fields
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_FDFSubform_Structure"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAppendSubformField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _FDFSubform_Structure As FDFApp.FDFDoc_Class.FDFField)
+            _cfdfdoc.struc_FDFFields.Add(_FDFSubform_Structure)
+        End Sub
+        ''' <summary>
+        ''' Appends subform to subforms
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFFields_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubform(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFField, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, Optional ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField = Nothing) As FDFApp.FDFDoc_Class.FDFField
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            cdoc.DocType = FDFDocType.XDPForm
+            If _formLevel.Contains(_formName) Then
+                cdoc.FormLevelLong = _formLevel
+            Else
+                cdoc.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            cdoc.FormLevel = String.Join("/", strFormLevel)
+            If Not _FDFFields_Structure Is Nothing Then
+                cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+            End If
+            _cfdfdoc.Subforms.Add(cdoc)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform to subforms
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFSubformField_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubform(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFField, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFSubformField_Structure As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFField
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            cdoc.DocType = FDFDocType.XDPForm
+            If _formLevel.Contains(_formName) Then
+                cdoc.FormLevelLong = _formLevel
+            Else
+                cdoc.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            cdoc.FormLevel = String.Join("/", strFormLevel)
+            If Not _FDFSubformField_Structure Is Nothing Then
+                cdoc.struc_FDFFields.Add(_FDFSubformField_Structure)
+            End If
+            _cfdfdoc.Subforms.Add(cdoc)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform to forms
+        ''' </summary>
+        ''' <param name="_subformAdd"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAppendSubform(ByVal _subformAdd As FDFApp.FDFDoc_Class.FDFDoc_Class)
+            _subformAdd.DocType = FDFDocType.XDPForm
+            '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+            _FDF.Add(_subformAdd)
+        End Sub
+        ''' <summary>
+        ''' Appends subform to subforms
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_subformAdd"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubform(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFField, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _subformAdd As FDFApp.FDFDoc_Class.FDFDoc_Class) As FDFApp.FDFDoc_Class.FDFField
+            _subformAdd.FileName = _pdfPath
+            _subformAdd.FormName = _formName
+            _subformAdd.FormLevel = _formLevel
+            _subformAdd.DocType = FDFDocType.XDPForm
+            If _formLevel.Contains(_formName) Then
+                _subformAdd.FormLevelLong = _formLevel
+            Else
+                _subformAdd.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            _subformAdd.FormLevel = String.Join("/", strFormLevel)
+            '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+            _cfdfdoc.Subforms.Add(_subformAdd)
+            Return _cfdfdoc
+        End Function
+#End Region
+#Region "XDPForms"
+        ''' <summary>
+        ''' Gets/Sets Forms at the root
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Property XDPForms() As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            Get
+                Return _FDF
+                'Return _FDF
+            End Get
+            Set(ByVal value As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class))
+                _FDF = value
+            End Set
+        End Property
+#End Region
+#Region "APPEND SUBFORM/FIELDS"
+        ''' <summary>
+        ''' Adds subform field
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFFields_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAddSubformField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            cdoc.DocType = FDFDocType.XDPForm
+            If Not _FDFFields_Structure Is Nothing Then
+                cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+            End If
+            _cfdfdoc.XDPAddField(cdoc, _formName, New String() {}, True, False)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Adds subform field
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFSubform_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAddSubformField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFSubform_Structure As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            cdoc.DocType = FDFDocType.XDPForm
+            cdoc.struc_FDFFields.Add(_FDFSubform_Structure)
+            'If Not _FDFFields_Structure Is Nothing Then
+            'cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+            'End If
+            _cfdfdoc.XDPAddField(cdoc, _formName, New String() {}, True, False)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform field
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFFields_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubformToField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFField, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, Optional ByVal _FDFFields_Structure() As FDFApp.FDFDoc_Class.FDFField = Nothing) As FDFApp.FDFDoc_Class.FDFField
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            If _formLevel.Contains(_formName) Then
+                cdoc.FormLevelLong = _formLevel
+            Else
+                cdoc.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            cdoc.FormLevel = String.Join("/", strFormLevel)
+            cdoc.DocType = FDFDocType.XDPForm
+            If Not _FDFFields_Structure Is Nothing Then
+                cdoc.struc_FDFFields.AddRange(_FDFFields_Structure)
+            End If
+            _cfdfdoc.Subforms.Add(cdoc)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform field
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_FDFSubformField_Structure"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubformToField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFField, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _FDFSubformField_Structure As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFField
+            Dim cdoc As New FDFApp.FDFDoc_Class.FDFDoc_Class
+            cdoc.FileName = _pdfPath
+            cdoc.FormName = _formName
+            cdoc.FormLevel = _formLevel
+            If _formLevel.Contains(_formName) Then
+                cdoc.FormLevelLong = _formLevel
+            Else
+                cdoc.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            cdoc.FormLevel = String.Join("/", strFormLevel)
+            cdoc.DocType = FDFDocType.XDPForm
+            If Not _FDFSubformField_Structure Is Nothing Then
+                cdoc.struc_FDFFields.Add(_FDFSubformField_Structure)
+            End If
+            _cfdfdoc.Subforms.Add(cdoc)
+            Return _cfdfdoc
+        End Function
+        ''' <summary>
+        ''' Appends subform field
+        ''' </summary>
+        ''' <param name="_cfdfdoc"></param>
+        ''' <param name="_formName"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_pdfPath"></param>
+        ''' <param name="_subformAdd"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAppendSubformToField(ByRef _cfdfdoc As FDFApp.FDFDoc_Class.FDFField, ByVal _formName As String, ByVal _formLevel As String, ByVal _pdfPath As String, ByVal _subformAdd As FDFApp.FDFDoc_Class.FDFDoc_Class) As FDFApp.FDFDoc_Class.FDFField
+            _subformAdd.FileName = _pdfPath
+            _subformAdd.FormName = _formName
+            _subformAdd.FormLevel = _formLevel
+            _subformAdd.DocType = FDFDocType.XDPForm
+            If _formLevel.Contains(_formName) Then
+                _subformAdd.FormLevelLong = _formLevel
+            Else
+                _subformAdd.FormLevelLong = _formLevel & "/" & _formName & "[0]"
+            End If
+            Dim strFormLevel() As String = _formLevel.Split("/")
+            For i As Integer = 0 To strFormLevel.Length - 1
+                If strFormLevel(i).Contains("[") Then
+                    strFormLevel(i) = strFormLevel(i).Substring(0, strFormLevel(i).IndexOf("[", 0)) & ""
+                End If
+            Next
+            _subformAdd.FormLevel = String.Join("/", strFormLevel)
+            '_subformAdd.struc_FDFFields.AddRange(_subformAdd)
+            _cfdfdoc.Subforms.Add(_subformAdd)
+            Return _cfdfdoc
+        End Function
+#End Region
+#Region "ADJUST SUBFORMS"
+        Public FormLevelsString As String = ""
+        ''' <summary>
+        ''' Returns form level long
+        ''' </summary>
+        ''' <param name="formLevel"></param>
+        ''' <param name="lstFormLevels"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function GetFormLevelsLong(ByVal formLevel As String, ByRef lstFormLevels As System.Collections.Generic.Dictionary(Of String, Integer)) As String
+            Dim strFormLevel As String = "", strformlevelTemp As String = ""
+            If lstFormLevels.ContainsKey("") And formLevel = "[0]" Or formLevel = "" Then
+                lstFormLevels.Remove("")
+                Return ""
+            End If
+            For Each strLevel As String In formLevel.Split("/")
+                'strformlevelTemp &= "/" & strLevel
+                'strformlevelTemp &= strLevel.TrimStart("/").TrimEnd("/").Replace("//", "/")
+                If Not strLevel.Contains("[") Then
+                    'strLevel &= "[0]"
+                End If
+                strFormLevel &= "/" & strLevel
+                strFormLevel = strFormLevel.TrimStart("/").TrimEnd("/").Replace("//", "/")
+                strformlevelTemp &= "/" & strLevel.TrimStart("/").TrimEnd("/").Replace("//", "/")
+                Try
+                    If lstFormLevels.ContainsKey(formLevel) Then 'And Not strLevel = formLevel.Split("/")(formLevel.Split("/").Length - 1).ToString.TrimStart("/").TrimEnd("/").Replace("//", "/") Then
+                        strformlevelTemp &= "[" & lstFormLevels(strFormLevel).ToString & "]"
+                    Else
+                        If Not strformlevelTemp.Contains("[") Then
+                            strformlevelTemp &= "[0]"
+                        End If
+                    End If
+                Catch ex As Exception
+                    strformlevelTemp &= "[" & "0" & "]"
+                End Try
+                strformlevelTemp = strformlevelTemp.TrimStart("/").TrimEnd("/").Replace("//", "/")
+            Next
+            Return strformlevelTemp
+        End Function
+        ''' <summary>
+        ''' Adjust subform numbers
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubformNumbers(ByRef _fdfDoc_Class As FDFApp.FDFDoc_Class) As System.Collections.Generic.Dictionary(Of String, Integer)
+            Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+            For i As Integer = 0 To XDPForms.Count - 1
+                If XDPForms(i).FormLevel = Nothing Then XDPForms(i).FormLevel = XDPForms(i).FormName & ""
+                If lstFormNumber.ContainsKey(XDPForms(i).FormLevel) Then
+                    lstFormNumber(XDPForms(i).FormLevel) = lstFormNumber(XDPForms(i).FormLevel) + 1
+                Else
+                    lstFormNumber.Add(XDPForms(i).FormLevel, 0)
+                End If
+                XDPForms(i).FormNumber = lstFormNumber(XDPForms(i).FormLevel) + 0
+                If XDPForms(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To XDPForms(i).struc_FDFFields.Count - 1
+                        If XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            XDPAdjustSubformNumbers(XDPForms(i).struc_FDFFields(y).Subforms, lstFieldCntr)
+                        End If
+                    Next
+                End If
+                'XDPForms(i).FormLevel = getFieldName(XDPForms(i).FormLevel) & "[" & XDPForms(i).FormNumber & "]"
+            Next
+            Return lstFormNumber
+        End Function
+        ''' <summary>
+        ''' Adjust subform numbers
+        ''' </summary>
+        ''' <param name="lstFormNumber"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAdjustSubformNumbers(ByRef lstFormNumber As System.Collections.Generic.Dictionary(Of String, Integer))
+            If lstFormNumber Is Nothing Then lstFormNumber = New System.Collections.Generic.Dictionary(Of String, Integer)
+            For i As Integer = 0 To XDPForms.Count - 1
+                If XDPForms(i).FormLevel = Nothing Then XDPForms(i).FormLevel = XDPForms(i).FormName & ""
+                If lstFormNumber.ContainsKey(XDPForms(i).FormLevel) Then
+                    lstFormNumber(XDPForms(i).FormLevel) = lstFormNumber(XDPForms(i).FormLevel) + 1
+                Else
+                    lstFormNumber.Add(XDPForms(i).FormLevel, 0)
+                End If
+                XDPForms(i).FormNumber = lstFormNumber(XDPForms(i).FormLevel) + 0
+                If XDPForms(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To XDPForms(i).struc_FDFFields.Count - 1
+                        If XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            XDPAdjustSubformNumbers(XDPForms(i).struc_FDFFields(y).Subforms, lstFormNumber)
+                        End If
+                    Next
+                End If
+                'XDPForms(i).FormLevel = getFieldName(XDPForms(i).FormLevel) & "[" & XDPForms(i).FormNumber & "]"
+            Next
+        End Sub
+        ''' <summary>
+        ''' Adjust subform numbers
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2_List"></param>
+        ''' <param name="lstFormNumber"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAdjustSubformNumbers(ByRef _fdfDoc_Class2_List As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByRef lstFormNumber As System.Collections.Generic.Dictionary(Of String, Integer))
+            If lstFormNumber Is Nothing Then lstFormNumber = New System.Collections.Generic.Dictionary(Of String, Integer)
+            For i As Integer = 0 To _fdfDoc_Class2_List.Count - 1
+                If _fdfDoc_Class2_List(i).FormLevel = Nothing Then _fdfDoc_Class2_List(i).FormLevel = _fdfDoc_Class2_List(i).FormName & ""
+                If lstFormNumber.ContainsKey(_fdfDoc_Class2_List(i).FormLevel) Then
+                    lstFormNumber(_fdfDoc_Class2_List(i).FormLevel) = lstFormNumber(_fdfDoc_Class2_List(i).FormLevel) + 1
+                Else
+                    lstFormNumber.Add(_fdfDoc_Class2_List(i).FormLevel, 0)
+                End If
+                _fdfDoc_Class2_List(i).FormNumber = lstFormNumber(_fdfDoc_Class2_List(i).FormLevel) + 0
+                If _fdfDoc_Class2_List(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To _fdfDoc_Class2_List(i).struc_FDFFields.Count - 1
+                        If _fdfDoc_Class2_List(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            XDPAdjustSubformNumbers(_fdfDoc_Class2_List(i).struc_FDFFields(y).Subforms, lstFormNumber)
+                        End If
+                    Next
+                End If
+                '_fdfDoc_Class2_List(i).FormLevel = getFieldName(_fdfDoc_Class2_List(i).FormLevel) & "[" & _fdfDoc_Class2_List(i).FormNumber & "]"
+            Next
+        End Sub
+        ''' <summary>
+        ''' Adjust subform field level longs
+        ''' </summary>
+        ''' <param name="_xdpSubformField"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAdjustSubformLevelsLong(ByRef _xdpSubformField As FDFApp.FDFDoc_Class)
+            Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+            For i As Integer = 0 To _xdpSubformField.XDPForms.Count - 1
+                If _xdpSubformField.XDPForms(i).FormLevel = Nothing Then _xdpSubformField.XDPForms(i).FormLevel = _xdpSubformField.XDPForms(i).FormName & ""
+                If lstFormNumber.ContainsKey(_xdpSubformField.XDPForms(i).FormLevel) Then
+                    lstFormNumber(_xdpSubformField.XDPForms(i).FormLevel) = lstFormNumber(_xdpSubformField.XDPForms(i).FormLevel) + 1
+                Else
+                    lstFormNumber.Add(_xdpSubformField.XDPForms(i).FormLevel, 0)
+                End If
+                '_xdpSubformField.XDPForms(i).FormLevel = _xdpSubformField.XDPForms(i).FormLevel & "[" & lstFormNumber(_xdpSubformField.XDPForms(i).FormLevel) & "]"
+                _xdpSubformField.XDPForms(i).FormLevelLong = GetFormLevelsLong(_xdpSubformField.XDPForms(i).FormLevel, lstFormNumber)
+                '_xdpSubformField.XDPForms(i).FormNumber = lstFormNumber(_xdpSubformField.XDPForms(i).FormLevel) + 0
+                If _xdpSubformField.XDPForms(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To _xdpSubformField.XDPForms(i).struc_FDFFields.Count - 1
+                        If _xdpSubformField.XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            XDPAdjustSubformLevelsLong(_xdpSubformField.XDPForms(i).struc_FDFFields(y).Subforms, lstFieldCntr)
+                        Else
+                            _xdpSubformField.XDPForms(i).struc_FDFFields(y).FieldLevelLong = _xdpSubformField.XDPForms(i).FormLevelLong & "/" & _xdpSubformField.XDPForms(i).struc_FDFFields(y).FieldName & "[" & _xdpSubformField.XDPForms(i).struc_FDFFields(y).FieldNum & "]"
+                        End If
+                    Next
+                End If
+                '_xdpSubformField.XDPForms(i).FormLevel = getFieldName(_xdpSubformField.XDPForms(i).FormLevel) & "[" & _xdpSubformField.XDPForms(i).FormNumber & "]"
+            Next
+        End Sub
+        ''' <summary>
+        ''' Adjust subform field level longs
+        ''' </summary>
+        ''' <param name="_xdpSubform"></param>
+        ''' <param name="lstFormNumber"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAdjustSubformLevelsLong(ByRef _xdpSubform As FDFApp.FDFDoc_Class, ByRef lstFormNumber As System.Collections.Generic.Dictionary(Of String, Integer))
+            If lstFormNumber Is Nothing Then lstFormNumber = New System.Collections.Generic.Dictionary(Of String, Integer)
+            For i As Integer = 0 To _xdpSubform.XDPForms.Count - 1
+                If _xdpSubform.XDPForms(i).FormLevel = Nothing Then _xdpSubform.XDPForms(i).FormLevel = _xdpSubform.XDPForms(i).FormName & ""
+                If lstFormNumber.ContainsKey(_xdpSubform.XDPForms(i).FormLevel) Then
+                    lstFormNumber(_xdpSubform.XDPForms(i).FormLevel) = lstFormNumber(_xdpSubform.XDPForms(i).FormLevel) + 1
+                Else
+                    lstFormNumber.Add(_xdpSubform.XDPForms(i).FormLevel, 0)
+                End If
+                '_xdpSubform.XDPForms(i).FormLevel = _xdpSubform.XDPForms(i).FormLevel & "[" & lstFormNumber(_xdpSubform.XDPForms(i).FormLevel) & "]"
+                _xdpSubform.XDPForms(i).FormLevelLong = GetFormLevelsLong(_xdpSubform.XDPForms(i).FormLevel, lstFormNumber)
+                If _xdpSubform.XDPForms(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To _xdpSubform.XDPForms(i).struc_FDFFields.Count - 1
+                        If _xdpSubform.XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            XDPAdjustSubformLevelsLong(_xdpSubform.XDPForms(i).struc_FDFFields(y).Subforms, lstFormNumber)
+                        Else
+                            _xdpSubform.XDPForms(i).struc_FDFFields(y).FieldLevelLong = _xdpSubform.XDPForms(i).FormLevelLong & "/" & _xdpSubform.XDPForms(i).struc_FDFFields(y).FieldName & "[" & _xdpSubform.XDPForms(i).struc_FDFFields(y).FieldNum & "]"
+                        End If
+                    Next
+                End If
+                '_xdpSubform.XDPForms(i).FormLevel = getFieldName(_xdpSubform.XDPForms(i).FormLevel) & "[" & _xdpSubform.XDPForms(i).FormNumber & "]"
+            Next
+        End Sub
+        ''' <summary>
+        ''' Adjust subform field level longs
+        ''' </summary>
+        ''' <param name="_xdpSubform"></param>
+        ''' <param name="lstFormNumber"></param>
+        ''' <remarks></remarks>
+        Public Sub XDPAdjustSubformLevelsLong(ByRef _xdpSubform As List(Of FDFApp.FDFDoc_Class.FDFDoc_Class), ByRef lstFormNumber As System.Collections.Generic.Dictionary(Of String, Integer))
+            If lstFormNumber Is Nothing Then lstFormNumber = New System.Collections.Generic.Dictionary(Of String, Integer)
+            For i As Integer = 0 To _xdpSubform.Count - 1
+                If _xdpSubform(i).FormLevel = Nothing Then _xdpSubform(i).FormLevel = _xdpSubform(i).FormName & ""
+                _xdpSubform(i).FormLevel = getFieldName(_xdpSubform(i).FormLevel) '& "[" & _xdpSubform(i).FormNumber & "]"
+                If lstFormNumber.ContainsKey(_xdpSubform(i).FormLevel) Then
+                    lstFormNumber(_xdpSubform(i).FormLevel) = lstFormNumber(_xdpSubform(i).FormLevel) + 1
+                Else
+                    lstFormNumber.Add(_xdpSubform(i).FormLevel, 0)
+                End If
+                '_xdpSubform(i).FormLevel = _xdpSubform(i).FormLevel & "[" & lstFormNumber(_xdpSubform(i).FormLevel) & "]"
+                _xdpSubform(i).FormLevelLong = GetFormLevelsLong(_xdpSubform(i).FormLevel, lstFormNumber)
+                If _xdpSubform(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To _xdpSubform(i).struc_FDFFields.Count - 1
+                        If _xdpSubform(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            XDPAdjustSubformLevelsLong(_xdpSubform(i).struc_FDFFields(y).Subforms, lstFormNumber)
+                        Else
+                            _xdpSubform(i).struc_FDFFields(y).FieldLevelLong = _xdpSubform(i).FormLevelLong & "/" & _xdpSubform(i).struc_FDFFields(y).FieldName & "[" & _xdpSubform(i).struc_FDFFields(y).FieldNum & "]"
+                        End If
+                    Next
+                End If
+                '_xdpSubform(i).FormLevel = getFieldName(_xdpSubform(i).FormLevel) & "[" & _xdpSubform(i).FormNumber & "]"
+            Next
+        End Sub
+        ''' <summary>
+        ''' Adjust subforms
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubforms(ByRef _fdfDoc_Class As FDFApp.FDFDoc_Class) As FDFApp.FDFDoc_Class
+            Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+            XDPAdjustSubformNumbers(_fdfDoc_Class)
+            XDPAdjustSubformLevelsLong(_fdfDoc_Class)
+            For i As Integer = 0 To XDPForms.Count - 1
+                lstFormNumber = New System.Collections.Generic.Dictionary(Of String, Integer)
+                If XDPForms(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To XDPForms(i).struc_FDFFields.Count - 1
+                        If XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            If XDPForm(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                                XDPForms(i).struc_FDFFields(y) = XDPAdjustSubformFields(XDPForms(i).struc_FDFFields(y))
+                            End If
+                        Else
+                            If lstFieldCntr.ContainsKey(XDPForms(i).struc_FDFFields(y).FieldName) Then
+                                lstFieldCntr(XDPForms(i).struc_FDFFields(y).FieldName) = lstFieldCntr(XDPForms(i).struc_FDFFields(y).FieldName) + 1
+                            Else
+                                lstFieldCntr.Add(XDPForms(i).struc_FDFFields(y).FieldName, 0)
+                            End If
+                            XDPForms(i).struc_FDFFields(y).FieldNum = lstFieldCntr(XDPForms(i).struc_FDFFields(y).FieldName)
+                            If XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                                XDPForms(i).struc_FDFFields(y) = XDPAdjustSubformFields(XDPForms(i).struc_FDFFields(y))
+                            Else
+                                FormLevelsString &= XDPForms(i).FormLevelLong & "/" & XDPForms(i).struc_FDFFields(y).FieldName & "[" & XDPForms(i).struc_FDFFields(y).FieldNum & "]" & Environment.NewLine & ""
+                                XDPForms(i).struc_FDFFields(y).FieldLevelLong = XDPForms(i).FormLevelLong & "/" & XDPForms(i).struc_FDFFields(y).FieldName & "[" & XDPForms(i).struc_FDFFields(y).FieldNum & "]"
+                                '& "[" & XDPForms(i).FormNumber & "]" 
+                            End If
+                            'Next
+                        End If
+                    Next
+
+                End If
+            Next
+            Return _fdfDoc_Class
+        End Function
+        ''' <summary>
+        ''' Adjust subforms, numbers and level longs
+        ''' </summary>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubforms() As FDFApp.FDFDoc_Class
+            Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+            FormLevelsString = ""
+            'ByRef _fdfDoc_Class As FDFApp.FDFDoc_Class
+            XDPAdjustSubformNumbers(Me)
+            XDPAdjustSubformLevelsLong(Me)
+            For i As Integer = 0 To XDPForms.Count - 1
+                lstFormNumber = New System.Collections.Generic.Dictionary(Of String, Integer)
+                If XDPForms(i).struc_FDFFields.Count > 0 Then
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For y As Integer = 0 To XDPForms(i).struc_FDFFields.Count - 1
+                        If XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                            If XDPForm(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                                XDPForms(i).struc_FDFFields(y) = XDPAdjustSubformFields(XDPForms(i).struc_FDFFields(y))
+                            End If
+                        Else
+                            If lstFieldCntr.ContainsKey(XDPForms(i).struc_FDFFields(y).FieldName) Then
+                                lstFieldCntr(XDPForms(i).struc_FDFFields(y).FieldName) = lstFieldCntr(XDPForms(i).struc_FDFFields(y).FieldName) + 1
+                            Else
+                                lstFieldCntr.Add(XDPForms(i).struc_FDFFields(y).FieldName, 0)
+                            End If
+                            XDPForms(i).struc_FDFFields(y).FieldNum = lstFieldCntr(XDPForms(i).struc_FDFFields(y).FieldName)
+                            If XDPForms(i).struc_FDFFields(y).FieldType = FieldType.FldSubform Then
+                                XDPForms(i).struc_FDFFields(y) = XDPAdjustSubformFields(XDPForms(i).struc_FDFFields(y))
+                            Else
+                                FormLevelsString &= XDPForms(i).FormLevelLong & "/" & XDPForms(i).struc_FDFFields(y).FieldName & "[" & XDPForms(i).struc_FDFFields(y).FieldNum & "]" & Environment.NewLine & ""
+                                XDPForms(i).struc_FDFFields(y).FieldLevelLong = XDPForms(i).FormLevelLong & "/" & XDPForms(i).struc_FDFFields(y).FieldName & "[" & XDPForms(i).struc_FDFFields(y).FieldNum & "]"
+                                '& "[" & XDPForms(i).FormNumber & "]" 
+                            End If
+                            'Next
+                        End If
+                    Next
+                End If
+            Next
+            Return Me
+        End Function
+
+        ''' <summary>
+        ''' Adjust subforms
+        ''' </summary>
+        ''' <param name="_xdpSubformField"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubforms(ByRef _xdpSubformField As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFField
+            If _xdpSubformField.FieldType = FieldType.FldSubform Then
+                Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+                For fld As Integer = 0 To _xdpSubformField.Subforms.Count - 1
+                    If lstFormNumber.ContainsKey(_xdpSubformField.Subforms(fld).FormLevel) Then
+                        lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) + 1
+                    Else
+                        lstFormNumber.Add(_xdpSubformField.Subforms(fld).FormLevel, 0)
+                    End If
+                    _xdpSubformField.Subforms(fld).FormNumber = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel)
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For ifld As Integer = 0 To _xdpSubformField.Subforms(fld).struc_FDFFields.Count - 1
+                        If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                            _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubforms(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld))
+                        Else
+                            _xdpSubformField.Subforms(fld).FormNumber = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel)
+                            If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubforms(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld))
+                            Else
+                                FormLevelsString &= _xdpSubformField.Subforms(fld).FormLevelLong & "/" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum & "]" & Environment.NewLine & ""
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldLevelLong = _xdpSubformField.Subforms(fld).FormLevelLong & "/" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum & "]"
+                                '& "[" & _xdpSubformField.Subforms(fld).FormNumber & "]" 
+                            End If
+                        End If
+
+                    Next
+                Next
+            End If
+            Return _xdpSubformField
+        End Function
+        ''' <summary>
+        ''' Adjust subforms
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubforms(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class) As FDFApp.FDFDoc_Class.FDFDoc_Class
+            For _xdpSubformField As Integer = 0 To _fdfDoc_Class2.struc_FDFFields.Count - 1
+                If _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).FieldType = FieldType.FldSubform Then
+                    Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    For fld As Integer = 0 To _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms.Count - 1
+                        If lstFormNumber.ContainsKey(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevel) Then
+                            lstFormNumber(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevel) = lstFormNumber(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevel) + 1
+                        Else
+                            lstFormNumber.Add(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevel, 0)
+                        End If
+                        _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormNumber = lstFormNumber(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevel)
+                        Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                        For ifld As Integer = 0 To _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields.Count - 1
+                            If _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubforms(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld))
+                            Else
+                                _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormNumber = lstFormNumber(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevel)
+                                If _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                    _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubforms(_fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld))
+                                Else
+                                    FormLevelsString &= _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevelLong & "/" & _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldNum & "]" & Environment.NewLine & ""
+                                    _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldLevelLong = _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormLevelLong & "/" & _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).struc_FDFFields(ifld).FieldNum & "]"
+                                    '& "[" & _fdfDoc_Class2.struc_FDFFields(_xdpSubformField).Subforms(fld).FormNumber & "]" 
+                                End If
+                            End If
+
+                        Next
+                    Next
+                End If
+            Next
+            Return _fdfDoc_Class2
+        End Function
+
+        ''' <summary>
+        ''' Adjust subform fields
+        ''' </summary>
+        ''' <param name="_xdpSubformField"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubformFields(ByRef _xdpSubformField As FDFApp.FDFDoc_Class.FDFField) As FDFApp.FDFDoc_Class.FDFField
+            If _xdpSubformField.FieldType = FieldType.FldSubform Then
+                Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+                For fld As Integer = 0 To _xdpSubformField.Subforms.Count - 1
+                    If Not String.IsNullOrEmpty(_xdpSubformField.Subforms(fld).FormLevel & "") Then
+                        If lstFormNumber.ContainsKey(_xdpSubformField.Subforms(fld).FormLevel) Then
+                            lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) + 1
+                        Else
+                            lstFormNumber.Add(_xdpSubformField.Subforms(fld).FormLevel, 0)
+                        End If
+                        _xdpSubformField.Subforms(fld).FormNumber = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel)
+                        Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                        For ifld As Integer = 0 To _xdpSubformField.Subforms(fld).struc_FDFFields.Count - 1
+                            If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubformFields(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld), lstFormNumber)
+                            Else
+                                If lstFieldCntr.ContainsKey(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) Then
+                                    lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) = lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) + 1
+                                Else
+                                    lstFieldCntr.Add(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName, 0)
+                                End If
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum = lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName)
+                                'If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                '    _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubformFields(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld), lstFormNumber)
+                                'Else
+                                FormLevelsString &= _xdpSubformField.Subforms(fld).FormLevelLong & "/" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum & "]" & Environment.NewLine & ""
+                                '& "[" & _xdpSubformField.Subforms(fld).FormNumber & "]" 
+                                'End If
+                            End If
+
+                        Next
+                    End If
+                Next
+            End If
+            Return _xdpSubformField
+        End Function
+        ''' <summary>
+        ''' Adjust subform fields
+        ''' </summary>
+        ''' <param name="_xdpSubformField"></param>
+        ''' <param name="lstFormNumber"></param>
+        ''' <param name="lstFieldCntr"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubformFields(ByRef _xdpSubformField As FDFApp.FDFDoc_Class.FDFField, ByRef lstFormNumber As System.Collections.Generic.Dictionary(Of String, Integer), ByRef lstFieldCntr As System.Collections.Generic.Dictionary(Of String, Integer)) As FDFApp.FDFDoc_Class.FDFField
+            If _xdpSubformField.FieldType = FieldType.FldSubform Then
+                ' Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+                For fld As Integer = 0 To _xdpSubformField.Subforms.Count - 1
+                    If Not String.IsNullOrEmpty(_xdpSubformField.Subforms(fld).FormLevel & "") Then
+                        If lstFormNumber.ContainsKey(_xdpSubformField.Subforms(fld).FormLevel) Then
+                            lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) + 1
+                        Else
+                            lstFormNumber.Add(_xdpSubformField.Subforms(fld).FormLevel, 0)
+                        End If
+                        _xdpSubformField.Subforms(fld).FormNumber = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel)
+                        'Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                        For ifld As Integer = 0 To _xdpSubformField.Subforms(fld).struc_FDFFields.Count - 1
+                            If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubformFields(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld), lstFormNumber)
+                            Else
+                                If lstFieldCntr.ContainsKey(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) Then
+                                    lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) = lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) + 1
+                                Else
+                                    lstFieldCntr.Add(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName, 0)
+                                End If
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum = lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName)
+                                'If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                '    _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubformFields(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld), lstFormNumber)
+                                'Else
+                                FormLevelsString &= _xdpSubformField.Subforms(fld).FormLevelLong & "/" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum & "]" & Environment.NewLine & ""
+                                '& "[" & _xdpSubformField.Subforms(fld).FormNumber & "]" 
+                                'End If
+                            End If
+
+                        Next
+                    End If
+                Next
+            End If
+            Return _xdpSubformField
+        End Function
+        ''' <summary>
+        ''' Parses XDP Field name and returns field number
+        ''' </summary>
+        ''' <param name="strFieldname"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function getFieldNumber(ByVal strFieldname As String) As Integer
+            Try
+                If strFieldname.IndexOf("[") >= 0 Then
+                    Dim int As Integer = strFieldname.IndexOf("[") + 1
+                    strFieldname = strFieldname.Substring(int, strFieldname.IndexOf("[") - int)
+                    Return CInt(strFieldname) + 0
+                End If
+            Catch ex As Exception
+                Return 0
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Parses XDP Field name and returns field name
+        ''' </summary>
+        ''' <param name="strFieldname"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function getFieldName(ByVal strFieldname As String) As String
+            Try
+                If strFieldname.IndexOf("[") >= 0 Then
+                    Do While strFieldname.Contains("[")
+                        'Dim int As Integer = strFieldname.IndexOf("[", 0) - 1, int2 As Integer = strFieldname.IndexOf("]", int) - 1
+                        Dim int As Integer = strFieldname.IndexOf("[", 0), int2 As Integer = strFieldname.IndexOf("]", int) + 1
+                        'strFieldname = strFieldname.Substring(0, strFieldname.Length - int)
+                        Dim strFOund As String = strFieldname.Substring(int, int2 - int)
+                        strFieldname = strFieldname.Replace(strFOund, "")
+                    Loop
+                    Return CStr(strFieldname) & ""
+                Else
+                    Return strFieldname & ""
+                End If
+            Catch ex As Exception
+                Return strFieldname & ""
+            End Try
+        End Function
+        ''' <summary>
+        ''' Adjust subform fields
+        ''' </summary>
+        ''' <param name="_xdpSubformField"></param>
+        ''' <param name="lstFormNumber"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPAdjustSubformFields(ByRef _xdpSubformField As FDFApp.FDFDoc_Class.FDFField, ByRef lstFormNumber As System.Collections.Generic.Dictionary(Of String, Integer)) As FDFApp.FDFDoc_Class.FDFField
+            If _xdpSubformField.FieldType = FieldType.FldSubform Then
+                ' Dim lstFormNumber As New System.Collections.Generic.Dictionary(Of String, Integer)
+                For fld As Integer = 0 To _xdpSubformField.Subforms.Count - 1
+                    Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                    If Not String.IsNullOrEmpty(_xdpSubformField.Subforms(fld).FormLevel & "") Then
+
+                        If lstFormNumber.ContainsKey(_xdpSubformField.Subforms(fld).FormLevel) Then
+                            lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel) + 1
+                        Else
+                            lstFormNumber.Add(_xdpSubformField.Subforms(fld).FormLevel, 0)
+                        End If
+                        _xdpSubformField.Subforms(fld).FormNumber = lstFormNumber(_xdpSubformField.Subforms(fld).FormLevel)
+                        'Dim lstFieldCntr As New System.Collections.Generic.Dictionary(Of String, Integer)
+                        For ifld As Integer = 0 To _xdpSubformField.Subforms(fld).struc_FDFFields.Count - 1
+                            If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubformFields(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld), lstFormNumber)
+                            Else
+                                If lstFieldCntr.ContainsKey(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) Then
+                                    lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) = lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName) + 1
+                                Else
+                                    lstFieldCntr.Add(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName, 0)
+                                End If
+                                _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum = lstFieldCntr(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName)
+                                'If _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldType = FieldType.FldSubform Then
+                                '    _xdpSubformField.Subforms(fld).struc_FDFFields(ifld) = XDPAdjustSubformFields(_xdpSubformField.Subforms(fld).struc_FDFFields(ifld), lstFormNumber)
+                                'Else
+                                FormLevelsString &= _xdpSubformField.Subforms(fld).FormLevelLong & "/" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldName & "[" & _xdpSubformField.Subforms(fld).struc_FDFFields(ifld).FieldNum & "]" & Environment.NewLine & ""
+                                '& "[" & _xdpSubformField.Subforms(fld).FormNumber & "]" 
+                                'End If
+                            End If
+
+                        Next
+                    End If
+                Next
+            End If
+            Return _xdpSubformField
+        End Function
+#End Region
+#Region "XDPGetFields"
+        Public XDPNthFieldIndex As Integer = -1
+        Private XDPNthFieldList As New List(Of FDFApp.FDFDoc_Class.FDFField)
+        ''' <summary>
+        ''' Loads All xdp fields at level or below into list
+        ''' </summary>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFieldLevelLongList() As List(Of String)
+            Try
+                Dim fldOut As New List(Of String)
+                For Each _fld As FDFApp.FDFDoc_Class.FDFField In XDPGetAllFields()
+                    fldOut.Add(_fld.FieldLevelLong)
+                Next
+                Return fldOut
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Get first field
+        ''' </summary>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetFirstField() As FDFApp.FDFDoc_Class.FDFField
+            Try
+                If XDPNthFieldIndex < 0 Or XDPNthFieldList.Count <= 0 Then
+                    XDPRefreshFieldList()
+                End If
+                XDPNthFieldIndex = 0
+                If XDPNthFieldIndex < XDPNthFieldList.Count Then
+                    Return XDPGetNthField(XDPNthFieldIndex)
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            XDPNthFieldIndex = -1
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Gets next fields
+        ''' </summary>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetNextField() As FDFApp.FDFDoc_Class.FDFField
+            Try
+                If XDPNthFieldIndex < 0 Or XDPNthFieldList.Count <= 0 Then
+                    XDPRefreshFieldList()
+                End If
+                XDPNthFieldIndex += 1
+                If XDPNthFieldIndex < XDPNthFieldList.Count Then
+                    Return XDPGetNthField(XDPNthFieldIndex)
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            XDPNthFieldIndex = -1
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Get's Nth(index) Fields
+        ''' </summary>
+        ''' <param name="index"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetNthField(ByVal index As Integer) As FDFApp.FDFDoc_Class.FDFField
+            Try
+                If XDPNthFieldIndex < 0 Or XDPNthFieldList.Count <= 0 Then
+                    XDPRefreshFieldList()
+                End If
+                If index < XDPNthFieldList.Count Then
+                    Return XDPNthFieldList(index)
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Refresh List of fields
+        ''' </summary>
+        ''' <remarks></remarks>
+        Public Sub XDPRefreshFieldList()
+            XDPNthFieldList.Clear()
+            XDPNthFieldList.AddRange(XDPGetAllFields)
+        End Sub
+        ''' <summary>
+        ''' Get the count of all fields
+        ''' </summary>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFieldsCount() As Integer
+            Try
+                If XDPNthFieldIndex < 0 Or XDPNthFieldList.Count <= 0 Then
+                    XDPRefreshFieldList()
+                End If
+                Return XDPNthFieldList.Count
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return Nothing
+        End Function
+
+        ''' <summary>
+        ''' Get all fields into array
+        ''' </summary>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFields() As FDFApp.FDFDoc_Class.FDFField()
+            Try
+                XDPNthFieldList = New List(Of FDFApp.FDFDoc_Class.FDFField)
+                For Each _f As FDFApp.FDFDoc_Class.FDFDoc_Class In _FDF.ToArray
+                    If Not _f Is Nothing Then
+                        If _f.struc_FDFFields.Count > 0 Then
+                            XDPNthFieldList.AddRange(XDPGetAllFields(_f))
+                        End If
+                    End If
+                Next
+                Return XDPNthFieldList.ToArray
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Get all fields into array
+        ''' </summary>
+        ''' <param name="xFieldName"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function FDFGetAllFields(Optional ByVal xFieldName As String = "") As FDFApp.FDFDoc_Class.FDFField()
+            Try
+                XDPNthFieldList = New List(Of FDFApp.FDFDoc_Class.FDFField)
+                For Each _f As FDFApp.FDFDoc_Class.FDFDoc_Class In _FDF.ToArray
+                    If Not _f Is Nothing Then
+                        If _f.struc_FDFFields.Count > 0 Then
+                            XDPNthFieldList.AddRange(XDPGetAllFields(_f))
+                        End If
+                    End If
+                Next
+                Dim flds_last As New Dictionary(Of String, FDFApp.FDFDoc_Class.FDFField)
+                For Each fld As FDFField In XDPNthFieldList.ToArray
+                    If xFieldName.ToString.ToLower = fld.FieldName.ToString.ToLower Or String.IsNullOrEmpty(xFieldName & "") Then
+                        If Not flds_last.ContainsKey(fld.FieldName) Then
+                            flds_last.Add(fld.FieldName, fld)
+                        Else
+                            flds_last(fld.FieldName) = fld
+                        End If
+                    End If
+                Next
+                Dim flds As New List(Of FDFField)
+                For Each fld As FDFField In flds_last.Values
+                    flds.Add(fld)
+                Next
+                Return flds.ToArray
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Get all fields into array
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFields(ByVal _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class) As FDFApp.FDFDoc_Class.FDFField()
+            Dim _flds As New List(Of FDFApp.FDFDoc_Class.FDFField)
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                        Try
+                            If _subform.struc_FDFFields.Count > 0 Then
+                                _flds.AddRange(XDPGetAllFields(_subform))
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _fdfDoc_Class2.FormNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                        _flds.Add(fld)
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return _flds.ToArray
+        End Function
+        ''' <summary>
+        ''' Get all fields into array
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFields(ByVal _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String) As FDFApp.FDFDoc_Class.FDFField()
+            Dim _flds As New List(Of FDFApp.FDFDoc_Class.FDFField)
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                        Try
+                            If _formLevel.StartsWith(_subform.FormLevel & "") Then
+                                _flds.AddRange(XDPGetAllFields(_subform, _formLevel & ""))
+                                Return _flds.ToArray
+                            ElseIf _formLevel.StartsWith(_subform.FormLevelLong & "") Then
+                                _flds.AddRange(XDPGetAllFields(_subform, _formLevel & ""))
+                                Return _flds.ToArray
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If _fdfDoc_Class2.FormLevel = (_formLevel) Or _fdfDoc_Class2.FormLevelLong = (_formLevel) Or _fdfDoc_Class2.FormName = (_formLevel) Then
+                            FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _fdfDoc_Class2.FormNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                            _flds.Add(fld)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return _flds.ToArray
+        End Function
+        ''' <summary>
+        ''' Get all fields into array
+        ''' </summary>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_fieldNames"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFields(ByVal _formLevel As String, ByVal _fieldNames As String) As FDFApp.FDFDoc_Class.FDFField()
+            Dim _flds As New List(Of FDFApp.FDFDoc_Class.FDFField)
+            If String.IsNullOrEmpty(_formLevel & "") And String.IsNullOrEmpty(_fieldNames & "") Then
+                Return XDPGetAllFields()
+            End If
+            For Each _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class In _FDF.ToArray
+                For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                    If fld.FieldType = FieldType.FldSubform Then
+                        Dim i As Integer = -1
+                        For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                            i += 1
+                            Try
+                                If _formLevel.StartsWith(_subform.FormLevel & "") Then
+                                    _flds.AddRange(XDPGetAllFields(_subform, _formLevel & "", i))
+                                    Return _flds.ToArray
+                                ElseIf _formLevel.StartsWith(_subform.FormLevelLong & "") Then
+                                    _flds.AddRange(XDPGetAllFields(_subform, _formLevel & "", i))
+                                    Return _flds.ToArray
+                                ElseIf _formLevel = (_subform.FormName & "") Then
+                                    _flds.AddRange(XDPGetAllFields(_subform, _formLevel & "", i))
+                                    'Return _flds.ToArray
+                                ElseIf String.IsNullOrEmpty(_formLevel) Then
+                                    _flds.AddRange(XDPGetAllFields(_subform, _formLevel & "", i))
+                                    'Return _flds.ToArray
+                                End If
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    Else
+                        Try
+                            If _fdfDoc_Class2.FormLevel = (_formLevel) Or _fdfDoc_Class2.FormLevelLong = (_formLevel) Or _fdfDoc_Class2.FormName = _formLevel Then
+                                FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _fdfDoc_Class2.FormNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                                If _fieldNames.Contains(fld.FieldName) Or String.IsNullOrEmpty(_fieldNames & "") Then
+                                    _flds.Add(fld)
+                                End If
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    End If
+                Next
+            Next
+            Return _flds.ToArray
+        End Function
+        ''' <summary>
+        ''' Get all fields into array
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_subformNumber"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllFields(ByVal _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String, ByVal _subformNumber As Integer) As FDFApp.FDFDoc_Class.FDFField()
+            Dim _flds As New List(Of FDFApp.FDFDoc_Class.FDFField)
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                        Try
+                            If _formLevel.StartsWith(_subform.FormLevel & "") And fld.FieldNum = _subformNumber Then
+                                _flds.AddRange(XDPGetAllFields(_subform, _formLevel & "", _subformNumber + 0))
+                                Return _flds.ToArray
+                            ElseIf _formLevel.StartsWith(_subform.FormLevelLong & "") And fld.FieldNum = _subformNumber Then
+                                _flds.AddRange(XDPGetAllFields(_subform, _formLevel & "", _subformNumber + 0))
+                                Return _flds.ToArray
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If _fdfDoc_Class2.FormLevel = (_formLevel) Or _fdfDoc_Class2.FormLevelLong = (_formLevel) Or _fdfDoc_Class2.FormName = (_formLevel) Then
+                            FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                            _flds.Add(fld)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return _flds.ToArray
+        End Function
+        ''' <summary>
+        ''' Get/Sets all fields into array
+        ''' </summary>
+        ''' <param name="_fieldLevelLong">Field name or Level Long to get</param>
+        ''' <returns>FDFField</returns>
+        ''' <remarks></remarks>
+        Public Property XDPGetField(ByVal _fieldLevelLong As String) As FDFApp.FDFDoc_Class.FDFField
+            Get
+                Try
+                    XDPRefreshFieldList()
+                    For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPGetAllFields()
+                        Try
+                            If fld.FieldLevelLong = (_fieldLevelLong) Then
+                                Return fld
+                            ElseIf fld.FieldName = _fieldLevelLong Then
+                                Return fld
+                            ElseIf fld.FieldName & "[" & fld.FieldNum & "]" = _fieldLevelLong Then
+                                Return fld
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+                Return Nothing
+            End Get
+            Set(ByVal value As FDFApp.FDFDoc_Class.FDFField)
+                Try
+                    XDPRefreshFieldList()
+                    For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPGetAllFields()
+                        Try
+                            Dim ParentFormLevelPath As String = fld.FieldLevelLong.Substring(0, fld.FieldLevelLong.Length - fld.FieldLevelLong.LastIndexOf("/")).TrimStart(CStr("/")).TrimEnd(CStr("/"))
+                            If fld.FieldLevelLong = (_fieldLevelLong) Or fld.FieldName = _fieldLevelLong Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldLevelLong Or ParentFormLevelPath & "/" & fld.FieldName & "[" & fld.FieldNum & "]" = _fieldLevelLong Then
+                                For i As Integer = 0 To XDPSubform(ParentFormLevelPath).struc_FDFFields.Count
+                                    If XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldType = FieldType.FldSubform Then
+                                        ' replace subform field with value
+                                    ElseIf XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldLevelLong = _fieldLevelLong Then
+                                        XDPSubform(ParentFormLevelPath).struc_FDFFields(i) = value
+                                        Return
+                                    ElseIf XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldName = _fieldLevelLong Then
+                                        XDPSubform(ParentFormLevelPath).struc_FDFFields(i) = value
+                                        Return
+                                    ElseIf XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldName & "[" & XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldNum & "]" = _fieldLevelLong Then
+                                        XDPSubform(ParentFormLevelPath).struc_FDFFields(i) = value
+                                        Return
+                                    ElseIf ParentFormLevelPath & "/" & XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldName & "[" & XDPSubform(ParentFormLevelPath).struc_FDFFields(i).FieldNum & "]" = _fieldLevelLong Then
+                                        XDPSubform(ParentFormLevelPath).struc_FDFFields(i) = value
+                                        Return
+                                    End If
+                                Next
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Catch ex As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                End Try
+                Return
+            End Set
+        End Property
+
+
+        ''' <summary>
+        ''' Gets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel">Form level long</param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetFieldValue(ByVal _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String) As String
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                        Try
+                            If _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevelLong) Or _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevel) Then
+                                Return XDPGetFieldValue(_subform, _formLevel)
+                                '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                'Exit For
+                                'Return _flds
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If (_formLevel) = _fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName & "[" & fld.FieldNum & "]" Then
+                            'FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                            Return fld.FieldValue(0)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return ""
+        End Function
+        ''' <summary>
+        ''' Gets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class"></param>
+        ''' <param name="_formLevel">Form level long</param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetFieldValue(ByVal _fdfDoc_Class As FDFApp.FDFDoc_Class, ByVal _formLevel As String) As String
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPForms
+                For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                    If fld.FieldType = FieldType.FldSubform Then
+                        For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                            Try
+                                If _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevelLong) Or _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevel) Then
+                                    Return XDPGetFieldValue(_subform, _formLevel)
+                                    '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                    'Exit For
+                                    'Return _flds
+                                End If
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    Else
+                        Try
+                            If (_formLevel) = _fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName & "[" & fld.FieldNum & "]" Then
+                                'FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                                Return fld.FieldValue(0)
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    End If
+                Next
+            Next
+            Return ""
+        End Function
+        ''' <summary>
+        ''' Gets field values
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel">Form level long</param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetFieldValues(ByVal _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String) As String()
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                        Try
+                            If _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevelLong) Or _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevel) Then
+                                Return XDPGetFieldValues(_subform, _formLevel)
+                                '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                'Exit For
+                                'Return _flds
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If (_formLevel) = _fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName & "[" & fld.FieldNum & "]" Then
+                            'FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                            Return fld.FieldValue.ToArray
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return New String() {}
+        End Function
+        ''' <summary>
+        ''' Gets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel">Form level</param>
+        ''' <param name="_subformNumber">Form number</param>
+        ''' <param name="_subformFieldNumber">Field number</param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetFieldValue(ByVal _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String, ByVal _subformNumber As Integer, ByVal _subformFieldNumber As Integer) As String
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For Each _subform As FDFApp.FDFDoc_Class.FDFDoc_Class In fld.Subforms
+                        Try
+                            If _subform.FormLevel = (_formLevel & "") And fld.FieldNum = _subformNumber Then
+                                Return _subform.struc_FDFFields(_subformFieldNumber).FieldValue(0)
+                                '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                'Exit For
+                                'Return _flds
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If _fdfDoc_Class2.FormLevel = (_formLevel) And fld.FieldNum = _subformFieldNumber And fld.FieldNum = _subformFieldNumber Then
+                            FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                            Return fld.FieldValue(0)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return ""
+        End Function
+#End Region
+#Region "XDPSetValue/Value"
+        ''' <summary>
+        ''' Set field value
+        ''' </summary>
+        ''' <param name="_formLevelParent"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValue"></param>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByVal _formLevelParent As String, ByVal _fieldName As String, ByVal _fieldValue As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For _fdf As Integer = 0 To XDPForms().Count - 1
+                If XDPForms(_fdf).struc_FDFFields.Count > 0 Then
+                    For fldIdx As Integer = 0 To XDPForms(_fdf).struc_FDFFields.Count - 1
+                        Dim fld As FDFApp.FDFDoc_Class.FDFField = XDPForms(_fdf).struc_FDFFields(fldIdx)
+                        If fld.FieldType = FieldType.FldSubform Then
+                            For _subform As Integer = 0 To fld.Subforms.Count - 1
+                                Try
+                                    If (fld.Subforms(_subform).FormLevel & "[" & fld.Subforms(_subform).FormNumber & "]" = (_formLevelParent & "")) Or (fld.Subforms(_subform).FormLevel = (_formLevelParent & "") Or fld.Subforms(_subform).FormLevelLong = (_formLevelParent & "")) And (fld.FieldName = _fieldName Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName) Then
+                                        If XDPSetValueFormLevel(XDPForms(_fdf).struc_FDFFields(fld.FieldNum).Subforms(_subform), _formLevelParent, _fieldName, _fieldValue) Then
+                                            Return True
+                                        End If
+                                    ElseIf _formLevelParent.StartsWith(fld.Subforms(_subform).FormLevelLong & "") Then
+                                        If XDPSetValueFormLevel(XDPForms(_fdf).struc_FDFFields(fld.FieldNum).Subforms(_subform), _formLevelParent, _fieldName, _fieldValue) Then
+                                            Return True
+                                        End If
+                                    Else
+                                        If XDPSetValueFormLevel(XDPForms(_fdf), _formLevelParent, _fieldName, _fieldValue) Then
+                                            Return True
+                                        End If
+                                    End If
+                                    '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                Catch ex As Exception
+                                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                                End Try
+                            Next
+                        Else
+                            Try
+                                If (XDPForms(_fdf).FormLevel = (_formLevelParent & "") Or XDPForms(_fdf).FormLevelLong = (_formLevelParent & "")) And (fld.FieldName = _fieldName Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName) Then
+                                    'FormLevelsString &= XDPForms(_fdf).FormLevel & "[" & XDPForms(_fdf).FormNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                                    'XDPForms(_fdf).struc_FDFFields(fld.FieldNum).FieldValue(0) = _fieldValue
+                                    'XDPSetValueFormLevel(XDPForms(_fdf).FormLevelLong, fld.FieldName & "[" & fld.FieldNum & "]", _fieldValue)
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.Clear()
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.Add(_fieldValue)
+                                    Return True
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        End If
+                    Next
+                End If
+            Next
+            Return False
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValue"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String, ByVal _fieldName As String, ByVal _fieldValue As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For fld As Integer = 0 To _fdfDoc_Class2.struc_FDFFields.Count - 1
+                If _fdfDoc_Class2.struc_FDFFields(fld).FieldType = FieldType.FldSubform And _fdfDoc_Class2.struc_FDFFields(fld).Subforms.Count > 0 Then
+                    For _subform As Integer = 0 To _fdfDoc_Class2.struc_FDFFields(fld).Subforms.ToArray.Length - 1
+                        Try
+                            If CStr(_fdfDoc_Class2.FormLevelLong & "/" & _fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToLower & "[" & fld & "]").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                                Return True
+                            ElseIf CStr(_fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToLower & "[" & fld & "]").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                                Return True
+                            ElseIf CStr(_fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                                Return True
+                            Else
+                                If XDPSetValueFormLevel(_fdfDoc_Class2.struc_FDFFields(fld).Subforms(_subform), _formLevel, _fieldName, _fieldValue) Then
+                                    Return True
+                                End If
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+
+                        If CStr(_fdfDoc_Class2.FormLevelLong & "/" & _fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToLower & "[" & fld & "]").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                            Return True
+                        ElseIf _fdfDoc_Class2.struc_FDFFields(fld).FieldLevelLong.ToString.ToLower = CStr(_formLevel & "/" & _fieldName & "").ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                            Return True
+                        ElseIf CStr(_fdfDoc_Class2.FormLevelLong & "").ToLower = CStr(_formLevel).ToLower And (_fieldName.ToLower = _fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToLower) Then
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                            Return True
+                        ElseIf CStr(_fdfDoc_Class2.FormLevelLong & "").ToLower = CStr(_formLevel).ToLower And (_fieldName.ToLower = _fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToLower) Then
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                            Return True
+                        ElseIf CStr(_fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToLower & "[" & fld & "]").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                            Return True
+                        ElseIf CStr(_fdfDoc_Class2.struc_FDFFields(fld).FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld).FieldEnabled = True
+                            Return True
+
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return False
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValue"></param>
+        ''' <param name="_replaceAll"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByVal _fieldName As String, ByVal _fieldValue As String, Optional ByVal _replaceAll As Boolean = False) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            Dim _replaced As Boolean = False
+            For _fdf As Integer = 0 To XDPForms().Count - 1
+                'For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPForms(_fdf).struc_FDFFields.ToArray
+                For fldIdx As Integer = 0 To XDPForms(_fdf).struc_FDFFields.Count - 1
+                    Dim fld As FDFApp.FDFDoc_Class.FDFField = XDPForms(_fdf).struc_FDFFields(fldIdx)
+                    If fld.FieldType = FieldType.FldSubform Then
+                        For _subform As Integer = 0 To fld.Subforms.Count - 1
+                            Try
+                                If fld.FieldName = _fieldName Then
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue(0) = _fieldValue
+                                    If Not _replaceAll Then Return True
+                                    _replaced = True
+                                ElseIf fld.FieldLevelLong = _fieldName Then
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue(0) = _fieldValue
+                                    If Not _replaceAll Then Return True
+                                    _replaced = True
+                                ElseIf fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName Then
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue(0) = _fieldValue
+                                    If Not _replaceAll Then Return True
+                                    _replaced = True
+                                Else
+                                    If XDPSetValueFormLevel(XDPForms(_fdf), _fieldName, _fieldValue, _replaceAll) = True Then
+                                        If Not _replaceAll Then Return True
+                                        _replaced = True
+                                    End If
+                                End If
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    Else
+                        Try
+                            If fld.FieldName = _fieldName Then
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue(0) = _fieldValue
+                                If Not _replaceAll Then Return True
+                                _replaced = True
+                            ElseIf fld.FieldLevelLong = _fieldName Then
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue(0) = _fieldValue
+                                'XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).Subforms(_subform).struc_FDFFields(_subformFieldNumber).FieldValue(0) = _fieldValue
+                                '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                'Exit For
+                                'Return _flds
+                                If Not _replaceAll Then Return True
+                                _replaced = True
+                            ElseIf fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName Then
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue(0) = _fieldValue
+                                'XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).Subforms(_subform).struc_FDFFields(_subformFieldNumber).FieldValue(0) = _fieldValue
+                                '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                'Exit For
+                                'Return _flds
+                                If Not _replaceAll Then Return True
+                                _replaced = True
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    End If
+                Next
+            Next
+            Return _replaced
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValue"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _fieldName As String, ByVal _fieldValue As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For _subform As Integer = 0 To fld.Subforms.Count - 1
+                        Try
+                            If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                                Return True
+                            Else
+                                If XDPSetValueFormLevel(fld.Subforms(_subform), _fieldName, _fieldValue) Then
+                                    Return True
+                                End If
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                            Return True
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return False
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValue"></param>
+        ''' <param name="_replaceAll"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _fieldName As String, ByVal _fieldValue As String, ByVal _replaceAll As Boolean) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For _subform As Integer = 0 To fld.Subforms.Count - 1
+                        Try
+                            If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                                If Not _replaceAll Then Return True
+                            ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                                If Not _replaceAll Then Return True
+                            ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                                _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                                If Not _replaceAll Then Return True
+                            Else
+                                If XDPSetValueFormLevel(fld.Subforms(_subform), _fieldName, _fieldValue) Then
+                                    If Not _replaceAll Then
+                                        Return True
+                                    End If
+                                End If
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                            If Not _replaceAll Then Return True
+                        ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                            If Not _replaceAll Then Return True
+                        ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Clear()
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldValue.Add((_fieldValue))
+                            _fdfDoc_Class2.struc_FDFFields(fld.FieldNum).FieldEnabled = True
+                            If Not _replaceAll Then Return True
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            If Not _replaceAll Then
+                Return False
+            End If
+            Return True
+        End Function
+#End Region
+#Region "XDPSetValue/Values()"
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValues"></param>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByVal _formLevel As String, ByVal _fieldName As String, ByVal _fieldValues() As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For _fdf As Integer = 0 To XDPForms().Count - 1
+                'For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPForms(_fdf).struc_FDFFields.ToArray
+                For fldIdx As Integer = 0 To XDPForms(_fdf).struc_FDFFields.Count - 1
+                    Dim fld As FDFApp.FDFDoc_Class.FDFField = XDPForms(_fdf).struc_FDFFields(fldIdx)
+                    If fld.FieldType = FieldType.FldSubform Then
+                        For _subform As Integer = 0 To fld.Subforms.Count - 1
+                            Try
+                                If (fld.Subforms(_subform).FormLevel = (_formLevel & "") Or fld.Subforms(_subform).FormLevelLong = (_formLevel & "")) And (fld.FieldName = _fieldName Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName) Then
+                                    If XDPSetValueFormLevel(XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).Subforms(_subform), _formLevel, _fieldName, _fieldValues) Then
+                                        Return True
+                                    End If
+                                    '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                    'Exit For
+                                    'Return _flds
+                                Else
+                                    If XDPSetValueFormLevel(XDPForms(_fdf), _formLevel, _fieldName, _fieldValues) Then
+                                        Return True
+                                    End If
+                                End If
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    Else
+                        Try
+                            If (XDPForms(_fdf).FormLevel = (_formLevel & "") Or XDPForms(_fdf).FormLevelLong = (_formLevel & "")) And (fld.FieldName = _fieldName Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName) Then
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.Clear()
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.AddRange(_fieldValues)
+                                Return True
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    End If
+                Next
+            Next
+            Return False
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValues"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevel As String, ByVal _fieldName As String, ByVal _fieldValues() As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For _subform As Integer = 0 To fld.Subforms.Count - 1
+                        Try
+
+                            If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            Else
+                                If XDPSetValueFormLevel(_fdfDoc_Class2.struc_FDFFields(fld.FieldNum).Subforms(_subform), _formLevel, _fieldName, _fieldValues) Then
+                                    Return True
+                                End If
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return False
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValues"></param>
+        ''' <param name="_replaceAll"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByVal _fieldName As String, ByVal _fieldValues() As String, Optional ByVal _replaceAll As Boolean = False) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            Dim _replaced As Boolean = False
+            For _fdf As Integer = 0 To XDPForms().Count - 1
+                'For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPForms(_fdf).struc_FDFFields.ToArray
+                For fldIdx As Integer = 0 To XDPForms(_fdf).struc_FDFFields.Count - 1
+                    Dim fld As FDFApp.FDFDoc_Class.FDFField = XDPForms(_fdf).struc_FDFFields(fldIdx)
+                    If fld.FieldType = FieldType.FldSubform Then
+                        For _subform As Integer = 0 To fld.Subforms.Count - 1
+                            Try
+                                If (fld.FieldName = _fieldName Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName) Then
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.Clear()
+                                    XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.AddRange(_fieldValues)
+                                    If Not _replaceAll Then Return True
+                                    _replaced = True
+                                    '_fdfdoc_class.XDPForms(_fdf).struc_FDFFields(fld.FieldNum).Subforms(_subform).struc_FDFFields(_subformFieldNumber).FieldValue.AddRange(_fieldValues)
+                                    '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                    'Exit For
+                                    'Return _flds
+
+                                Else
+                                    If XDPSetValueFormLevel(XDPForms(_fdf), _fieldName, _fieldValues, _replaceAll) = True Then
+                                        If Not _replaceAll Then Return True
+                                        _replaced = True
+                                    End If
+                                End If
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        Next
+                    Else
+                        Try
+                            If (fld.FieldName = _fieldName Or fld.FieldName & "[" & fld.FieldNum & "]" = _fieldName) Then
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.Clear()
+                                XDPForm(XDPForms(_fdf).FormLevelLong).struc_FDFFields(fldIdx).FieldValue.AddRange(_fieldValues)
+                                If Not _replaceAll Then Return True
+                                _replaced = True
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    End If
+                Next
+            Next
+            Return _replaced
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValues"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _fieldName As String, ByVal _fieldValues() As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For _subform As Integer = 0 To fld.Subforms.Count - 1
+                        Try
+                            If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            Else
+                                If XDPSetValueFormLevel(fld.Subforms(_subform), _fieldName, _fieldValues) Then
+                                    Return True
+                                End If
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return False
+        End Function
+        ''' <summary>
+        ''' Sets field value
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_fieldName"></param>
+        ''' <param name="_fieldValues"></param>
+        ''' <param name="_replaceAll"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPSetValueFormLevel(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _fieldName As String, ByVal _fieldValues() As String, ByVal _replaceAll As Boolean) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            Dim _replaced As Boolean = False
+            For Each fld As FDFApp.FDFDoc_Class.FDFField In _fdfDoc_Class2.struc_FDFFields
+                If fld.FieldType = FieldType.FldSubform Then
+                    For _subform As Integer = 0 To fld.Subforms.Count - 1
+                        Try
+                            If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                                fld.FieldValue.Clear()
+                                fld.FieldValue.AddRange(_fieldValues)
+                                fld.FieldEnabled = True
+                                Return True
+                            Else
+                                If XDPSetValueFormLevel(fld.Subforms(_subform), _fieldName, _fieldValues) Then
+                                    _replaced = True
+                                End If
+                            End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If CStr(_fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToLower & "[" & fld.FieldNum & "]").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        ElseIf CStr(fld.FieldName.ToString & "").ToLower = _fieldName.ToLower Then
+                            fld.FieldValue.Clear()
+                            fld.FieldValue.AddRange(_fieldValues)
+                            fld.FieldEnabled = True
+                            Return True
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return _replaced
+        End Function
+#End Region
+#Region "GetAllSubforms"
+        ''' <summary>
+        ''' Gets all subforms at level long
+        ''' </summary>
+        ''' <param name="_fdfDoc_Classes2"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllSubformsFormLevel(ByVal _fdfDoc_Classes2() As FDFApp.FDFDoc_Class.FDFDoc_Class, Optional ByVal _formLevel As String = "") As FDFApp.FDFDoc_Class.FDFDoc_Class()
+            Dim _forms As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            For Each frm As FDFApp.FDFDoc_Class.FDFDoc_Class In _fdfDoc_Classes2
+                If Not frm.FormLevel Is Nothing Then
+                    If _formLevel.StartsWith(frm.FormLevel) Or _formLevel.StartsWith(frm.FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                        Try
+                            If Not String.IsNullOrEmpty(frm.FormLevel) Then
+                                If frm.FormLevel.StartsWith(_formLevel) Or frm.FormLevelLong.StartsWith(_formLevel) Then
+                                    _forms.Add(frm)
+                                End If
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    End If
+
+                    For Each fld As FDFApp.FDFDoc_Class.FDFField In frm.struc_FDFFields.ToArray
+                        Try
+                            If fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                _forms.AddRange(XDPGetAllSubformsFormLevel(fld.Subforms.ToArray(), _formLevel & ""))
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                End If
+            Next
+            Return _forms.ToArray
+        End Function
+        ''' <summary>
+        ''' Gets all subforms at level long
+        ''' </summary>
+        ''' <param name="_fdfDoc_Classes"></param>
+        ''' <param name="_formLevel"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetAllSubformsFormLevel(ByVal _fdfDoc_Classes As FDFApp.FDFDoc_Class, Optional ByVal _formLevel As String = "") As FDFApp.FDFDoc_Class.FDFDoc_Class()
+            Dim _forms As New List(Of FDFApp.FDFDoc_Class.FDFDoc_Class)
+            For Each frm As FDFApp.FDFDoc_Class.FDFDoc_Class In XDPGetForms()
+                If _formLevel.StartsWith(frm.FormLevel) Or _formLevel.StartsWith(frm.FormLevelLong) Or String.IsNullOrEmpty(_formLevel & "") Then
+                    Try
+                        If Not String.IsNullOrEmpty(frm.FormLevel) Then
+                            If frm.FormLevel.StartsWith(_formLevel) Or frm.FormLevelLong.StartsWith(_formLevel) Then
+                                _forms.Add(frm)
+                            End If
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+
+                    For Each fld As FDFApp.FDFDoc_Class.FDFField In frm.struc_FDFFields.ToArray
+                        Try
+                            If fld.FieldType = FieldType.FldSubform And fld.Subforms.Count > 0 Then
+                                '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                _forms.AddRange(XDPGetAllSubformsFormLevel(fld.Subforms.ToArray(), _formLevel & ""))
+                            End If
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                End If
+            Next
+            Return _forms.ToArray
+        End Function
+#End Region
+#Region "XDPGetValue"
+        ''' <summary>
+        ''' Gets value of Live-Cycle form field, in any Live-Cycle form
+        ''' </summary>
+        ''' <param name="_fieldLevelLongOrFieldName">Field name or FieldLevelLong(Ex: ex: root[0]/topmostSubform[0]/FULLNAME[0])</param>
+        ''' <returns>Field value</returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetValue(ByVal _fieldLevelLongOrFieldName As String) As String
+            Try
+                Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+                Dim fldValue As String = Nothing
+                For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPGetAllFields()
+                    Try
+                        If fld.FieldLevelLong = _fieldLevelLongOrFieldName And _fieldLevelLongOrFieldName.ToString.Contains("[") And _fieldLevelLongOrFieldName.ToString.Contains("]") Then
+                            fldValue = fld.FieldValue(0)
+                        ElseIf fld.FieldName & "[" & fld.FieldNum & "]" = _fieldLevelLongOrFieldName Then
+                            fldValue = fld.FieldValue(0)
+                        ElseIf fld.FieldName = _fieldLevelLongOrFieldName Then
+                            fldValue = fld.FieldValue(0)
+                        End If
+                        If fldValue Is Nothing Then
+
+                        Else
+                            Return XDPCheckCharReverse(fldValue)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                Next
+                If Not fldValue = Nothing Then
+                    Return fldValue
+                Else
+                    Return Nothing
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Gets value of Live-Cycle form field, in any Live-Cycle form
+        ''' </summary>
+        ''' <param name="_fieldIndex"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetValue(ByVal _fieldIndex As Integer) As String
+            Try
+                Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+                Dim fldValue As String = Nothing
+                Dim fld As FDFApp.FDFDoc_Class.FDFField = XDPGetAllFields()(_fieldIndex)
+                fldValue = fld.FieldValue(0)
+                If Not fldValue = Nothing Then
+                    Return XDPCheckCharReverse(fldValue)
+                Else
+                    Return Nothing
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Gets value of Live-Cycle form field, in any Live-Cycle form
+        ''' </summary>
+        ''' <param name="FieldName">Field name</param>
+        ''' <param name="CaseSensitive">If true, must match case</param>
+        ''' <returns>Field value</returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetValue(ByVal FieldName As String, ByVal CaseSensitive As Boolean) As String
+            Try
+                Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+                Dim fldValue As String = Nothing
+                For Each fld As FDFApp.FDFDoc_Class.FDFField In XDPGetAllFields()
+                    Try
+                        If CaseSensitive = True Then
+                            If fld.FieldLevelLong = FieldName And FieldName.ToString.Contains("[") And FieldName.ToString.Contains("]") Then
+                                fldValue = fld.FieldValue(0)
+                            ElseIf fld.FieldName & "[" & fld.FieldNum & "]" = FieldName Then
+                                fldValue = fld.FieldValue(0)
+                            ElseIf fld.FieldName = FieldName Then
+                                fldValue = fld.FieldValue(0)
+                            End If
+                        Else
+                            If fld.FieldLevelLong.ToString.ToLower = FieldName.ToString.ToLower And FieldName.ToString.Contains("[") And FieldName.ToString.Contains("]") Then
+                                fldValue = fld.FieldValue(0)
+                            ElseIf fld.FieldName.ToLower & "[" & fld.FieldNum & "]" = FieldName.ToLower Then
+                                fldValue = fld.FieldValue(0)
+                            ElseIf fld.FieldName.ToString.ToLower = FieldName.ToString.ToLower Then
+                                fldValue = fld.FieldValue(0)
+                            End If
+                        End If
+                        If Not fldValue = Nothing Then
+                            Return XDPCheckCharReverse(fldValue)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                Next
+                Return Nothing
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Gets value of form field
+        ''' </summary>
+        ''' <param name="FieldName"></param>
+        ''' <param name="FieldNumber"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPGetValue(ByVal FieldName As String, ByVal FieldNumber As Integer) As String
+            Dim xField As FDFField
+            Dim FoundField As Boolean
+            FoundField = False
+            Try
+                If XDPGetAllFields.Length > 0 Then
+                    For Each xField In XDPGetAllFields()
+                        If Not String_IsNullOrEmpty(xField.FieldName) Then
+                            If (xField.FieldName.ToLower) & "" = (FieldName.ToLower) And xField.FieldNum = FieldNumber Then
+                                Return Me.XDPCheckCharReverse(xField.FieldValue(0) & "")
+                                Exit Function
+                            End If
+                        End If
+                    Next
+                Else
+                    Return Nothing
+                    Exit Function
+                End If
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                Return Nothing
+                Exit Function
+            End Try
+            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFieldNotFound, "Error: Field Not Found.", "FDFDoc.FDFGetValue", 1)
+            Return Nothing
+        End Function
+        ''' <summary>
+        ''' Removes field
+        ''' </summary>
+        ''' <param name="_formLevel"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPRemoveField(ByVal _formLevel As String) As Boolean
+            Try
+                For fdfCntr As Integer = 0 To _FDF.Count - 1
+                    For fldCntr As Integer = 0 To _FDF(fdfCntr).struc_FDFFields.Count - 1
+                        Dim fld As FDFApp.FDFDoc_Class.FDFField = _FDF(fdfCntr).struc_FDFFields(fldCntr)
+                        If fld.FieldType = FieldType.FldSubform Then
+                            For _subform As Integer = 0 To fld.Subforms.Count - 1
+                                Try
+                                    'If _formLevel.ToString.StartsWith(_FDF(fdfCntr).FormLevelLong) Then
+                                    If XDPRemoveField(_FDF(fdfCntr).struc_FDFFields(fldCntr).Subforms(_subform), _formLevel) Then
+                                        Return True
+                                    End If
+                                    'Return XDPGetFieldValue(_subform, _formLevel)
+                                    '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                                    'Exit For
+                                    'Return _flds
+                                    'End If
+                                    '_formLevels &= _subform.FormLevel & Environment.NewLine
+                                Catch ex As Exception
+                                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                                End Try
+                            Next
+                        Else
+                            Try
+                                If (_formLevel) = _FDF(fdfCntr).FormLevelLong & "/" & fld.FieldName & "[" & fld.FieldNum & "]" Then
+                                    _FDF(fdfCntr).struc_FDFFields.RemoveAt(fldCntr)
+                                    XDPAdjustSubforms()
+                                    Return True
+                                ElseIf (_formLevel) = fld.FieldName & "[" & fld.FieldNum & "]" Then
+                                    _FDF(fdfCntr).struc_FDFFields.RemoveAt(fldCntr)
+                                    XDPAdjustSubforms()
+                                    Return True
+                                ElseIf (_formLevel) = fld.FieldName Then
+                                    _FDF(fdfCntr).struc_FDFFields.RemoveAt(fldCntr)
+                                    XDPAdjustSubforms()
+                                    Return True
+                                    'FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                                    'Return fld.FieldValue(0)
+                                End If
+                            Catch ex As Exception
+                                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                            End Try
+                        End If
+                    Next
+                Next
+                XDPAdjustSubforms()
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+            End Try
+        End Function
+        ''' <summary>
+        ''' Removes field
+        ''' </summary>
+        ''' <param name="_fdfDoc_Class2"></param>
+        ''' <param name="_formLevelLongOrFieldName"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Public Function XDPRemoveField(ByRef _fdfDoc_Class2 As FDFApp.FDFDoc_Class.FDFDoc_Class, ByVal _formLevelLongOrFieldName As String) As Boolean
+            Dim _flds As FDFApp.FDFDoc_Class.FDFField = Nothing
+            For fldCntr As Integer = 0 To _fdfDoc_Class2.struc_FDFFields.Count - 1
+                Dim fld As FDFApp.FDFDoc_Class.FDFField = _fdfDoc_Class2.struc_FDFFields(fldCntr)
+                If fld.FieldType = FieldType.FldSubform Then
+                    For _subform As Integer = 0 To fld.Subforms.Count - 1
+                        Try
+                            'If _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevelLong) Or _formLevel.ToString.StartsWith(_fdfDoc_Class2.FormLevel) Then
+                            If XDPRemoveField(_fdfDoc_Class2.struc_FDFFields(fldCntr).Subforms(_subform), _formLevelLongOrFieldName) Then
+                                Return True
+                            End If
+                            'Return XDPGetFieldValue(_subform, _formLevel)
+                            '_flds = (XDPGetField(_subform, _formLevel & "", _subformNumber + 0, _subformFieldNumber))
+                            'Exit For
+                            'Return _flds
+                            'End If
+                            '_formLevels &= _subform.FormLevel & Environment.NewLine
+                        Catch ex As Exception
+                            _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                        End Try
+                    Next
+                Else
+                    Try
+                        If (_formLevelLongOrFieldName) = _fdfDoc_Class2.FormLevelLong & "/" & fld.FieldName & "[" & fld.FieldNum & "]" Then
+                            _fdfDoc_Class2.struc_FDFFields.RemoveAt(fldCntr)
+                            XDPAdjustSubforms()
+                            Return True
+                        ElseIf (_formLevelLongOrFieldName) = fld.FieldName & "[" & fld.FieldNum & "]" Then
+                            _fdfDoc_Class2.struc_FDFFields.RemoveAt(fldCntr)
+                            XDPAdjustSubforms()
+                            Return True
+                        ElseIf (_formLevelLongOrFieldName) = fld.FieldName Then
+                            _fdfDoc_Class2.struc_FDFFields.RemoveAt(fldCntr)
+                            XDPAdjustSubforms()
+                            Return True
+                            'FormLevelsString &= _fdfDoc_Class2.FormLevel & "[" & _subformNumber & "]" & "/" & fld.FieldName & "[" & fld.FieldNum & "]" & Environment.NewLine & ""
+                            'Return fld.FieldValue(0)
+                        End If
+                    Catch ex As Exception
+                        _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, ex)
+                    End Try
+                End If
+            Next
+            Return False
+        End Function
+#End Region
+#End Region
     End Class
 
 End Namespace

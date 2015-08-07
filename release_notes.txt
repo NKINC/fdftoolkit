@@ -1,6 +1,36 @@
 FDFApp.net Release Notes 
 http://www.nk-inc.com/software/fdftoolkit.net/releasenotes.aspx?app=FDFApp.net_2.0
 
+2.2015.07.2901
++ Fixed/Tested FDFDoc,FDFApp,XDP,XFA,XML,FDF,XFDF
++ Enhanced support for 3-dimensional XML based form data and subforms
++ Added FDFDoc.FDFType.XFA file type for Dynamic XFA forms when determining type
++ Fixed Parsing of XML and XDP documents
++ Fixed XML, FDF, and JavaScript encoding techniques for input/output data
++ Added FDFDoc_Class.FDFField.XDPAppend*() methods
++ Added FDFDoc_Class.XDPAppend*() methods
++ Added FDFDoc_Class.XDPSubform*() methods
++ Added FDFDoc_Class.FDFField.FieldLevelLong for exact field levels and numbers
++ Added FDFDoc_Class.FDFDoc_Class.FormLevelLong for exact form levels and numbers
++ Added FDFDoc_Class.XDPAdjustSubform*() methods for adjusting FieldLevelLong and FormLevelLong values
++ Added FDFDoc_Class.FormLevelsString methods to output FormLevels list triggered by XDPAdjustSubform*() methods
++ Updated Syntax Help File
+
+2.2015.04.2301
++ Fixed FDFApp.ParseXML
+
+2.2015.01.1001
++ Fixed escape FDFDoc.WriteEnd(FDFCheckChar & XMLCheckChar)
+
+2.2015.04.0901
++ Fixed XML escape characters FDFDoc/FDFApp.WriteFields for XFDF format
++ Fixed Parsed XFDF
+
+2.2015.04.0501
++ Fixed FDF Escape Characters in FDFCheckChar,FDFCheckCharReverse, FDFCheckCharReverse2
++ Fixed FDFSetJavaScriptAction, FDFSetOnImportJavaScript, FDFAddJSAction, FDFAddDocJavaScript
++ Added Overload FDFCheckChar(String()) As String()
+
 2.2014.11.0801
 + Fixed issues with FDFApp.parseXML(*)
 
