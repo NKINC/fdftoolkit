@@ -1,0 +1,8 @@
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\FDFApp.dll
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\FDFApp.pdb
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\FDFApp.xml
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\itextsharp.xml
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Debug\ResolveAssemblyReference.cache
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Debug\FDFApp.dll
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Debug\FDFApp.xml
+D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Debug\FDFApp.pdb

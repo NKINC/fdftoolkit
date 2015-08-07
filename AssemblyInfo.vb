@@ -14,7 +14,7 @@ Imports System.Runtime.InteropServices
 <Assembly: AssemblyDescription("FDFApp.Net 2.0")> 
 <Assembly: AssemblyCompany("NK-Inc.com")> 
 <Assembly: AssemblyProduct("FDFApp.Net 2.0")> 
-<Assembly: AssemblyCopyright("Copyright (c) NK-Inc.com 2006-2008. All Rights Reserved.")> 
+<Assembly: AssemblyCopyright("Copyright © 2006-2015 NK-Inc.com. All Rights Reserved.")> 
 <Assembly: AssemblyTrademark("NK-Inc.com 2008")> 
 <Assembly: CLSCompliant(True)> 
 <Assembly: System.Security.AllowPartiallyTrustedCallers()> 
@@ -30,6 +30,6 @@ Imports System.Runtime.InteropServices
 ' You can specify all the values or you can default the Build and Revision Numbers 
 ' by using the '*' as shown below:
 'D:\Data\PROGRAMMING\VS.Net\2008\iTextSharp\itextsharp_4.1.7.3-source\bin\Release
-<Assembly: AssemblyVersion("2.2014.11.0801")> 
-<Assembly: AssemblyFileVersionAttribute("2.2014.11.0801")> 
+<Assembly: AssemblyVersion("2.2015.07.2901")> 
+<Assembly: AssemblyFileVersionAttribute("2.2015.07.2901")> 
 <Assembly: NeutralResourcesLanguageAttribute("en")> 
