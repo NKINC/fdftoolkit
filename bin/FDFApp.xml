@@ -278,6 +278,46 @@ FDFApp
 	<param name="ownerPassword">Owner password for Original password protected documents</param>
 	<returns>Byte array with merged FDF Data and PDF</returns>
 	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.Change_SubmitButtonURL(System.String,System.String,System.String,System.String,FDFApp.FDFDoc_Class.FDFType)">
+	<summary>
+	</summary>
+	<param name="formFile">PDF File Path String</param>
+	<param name="ownerPassword">PDF owner password</param>
+	<param name="fieldname">Submit Button Field Name</param>
+	<param name="submitURL">Submit to URL or mailto address</param>
+	<param name="submitDataType">Choose, FDF, XFDF, or PDF</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.Change_SubmitButtonURL(System.Byte[],System.String,System.String,System.String,FDFApp.FDFDoc_Class.FDFType)">
+	<summary>
+	</summary>
+	<param name="formFile">PDF File Bytes</param>
+	<param name="ownerPassword">PDF owner password</param>
+	<param name="fieldname">Submit Button Field Name</param>
+	<param name="submitURL">Submit to URL or mailto address</param>
+	<param name="submitDataType">Choose, FDF, XFDF, or PDF</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.Change_SubmitButtonURL(System.Byte[],System.String,System.String,System.String,System.Int32)">
+	<summary>
+	</summary>
+	<param name="formFile">PDF File Bytes</param>
+	<param name="ownerPassword">PDF owner password</param>
+	<param name="fieldname">Submit Button Field Name</param>
+	<param name="submitURL">Submit to URL or mailto address</param>
+	<param name="bitPositionFlags">0=FDF,32=XFDF,256=PDF;Bit Position for Flags = iTextSharp.text.pdf.PdfAction.SUBMIT_*</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.Change_SubmitButtonURL(System.IO.Stream,System.String,System.String,System.String,FDFApp.FDFDoc_Class.FDFType)">
+	<summary>
+	</summary>
+	<param name="formFile">PDF File Stream</param>
+	<param name="ownerPassword">PDF owner password</param>
+	<param name="fieldname">Submit Button Field Name</param>
+	<param name="submitURL">Submit to URL or mailto address</param>
+	<param name="submitDataType">Choose, FDF, XFDF, or PDF</param>
+	<returns></returns>
+	<remarks></remarks>
 </member><member name="M:FDFApp.FDFDoc_Class.PDFMergeFDF2Buf(FDFApp.FDFDoc_Class,System.String,System.String,System.Int32,System.String,System.Boolean,FDFApp.FDFDoc_Class.EncryptionStrength,System.String)">
 	<summary>
  Merges FDF Data with PDF Form and returns Byte array, allows encryption and permissions
@@ -676,7 +716,15 @@ FDFApp
 	<param name="whichTrigger">Trigger</param>
 	<param name="URL">Submit to url</param>
 	<remarks></remarks>
-</member><member name="M:FDFApp.FDFDoc_Class.XDPSetSubmitFormAction(System.String,FDFApp.FDFDoc_Class.FDFActionTrigger,System.String)">
+</member><member name="M:FDFApp.FDFDoc_Class.FDFSetSubmitFormAction(System.String,FDFApp.FDFDoc_Class.FDFActionTrigger,System.String,System.Int32)">
+	<summary>
+ Sets Submit Form Action for a field
+ </summary>
+	<param name="FieldName">PDF Field Name</param>
+	<param name="whichTrigger">Trigger</param>
+	<param name="URL">Submit to url</param>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.XDPSetSubmitFormAction(System.String,FDFApp.FDFDoc_Class.XDPActionTrigger,System.String)">
 	<summary>
  Sets Submit Form Action for a XDP field
  </summary>
@@ -1117,6 +1165,30 @@ FDFApp
 	<param name="FieldEnabled">True</param>
 	<param name="ReplaceField">If true, replaces field</param>
 	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.FDFAddField(System.String,System.String[],System.String[],System.String[],FDFApp.FDFDoc_Class.FieldType,System.Boolean,System.Boolean)">
+	<summary>
+ Adds a field
+ </summary>
+	<param name="FieldName">Field name</param>
+	<param name="FieldSelectionValues">Selection Values</param>
+	<param name="FieldDisplayNames">Display Names</param>
+	<param name="FieldExportValues">Export Values</param>
+	<param name="FieldType">field type</param>
+	<param name="FieldEnabled">True</param>
+	<param name="ReplaceField">If true, replaces field</param>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFDoc_Class.FDFAddField(System.String,System.String,System.String[],System.String[],FDFApp.FDFDoc_Class.FieldType,System.Boolean,System.Boolean)">
+	<summary>
+ Adds a field
+ </summary>
+	<param name="FieldName">Field name</param>
+	<param name="FieldSelectionValue">Selection Value</param>
+	<param name="FieldDisplayNames">Display Names</param>
+	<param name="FieldExportValues">Export Values</param>
+	<param name="FieldType">field type</param>
+	<param name="FieldEnabled">True</param>
+	<param name="ReplaceField">If true, replaces field</param>
+	<remarks></remarks>
 </member><member name="M:FDFApp.FDFDoc_Class.FDFAddObject(System.String,System.String,System.String,System.String,System.String)">
 	<summary>
  Adds Object
@@ -1514,7 +1586,7 @@ FDFApp
 	<param name="FileName">PDF File name</param>
 	<returns></returns>
 	<remarks></remarks>
-</member><member name="M:FDFApp.FDFDoc_Class.ForceDownload(System.Web.UI.Page@,System.Byte[],FDFApp.FDFDoc_Class.FDFType,System.String)">
+</member><member name="M:FDFApp.FDFDoc_Class.ForceDownload(System.Web.UI.Page,System.Byte[],FDFApp.FDFDoc_Class.FDFType,System.String)">
 	<summary>
  Forces download of file
  </summary>
@@ -1523,7 +1595,7 @@ FDFApp
 	<param name="FileName">File name</param>
 	<returns></returns>
 	<remarks></remarks>
-</member><member name="M:FDFApp.FDFDoc_Class.ForceDownload(System.Web.UI.Page@,System.Byte[],System.String)">
+</member><member name="M:FDFApp.FDFDoc_Class.ForceDownload(System.Web.UI.Page,System.Byte[],System.String)">
 	<summary>
  Forces download of file
  </summary>
@@ -2626,7 +2698,7 @@ FDFApp
  </summary>
 	<returns></returns>
 	<remarks></remarks>
-</member><member name="M:FDFApp.FDFDoc_Class.XDPGetAllFields">
+</member><member name="M:FDFApp.FDFDoc_Class.XDPGetAllFields(System.Boolean)">
 	<summary>
  Get all fields into array
  </summary>
@@ -2864,372 +2936,6 @@ FDFApp
 	<param name="_fdfDoc_Class2"></param>
 	<param name="_formLevelLongOrFieldName"></param>
 	<returns></returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimeTXT">
-	<summary>
- MimeTxt is the string variable representing the TEXT MIME Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns>text/plain</returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimeXDP">
-	<summary>
- MimeXDP is the string variable representing the XDP Mime Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns>application/vnd.adobe.xdp+xml</returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimeHTML">
-	<summary>
- MimeHTML is the string variable representing the HTML MIME Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns></returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimeXML">
-	<summary>
- MimeXML is the string variable representing the XML MIME Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns>text/xml</returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimeFDF">
-	<summary>
- MimeFDF is the string variable representing the FDF MIME Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns>application/vnd.fdf</returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimeXFDF">
-	<summary>
- MimeXFDF is the string variable representing the XFDF MIME Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns>application/vnd.adobe.xfdf</returns>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.MimePDF">
-	<summary>
- MimePDF is the string variable representing the PDF MIME Type for Response.ContentType objects
- </summary>
-	<value></value>
-	<returns>application/pdf</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.ResetErrors">
-	<summary>
- ResetErrors resets all errors in FDFApp.FDFApp_Class object
- </summary>
-	<remarks></remarks>
-</member><member name="P:FDFApp.FDFApp_Class.FDFAppErrors">
-	<summary>
- FDFAppErrors() Returns an array of FDFError objects
- </summary>
-	<value></value>
-	<returns>FDFAppError Object Array</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFAppErrorsStr(System.Boolean)">
-	<summary>
- FDFAppErrorStr returns FDFAppErrors in string format, Optional HTML Format
- </summary>
-	<param name="HTMLFormat">Set to true to return with HTML line breaks</param>
-	<returns>String with FDFAppError Array content</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.String)">
-	<summary>
- Determines what format the data is in.
- </summary>
-	<param name="PDFData">PDF Data (String) or PDF URL ir PDF Local File Path</param>
-	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
-	<remarks>EDITED: 2011-06-27</remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.Byte[])">
-	<summary>
- Determines what format the data is in.
- </summary>
-	<param name="PDFData">PDF Data</param>
-	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.Byte[],System.String)">
-	<summary>
- Determines what format the data is in.
- </summary>
-	<param name="PDFData">PDF Data</param>
-	<param name="ownerPassword">OwnerPassword</param>
-	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.IO.Stream)">
-	<summary>
- Determines what format the data is in.
- </summary>
-	<param name="PDFData">PDF Data</param>
-	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromStream(System.IO.Stream,System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromStream opens an FDF Document from a Stream Object
- </summary>
-	<param name="varFDFData">FDF Data Stream to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromBuf(System.Byte[],System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromBuf opens an FDF Document from a Byte Array or Buffer
- </summary>
-	<param name="varFDFData">FDF Data Byte Array to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromBuf(System.Byte[],System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromBuf opens an PDF Document from a Byte Array or Buffer
- </summary>
-	<param name="varPDFData">PDF Data Byte Array to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromStream(System.IO.Stream,System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromStream opens an PDF Document from a Stream
- </summary>
-	<param name="varPDFData">PDF Stream to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromStr(System.String,System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromStr opens an FDF Document from a String variable
- </summary>
-	<param name="bstrFDFData">FDF Data String to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromFile(System.String,System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromFile opens an FDF Document from a File Location or URL
- </summary>
-	<param name="bstrFileName">FDF Data File or URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpen(System.IO.Stream,System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromStream opens an FDF Document from a Stream Object
- </summary>
-	<param name="varFDFData">FDF Data Stream to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpen(System.Byte[],System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromBuf opens an FDF Document from a Byte Array or Buffer
- </summary>
-	<param name="varFDFData">FDF Data Byte Array to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpen(System.String,System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromFile opens an FDF Document from a File Location or URL
- </summary>
-	<param name="bstrFileName">FDF Data File or URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromFileiText(System.String,System.Boolean,System.Boolean)">
-	<summary>
- OPEN FILE WITH iText
- </summary>
-	<param name="strFilePathOrURL">FDF URL, or Path String</param>
-	<param name="FDFInitialize">Intialize FDFDoc</param>
-	<param name="AppendSaves"></param>
-	<returns>FDFDoc</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenWithiText(System.String,System.Boolean,System.Boolean)">
-	<summary>
- Parse FDF with iText
- </summary>
-	<param name="strUrl">String URL or Path of FDF</param>
-	<param name="FDFInitialize">Initialize FDFDoc</param>
-	<param name="AppendSaves"></param>
-	<returns>FDFDoc</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromURL(System.String,System.Boolean,System.Boolean)">
-	<summary>
- FDFOpenFromURL opens an FDF Document from a URL
- </summary>
-	<param name="FDFURL">FDF Document URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.Byte[],System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromBuf opens an PDF Document from a Byte Array or Buffer
- </summary>
-	<param name="varPDFData">PDF Data Byte Array to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.IO.Stream,System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromStream opens an PDF Document from a Stream
- </summary>
-	<param name="varPDFData">PDF Stream to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.String,System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromFile opens an PDF Document from a File Location or URL
- </summary>
-	<param name="bstrFileName">PDF Data File or URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.Uri,System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromURL opens an PDF Document from a File Location or URL
- </summary>
-	<param name="PDFURL">PDF Data URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromFile(System.String,System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromFile opens an PDF Document from a File Location or URL
- </summary>
-	<param name="bstrFileName">PDF Data File or URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromURL(System.String,System.Boolean,System.Boolean,System.String)">
-	<summary>
- PDFOpenFromURL opens an PDF Document from a File Location or URL
- </summary>
-	<param name="PDFURL">PDF Data URL to parse</param>
-	<param name="FDFInitialize">Initialize FDFDoc Object</param>
-	<param name="AppendSaves">Appends Saves</param>
-	<param name="ownerPassword">Owner password for Original password protected documents</param>
-	<returns>FDFDoc_Class</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.parseXML(System.String,System.String,System.Boolean)">
-	<summary>
- GOOD VERSION
- </summary>
-	<param name="FDF"></param>
-	<param name="PDFFileName"></param>
-	<param name="FDFInitialize"></param>
-	<returns></returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Add_Submit_Button(System.Byte[],System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
-	<summary>
- Adds a Submit Button to Existing PDF Form
- </summary>
-	<param name="PDFForm">Byte Array containing Existing PDF Form to add a button to</param>
-	<param name="btnSubmitURL">URL the button submits to</param>
-	<param name="btnTop">Button's Top Dimension - Page location in pixels (0 being top of page)</param>
-	<param name="btnRight">Button's Right Dimension - Page location in pixels (0 being left side of page)</param>
-	<param name="btnBottom">Button's Dimension - Page location in pixels (0 being top of page)</param>
-	<param name="btnLeft">Button's Left Dimension - Page location in pixels (0 being left side of page)</param>
-	<param name="btnText">Visible Text of Button</param>
-	<param name="btnName">Button Field Name</param>
-	<param name="btnPage">Page of button to be located</param>
-	<returns></returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Add_Submit_Button(System.IO.Stream,System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
-	<summary>
- Adds a Submit Button to Existing PDF Form
- </summary>
-	<param name="PDFForm">Stream containing Existing PDF Form to add a button to</param>
-	<param name="btnSubmitURL">URL the button submits to</param>
-	<param name="btnTop">Button's Top Dimension - Page location in pixels (0 being top of page)</param>
-	<param name="btnRight">Button's Right Dimension - Page location in pixels (0 being left side of page)</param>
-	<param name="btnBottom">Button's Dimension - Page location in pixels (0 being top of page)</param>
-	<param name="btnLeft">Button's Left Dimension - Page location in pixels (0 being left side of page)</param>
-	<param name="btnText">Visible Text of Button</param>
-	<param name="btnName">Button Field Name</param>
-	<param name="btnPage">Page of button to be located</param>
-	<returns></returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.Add_Submit_Button(System.String,System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
-	<summary>
- Adds a Submit Button to Existing PDF Form
- </summary>
-	<param name="PDFURL">URL location of Existing PDF Form to add a button to</param>
-	<param name="btnSubmitURL">URL the button submits to</param>
-	<param name="btnTop">Button's Top Dimension - Page location in pixels (0 being top of page)</param>
-	<param name="btnRight">Button's Right Dimension - Page location in pixels (0 being left side of page)</param>
-	<param name="btnBottom">Button's Dimension - Page location in pixels (0 being top of page)</param>
-	<param name="btnLeft">Button's Left Dimension - Page location in pixels (0 being left side of page)</param>
-	<param name="btnText">Visible Text of Button</param>
-	<param name="btnName">Button Field Name</param>
-	<param name="btnPage">Page of button to be located</param>
-	<returns></returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFSave(System.String,System.String)">
-	<summary>
- PDFSave saves the a PDF to a file path
- </summary>
-	<param name="PDFPath">Path and File Name of PDF to input</param>
-	<param name="PDFOutputFileName">PDFOutputFileName is the file name to path and name to save the PDF</param>
-	<returns>True or False</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFSavetoStream(System.String)">
-	<summary>
- PDFSavetoStream outputs a PDF to a stream object
- </summary>
-	<param name="PDFPath">Path and File Name of PDF to input</param>
-	<returns>PDF Document in a Stream Object</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFSavetoBuf(System.String)">
-	<summary>
- PDFSavetoBuf outputs a PDF to a byte array
- </summary>
-	<param name="PDFPath">Path and File Name of PDF to output</param>
-	<returns>PDF Document in a Byte Array Object</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PDFSavetoStr(System.String)">
-	<summary>
- PDFSavetoStr outputs a PDF to a String Object
- </summary>
-	<param name="PDFPath">Path and File Name of PDF to input</param>
-	<returns>PDF Document in a String Object</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PrintPDF(System.String)">
-	<summary>
- Prints a Document to the default printer using the default application using adobe products
- </summary>
-	<param name="FileName">Path to PDF File</param>
-	<returns>TRUE if printing has started</returns>
-	<remarks></remarks>
-</member><member name="M:FDFApp.FDFApp_Class.PrintPDF(System.String,System.String,System.String)">
-	<summary>
- Prints a Document to the specified printer using the specified application
- </summary>
-	<param name="FileName">Path to PDF File</param>
-	<param name="PrinterName">Name of printer</param>
-	<param name="ApplicationPath">Application path to PDF reader</param>
-	<returns>TRUE if printing has finished</returns>
 	<remarks></remarks>
 </member><member name="F:Encryption.Hash.Provider.CRC32">
 	<summary>
@@ -3662,6 +3368,372 @@ FDFApp
 	<summary>
  Friend class for shared utility methods used by multiple Encryption classes
  </summary>
+</member><member name="P:FDFApp.FDFApp_Class.MimeTXT">
+	<summary>
+ MimeTxt is the string variable representing the TEXT MIME Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns>text/plain</returns>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.MimeXDP">
+	<summary>
+ MimeXDP is the string variable representing the XDP Mime Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns>application/vnd.adobe.xdp+xml</returns>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.MimeHTML">
+	<summary>
+ MimeHTML is the string variable representing the HTML MIME Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.MimeXML">
+	<summary>
+ MimeXML is the string variable representing the XML MIME Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns>text/xml</returns>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.MimeFDF">
+	<summary>
+ MimeFDF is the string variable representing the FDF MIME Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns>application/vnd.fdf</returns>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.MimeXFDF">
+	<summary>
+ MimeXFDF is the string variable representing the XFDF MIME Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns>application/vnd.adobe.xfdf</returns>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.MimePDF">
+	<summary>
+ MimePDF is the string variable representing the PDF MIME Type for Response.ContentType objects
+ </summary>
+	<value></value>
+	<returns>application/pdf</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.ResetErrors">
+	<summary>
+ ResetErrors resets all errors in FDFApp.FDFApp_Class object
+ </summary>
+	<remarks></remarks>
+</member><member name="P:FDFApp.FDFApp_Class.FDFAppErrors">
+	<summary>
+ FDFAppErrors() Returns an array of FDFError objects
+ </summary>
+	<value></value>
+	<returns>FDFAppError Object Array</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFAppErrorsStr(System.Boolean)">
+	<summary>
+ FDFAppErrorStr returns FDFAppErrors in string format, Optional HTML Format
+ </summary>
+	<param name="HTMLFormat">Set to true to return with HTML line breaks</param>
+	<returns>String with FDFAppError Array content</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.String)">
+	<summary>
+ Determines what format the data is in.
+ </summary>
+	<param name="PDFData">PDF Data (String) or PDF URL ir PDF Local File Path</param>
+	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
+	<remarks>EDITED: 2011-06-27</remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.Byte[])">
+	<summary>
+ Determines what format the data is in.
+ </summary>
+	<param name="PDFData">PDF Data</param>
+	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.Byte[],System.String)">
+	<summary>
+ Determines what format the data is in.
+ </summary>
+	<param name="PDFData">PDF Data</param>
+	<param name="ownerPassword">OwnerPassword</param>
+	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Determine_Type(System.IO.Stream)">
+	<summary>
+ Determines what format the data is in.
+ </summary>
+	<param name="PDFData">PDF Data</param>
+	<returns>FDFType (XML/xFDF/XDP/PDF=Acrobat/XPDF=LiveCycle)</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromStream(System.IO.Stream,System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromStream opens an FDF Document from a Stream Object
+ </summary>
+	<param name="varFDFData">FDF Data Stream to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromBuf(System.Byte[],System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromBuf opens an FDF Document from a Byte Array or Buffer
+ </summary>
+	<param name="varFDFData">FDF Data Byte Array to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromBuf(System.Byte[],System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromBuf opens an PDF Document from a Byte Array or Buffer
+ </summary>
+	<param name="varPDFData">PDF Data Byte Array to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromStream(System.IO.Stream,System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromStream opens an PDF Document from a Stream
+ </summary>
+	<param name="varPDFData">PDF Stream to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromStr(System.String,System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromStr opens an FDF Document from a String variable
+ </summary>
+	<param name="bstrFDFData">FDF Data String to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromFile(System.String,System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromFile opens an FDF Document from a File Location or URL
+ </summary>
+	<param name="bstrFileName">FDF Data File or URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpen(System.IO.Stream,System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromStream opens an FDF Document from a Stream Object
+ </summary>
+	<param name="varFDFData">FDF Data Stream to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpen(System.Byte[],System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromBuf opens an FDF Document from a Byte Array or Buffer
+ </summary>
+	<param name="varFDFData">FDF Data Byte Array to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpen(System.String,System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromFile opens an FDF Document from a File Location or URL
+ </summary>
+	<param name="bstrFileName">FDF Data File or URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromFileiText(System.String,System.Boolean,System.Boolean)">
+	<summary>
+ OPEN FILE WITH iText
+ </summary>
+	<param name="strFilePathOrURL">FDF URL, or Path String</param>
+	<param name="FDFInitialize">Intialize FDFDoc</param>
+	<param name="AppendSaves"></param>
+	<returns>FDFDoc</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenWithiText(System.String,System.Boolean,System.Boolean)">
+	<summary>
+ Parse FDF with iText
+ </summary>
+	<param name="strUrl">String URL or Path of FDF</param>
+	<param name="FDFInitialize">Initialize FDFDoc</param>
+	<param name="AppendSaves"></param>
+	<returns>FDFDoc</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.FDFOpenFromURL(System.String,System.Boolean,System.Boolean)">
+	<summary>
+ FDFOpenFromURL opens an FDF Document from a URL
+ </summary>
+	<param name="FDFURL">FDF Document URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.Byte[],System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromBuf opens an PDF Document from a Byte Array or Buffer
+ </summary>
+	<param name="varPDFData">PDF Data Byte Array to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.IO.Stream,System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromStream opens an PDF Document from a Stream
+ </summary>
+	<param name="varPDFData">PDF Stream to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.String,System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromFile opens an PDF Document from a File Location or URL
+ </summary>
+	<param name="bstrFileName">PDF Data File or URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpen(System.Uri,System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromURL opens an PDF Document from a File Location or URL
+ </summary>
+	<param name="PDFURL">PDF Data URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromFile(System.String,System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromFile opens an PDF Document from a File Location or URL
+ </summary>
+	<param name="bstrFileName">PDF Data File or URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFOpenFromURL(System.String,System.Boolean,System.Boolean,System.String)">
+	<summary>
+ PDFOpenFromURL opens an PDF Document from a File Location or URL
+ </summary>
+	<param name="PDFURL">PDF Data URL to parse</param>
+	<param name="FDFInitialize">Initialize FDFDoc Object</param>
+	<param name="AppendSaves">Appends Saves</param>
+	<param name="ownerPassword">Owner password for Original password protected documents</param>
+	<returns>FDFDoc_Class</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.parseXML(System.String,System.String,System.Boolean)">
+	<summary>
+ GOOD VERSION
+ </summary>
+	<param name="FDF"></param>
+	<param name="PDFFileName"></param>
+	<param name="FDFInitialize"></param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Add_Submit_Button(System.Byte[],System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
+	<summary>
+ Adds a Submit Button to Existing PDF Form
+ </summary>
+	<param name="PDFForm">Byte Array containing Existing PDF Form to add a button to</param>
+	<param name="btnSubmitURL">URL the button submits to</param>
+	<param name="btnTop">Button's Top Dimension - Page location in pixels (0 being top of page)</param>
+	<param name="btnRight">Button's Right Dimension - Page location in pixels (0 being left side of page)</param>
+	<param name="btnBottom">Button's Dimension - Page location in pixels (0 being top of page)</param>
+	<param name="btnLeft">Button's Left Dimension - Page location in pixels (0 being left side of page)</param>
+	<param name="btnText">Visible Text of Button</param>
+	<param name="btnName">Button Field Name</param>
+	<param name="btnPage">Page of button to be located</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Add_Submit_Button(System.IO.Stream,System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
+	<summary>
+ Adds a Submit Button to Existing PDF Form
+ </summary>
+	<param name="PDFForm">Stream containing Existing PDF Form to add a button to</param>
+	<param name="btnSubmitURL">URL the button submits to</param>
+	<param name="btnTop">Button's Top Dimension - Page location in pixels (0 being top of page)</param>
+	<param name="btnRight">Button's Right Dimension - Page location in pixels (0 being left side of page)</param>
+	<param name="btnBottom">Button's Dimension - Page location in pixels (0 being top of page)</param>
+	<param name="btnLeft">Button's Left Dimension - Page location in pixels (0 being left side of page)</param>
+	<param name="btnText">Visible Text of Button</param>
+	<param name="btnName">Button Field Name</param>
+	<param name="btnPage">Page of button to be located</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.Add_Submit_Button(System.String,System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
+	<summary>
+ Adds a Submit Button to Existing PDF Form
+ </summary>
+	<param name="PDFURL">URL location of Existing PDF Form to add a button to</param>
+	<param name="btnSubmitURL">URL the button submits to</param>
+	<param name="btnTop">Button's Top Dimension - Page location in pixels (0 being top of page)</param>
+	<param name="btnRight">Button's Right Dimension - Page location in pixels (0 being left side of page)</param>
+	<param name="btnBottom">Button's Dimension - Page location in pixels (0 being top of page)</param>
+	<param name="btnLeft">Button's Left Dimension - Page location in pixels (0 being left side of page)</param>
+	<param name="btnText">Visible Text of Button</param>
+	<param name="btnName">Button Field Name</param>
+	<param name="btnPage">Page of button to be located</param>
+	<returns></returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFSave(System.String,System.String)">
+	<summary>
+ PDFSave saves the a PDF to a file path
+ </summary>
+	<param name="PDFPath">Path and File Name of PDF to input</param>
+	<param name="PDFOutputFileName">PDFOutputFileName is the file name to path and name to save the PDF</param>
+	<returns>True or False</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFSavetoStream(System.String)">
+	<summary>
+ PDFSavetoStream outputs a PDF to a stream object
+ </summary>
+	<param name="PDFPath">Path and File Name of PDF to input</param>
+	<returns>PDF Document in a Stream Object</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFSavetoBuf(System.String)">
+	<summary>
+ PDFSavetoBuf outputs a PDF to a byte array
+ </summary>
+	<param name="PDFPath">Path and File Name of PDF to output</param>
+	<returns>PDF Document in a Byte Array Object</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PDFSavetoStr(System.String)">
+	<summary>
+ PDFSavetoStr outputs a PDF to a String Object
+ </summary>
+	<param name="PDFPath">Path and File Name of PDF to input</param>
+	<returns>PDF Document in a String Object</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PrintPDF(System.String)">
+	<summary>
+ Prints a Document to the default printer using the default application using adobe products
+ </summary>
+	<param name="FileName">Path to PDF File</param>
+	<returns>TRUE if printing has started</returns>
+	<remarks></remarks>
+</member><member name="M:FDFApp.FDFApp_Class.PrintPDF(System.String,System.String,System.String)">
+	<summary>
+ Prints a Document to the specified printer using the specified application
+ </summary>
+	<param name="FileName">Path to PDF File</param>
+	<param name="PrinterName">Name of printer</param>
+	<param name="ApplicationPath">Application path to PDF reader</param>
+	<returns>TRUE if printing has finished</returns>
+	<remarks></remarks>
 </member>
 </members>
 </doc>
