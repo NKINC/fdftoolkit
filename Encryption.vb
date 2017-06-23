@@ -4,9 +4,7 @@ Imports System.Text
 Imports System.Text.RegularExpressions
 Imports System.Configuration
 Namespace Encryption
-
 #Region "  Hash"
-
     ''' <summary>
     ''' Hash functions are fundamental to modern cryptography. These functions map binary 
     ''' strings of an arbitrary length to small binary strings of a fixed length, known as 
@@ -15,7 +13,6 @@ Namespace Encryption
     ''' are commonly used with digital signatures and for data integrity.
     ''' </summary>
     Public Class Hash
-
         ''' <summary>
         ''' Type of hash; some are security oriented, others are fast and simple
         ''' </summary>
@@ -45,13 +42,10 @@ Namespace Encryption
             ''' </summary>
             MD5
         End Enum
-
         Private _Hash As HashAlgorithm
         Private _HashValue As New Data
-
         Private Sub New()
         End Sub
-
         ''' <summary>
         ''' Instantiate a new hash of the specified type
         ''' </summary>
@@ -71,7 +65,6 @@ Namespace Encryption
                     _Hash = New SHA512Managed
             End Select
         End Sub
-
         ''' <summary>
         ''' Returns the previously calculated hash
         ''' </summary>
@@ -80,7 +73,6 @@ Namespace Encryption
                 Return _HashValue
             End Get
         End Property
-
         ''' <summary>
         ''' Calculates hash on a stream of arbitrary length
         ''' </summary>
@@ -88,14 +80,12 @@ Namespace Encryption
             _HashValue.Bytes = _Hash.ComputeHash(s)
             Return _HashValue
         End Function
-
         ''' <summary>
         ''' Calculates hash for fixed length <see cref="Data"/>
         ''' </summary>
         Public Function Calculate(ByVal d As Data) As Data
             Return CalculatePrivate(d.Bytes)
         End Function
-
         ''' <summary>
         ''' Calculates hash for a string with a prefixed salt value. 
         ''' A "salt" is random data prefixed to every hashed value to prevent 
@@ -107,7 +97,6 @@ Namespace Encryption
             d.Bytes.CopyTo(nb, salt.Bytes.Length)
             Return CalculatePrivate(nb)
         End Function
-
         ''' <summary>
         ''' Calculates hash for an array of bytes
         ''' </summary>
@@ -115,13 +104,10 @@ Namespace Encryption
             _HashValue.Bytes = _Hash.ComputeHash(b)
             Return _HashValue
         End Function
-
 #Region "  CRC32 HashAlgorithm"
         Private Class CRC32
             Inherits HashAlgorithm
-
             Private result As Integer = &HFFFFFFFF
-
             Protected Overrides Sub HashCore(ByVal array() As Byte, ByVal ibStart As Integer, ByVal cbSize As Integer)
                 Dim lookup As Integer
                 For i As Integer = ibStart To cbSize - 1
@@ -130,17 +116,14 @@ Namespace Encryption
                     result = result Xor crcLookup(lookup)
                 Next i
             End Sub
-
             Protected Overrides Function HashFinal() As Byte()
                 Dim b() As Byte = BitConverter.GetBytes(Not result)
                 Array.Reverse(b)
                 Return b
             End Function
-
             Public Overrides Sub Initialize()
                 result = &HFFFFFFFF
             End Sub
-
             Private crcLookup() As Integer = { _
              &H0, &H77073096, &HEE0E612C, &H990951BA, _
              &H76DC419, &H706AF48F, &HE963A535, &H9E6495A3, _
@@ -206,7 +189,6 @@ Namespace Encryption
              &HBAD03605, &HCDD70693, &H54DE5729, &H23D967BF, _
              &HB3667A2E, &HC4614AB8, &H5D681B02, &H2A6F2B94, _
              &HB40BBE37, &HC30C8EA1, &H5A05DF1B, &H2D02EF8D}
-
             Public Overrides ReadOnly Property Hash() As Byte()
                 Get
                     Dim b() As Byte = BitConverter.GetBytes(Not result)
@@ -215,23 +197,17 @@ Namespace Encryption
                 End Get
             End Property
         End Class
-
 #End Region
-
     End Class
 #End Region
-
 #Region "  Symmetric"
-
     ''' <summary>
     ''' Symmetric encryption uses a single key to encrypt and decrypt. 
     ''' Both parties (encryptor and decryptor) must share the same secret key.
     ''' </summary>
     Public Class Symmetric
-
         Private Const _DefaultIntializationVector As String = "%1Az=-@qT"
         Private Const _BufferSize As Integer = 2048
-
         Public Enum Provider
             ''' <summary>
             ''' The Data Encryption Standard provider supports a 64 bit key only
@@ -250,17 +226,14 @@ Namespace Encryption
             ''' </summary>
             TripleDES
         End Enum
-
         Private _data As Data
         Private _key As Data
         Private _iv As Data
         Private _crypto As SymmetricAlgorithm
         Private _EncryptedBytes As Byte()
         Private _UseDefaultInitializationVector As Boolean
-
         Private Sub New()
         End Sub
-
         ''' <summary>
         ''' Instantiates a new symmetric encryption object using the specified provider.
         ''' </summary>
@@ -275,8 +248,6 @@ Namespace Encryption
                 Case provider.TripleDES
                     _crypto = New TripleDESCryptoServiceProvider
             End Select
-
-            '-- make sure key and IV are always set, no matter what
             Me.Key = RandomKey()
             If useDefaultInitializationVector Then
                 Me.IntializationVector = New Data(_DefaultIntializationVector)
@@ -284,7 +255,6 @@ Namespace Encryption
                 Me.IntializationVector = RandomInitializationVector()
             End If
         End Sub
-
         ''' <summary>
         ''' Key size in bytes. We use the default key size for any given provider; if you 
         ''' want to force a specific key size, set this property
@@ -298,7 +268,6 @@ Namespace Encryption
                 _key.MaxBytes = Value
             End Set
         End Property
-
         ''' <summary>
         ''' Key size in bits. We use the default key size for any given provider; if you 
         ''' want to force a specific key size, set this property
@@ -312,7 +281,6 @@ Namespace Encryption
                 _key.MaxBits = Value
             End Set
         End Property
-
         ''' <summary>
         ''' The key used to encrypt/decrypt data
         ''' </summary>
@@ -327,7 +295,6 @@ Namespace Encryption
                 _key.StepBytes = _crypto.LegalKeySizes(0).SkipSize \ 8
             End Set
         End Property
-
         ''' <summary>
         ''' Using the default Cipher Block Chaining (CBC) mode, all data blocks are processed using
         ''' the value derived from the previous block; the first data block has no previous data block
@@ -343,7 +310,6 @@ Namespace Encryption
                 _iv.MinBytes = _crypto.BlockSize \ 8
             End Set
         End Property
-
         ''' <summary>
         ''' generates a random Initialization Vector, if one was not provided
         ''' </summary>
@@ -352,7 +318,6 @@ Namespace Encryption
             Dim d As New Data(_crypto.IV)
             Return d
         End Function
-
         ''' <summary>
         ''' generates a random Key, if one was not provided
         ''' </summary>
@@ -361,7 +326,6 @@ Namespace Encryption
             Dim d As New Data(_crypto.Key)
             Return d
         End Function
-
         ''' <summary>
         ''' Ensures that _crypto object has valid Key and IV
         ''' prior to any attempt to encrypt/decrypt anything
@@ -384,7 +348,6 @@ Namespace Encryption
             _crypto.Key = _key.Bytes
             _crypto.IV = _iv.Bytes
         End Sub
-
         ''' <summary>
         ''' Encrypts the specified Data using provided key
         ''' </summary>
@@ -392,23 +355,18 @@ Namespace Encryption
             Me.Key = key
             Return Encrypt(d)
         End Function
-
         ''' <summary>
         ''' Encrypts the specified Data using preset key and preset initialization vector
         ''' </summary>
         Public Function Encrypt(ByVal d As Data) As Data
             Dim ms As New IO.MemoryStream
-
             ValidateKeyAndIv(True)
-
             Dim cs As New CryptoStream(ms, _crypto.CreateEncryptor(), CryptoStreamMode.Write)
             cs.Write(d.Bytes, 0, d.Bytes.Length)
             cs.Close()
             ms.Close()
-
             Return New Data(ms.ToArray)
         End Function
-
         ''' <summary>
         ''' Encrypts the stream to memory using provided key and provided initialization vector
         ''' </summary>
@@ -417,7 +375,6 @@ Namespace Encryption
             Me.Key = key
             Return Encrypt(s)
         End Function
-
         ''' <summary>
         ''' Encrypts the stream to memory using specified key
         ''' </summary>
@@ -425,7 +382,6 @@ Namespace Encryption
             Me.Key = key
             Return Encrypt(s)
         End Function
-
         ''' <summary>
         ''' Encrypts the specified stream to memory using preset key and preset initialization vector
         ''' </summary>
@@ -433,22 +389,17 @@ Namespace Encryption
             Dim ms As New IO.MemoryStream
             Dim b(_BufferSize) As Byte
             Dim i As Integer
-
             ValidateKeyAndIv(True)
-
             Dim cs As New CryptoStream(ms, _crypto.CreateEncryptor(), CryptoStreamMode.Write)
             i = s.Read(b, 0, _BufferSize)
             Do While i > 0
                 cs.Write(b, 0, i)
                 i = s.Read(b, 0, _BufferSize)
             Loop
-
             cs.Close()
             ms.Close()
-
             Return New Data(ms.ToArray)
         End Function
-
         ''' <summary>
         ''' Decrypts the specified data using provided key and preset initialization vector
         ''' </summary>
@@ -456,7 +407,6 @@ Namespace Encryption
             Me.Key = key
             Return Decrypt(encryptedData)
         End Function
-
         ''' <summary>
         ''' Decrypts the specified stream using provided key and preset initialization vector
         ''' </summary>
@@ -464,31 +414,25 @@ Namespace Encryption
             Me.Key = key
             Return Decrypt(encryptedStream)
         End Function
-
         ''' <summary>
         ''' Decrypts the specified stream using preset key and preset initialization vector
         ''' </summary>
         Public Function Decrypt(ByVal encryptedStream As Stream) As Data
             Dim ms As New System.IO.MemoryStream
             Dim b(_BufferSize) As Byte
-
             ValidateKeyAndIv(False)
             Dim cs As New CryptoStream(encryptedStream, _
              _crypto.CreateDecryptor(), CryptoStreamMode.Read)
-
             Dim i As Integer
             i = cs.Read(b, 0, _BufferSize)
-
             Do While i > 0
                 ms.Write(b, 0, i)
                 i = cs.Read(b, 0, _BufferSize)
             Loop
             cs.Close()
             ms.Close()
-
             Return New Data(ms.ToArray)
         End Function
-
         ''' <summary>
         ''' Decrypts the specified data using preset key and preset initialization vector
         ''' </summary>
@@ -503,12 +447,7 @@ Namespace Encryption
             End Try
             Try
                 cs = New CryptoStream(ms, _crypto.CreateDecryptor(), CryptoStreamMode.Read)
-                'If cs.CanSeek Then
-                '    cs.Position = 0
-                'ElseIf cs.Position > 0 Then
-                '    cs.Position = 0
-                'End If
-                ReDim b(cs.Length)
+                ReDim b(CInt(cs.Length))
                 cs.Read(b, 0, encryptedData.Bytes.Length)
             Catch ex As CryptographicException
                 cs.Close()
@@ -518,13 +457,9 @@ Namespace Encryption
             End Try
             Return New Data(b)
         End Function
-
     End Class
-
 #End Region
-
 #Region "  Asymmetric"
-
     ''' <summary>
     ''' Asymmetric encryption uses a pair of keys to encrypt and decrypt.
     ''' There is a "public" key which is used to encrypt. Decrypting, on the other hand, 
@@ -535,12 +470,10 @@ Namespace Encryption
     ''' The only provider supported is the <see cref="RSACryptoServiceProvider"/>
     ''' </remarks>
     Public Class Asymmetric
-
         Private _rsa As RSACryptoServiceProvider
         Private _KeyContainerName As String = "Encryption.AsymmetricEncryption.DefaultContainerName"
         Private _UseMachineKeystore As Boolean = True
         Private _KeySize As Integer = 1024
-
         Private Const _ElementParent As String = "RSAKeyValue"
         Private Const _ElementModulus As String = "Modulus"
         Private Const _ElementExponent As String = "Exponent"
@@ -550,7 +483,6 @@ Namespace Encryption
         Private Const _ElementPrimeExponentQ As String = "DQ"
         Private Const _ElementCoefficient As String = "InverseQ"
         Private Const _ElementPrivateExponent As String = "D"
-
         Private Const _KeyModulus As String = "PublicKey.Modulus"
         Private Const _KeyExponent As String = "PublicKey.Exponent"
         Private Const _KeyPrimeP As String = "PrivateKey.P"
@@ -559,7 +491,6 @@ Namespace Encryption
         Private Const _KeyPrimeExponentQ As String = "PrivateKey.DQ"
         Private Const _KeyCoefficient As String = "PrivateKey.InverseQ"
         Private Const _KeyPrivateExponent As String = "PrivateKey.D"
-
 #Region "  PublicKey Class"
         ''' <summary>
         ''' Represents a public encryption key. Intended to be shared, it 
@@ -568,14 +499,11 @@ Namespace Encryption
         Public Class PublicKey
             Public Modulus As String
             Public Exponent As String
-
             Public Sub New()
             End Sub
-
             Public Sub New(ByVal KeyXml As String)
                 LoadFromXml(KeyXml)
             End Sub
-
             ''' <summary>
             ''' Load public key from App.config or Web.config file
             ''' </summary>
@@ -583,7 +511,6 @@ Namespace Encryption
                 Me.Modulus = Utils.GetConfigString(_KeyModulus)
                 Me.Exponent = Utils.GetConfigString(_KeyExponent)
             End Sub
-
             ''' <summary>
             ''' Returns *.config file XML section representing this public key
             ''' </summary>
@@ -595,7 +522,6 @@ Namespace Encryption
                 End With
                 Return sb.ToString
             End Function
-
             ''' <summary>
             ''' Writes the *.config file representation of this public key to a file
             ''' </summary>
@@ -604,7 +530,6 @@ Namespace Encryption
                 sw.Write(Me.ToConfigSection)
                 sw.Close()
             End Sub
-
             ''' <summary>
             ''' Loads the public key from its XML string
             ''' </summary>
@@ -612,7 +537,6 @@ Namespace Encryption
                 Me.Modulus = Utils.GetXmlElement(keyXml, "Modulus")
                 Me.Exponent = Utils.GetXmlElement(keyXml, "Exponent")
             End Sub
-
             ''' <summary>
             ''' Converts this public key to an RSAParameters object
             ''' </summary>
@@ -622,7 +546,6 @@ Namespace Encryption
                 r.Exponent = Convert.FromBase64String(Me.Exponent)
                 Return r
             End Function
-
             ''' <summary>
             ''' Converts this public key to its XML string representation
             ''' </summary>
@@ -636,7 +559,6 @@ Namespace Encryption
                 End With
                 Return sb.ToString
             End Function
-
             ''' <summary>
             ''' Writes the Xml representation of this public key to a file
             ''' </summary>
@@ -645,12 +567,9 @@ Namespace Encryption
                 sw.Write(Me.ToXml)
                 sw.Close()
             End Sub
-
         End Class
 #End Region
-
 #Region "  PrivateKey Class"
-
         ''' <summary>
         ''' Represents a private encryption key. Not intended to be shared, as it 
         ''' contains all the elements that make up the key.
@@ -664,14 +583,11 @@ Namespace Encryption
             Public PrimeExponentQ As String
             Public Coefficient As String
             Public PrivateExponent As String
-
             Public Sub New()
             End Sub
-
             Public Sub New(ByVal keyXml As String)
                 LoadFromXml(keyXml)
             End Sub
-
             ''' <summary>
             ''' Load private key from App.config or Web.config file
             ''' </summary>
@@ -685,7 +601,6 @@ Namespace Encryption
                 Me.Coefficient = Utils.GetConfigString(_KeyCoefficient)
                 Me.PrivateExponent = Utils.GetConfigString(_KeyPrivateExponent)
             End Sub
-
             ''' <summary>
             ''' Converts this private key to an RSAParameters object
             ''' </summary>
@@ -701,7 +616,6 @@ Namespace Encryption
                 r.D = Convert.FromBase64String(Me.PrivateExponent)
                 Return r
             End Function
-
             ''' <summary>
             ''' Returns *.config file XML section representing this private key
             ''' </summary>
@@ -719,7 +633,6 @@ Namespace Encryption
                 End With
                 Return sb.ToString
             End Function
-
             ''' <summary>
             ''' Writes the *.config file representation of this private key to a file
             ''' </summary>
@@ -728,7 +641,6 @@ Namespace Encryption
                 sw.Write(Me.ToConfigSection)
                 sw.Close()
             End Sub
-
             ''' <summary>
             ''' Loads the private key from its XML string
             ''' </summary>
@@ -742,7 +654,6 @@ Namespace Encryption
                 Me.Coefficient = Utils.GetXmlElement(keyXml, "InverseQ")
                 Me.PrivateExponent = Utils.GetXmlElement(keyXml, "D")
             End Sub
-
             ''' <summary>
             ''' Converts this private key to its XML string representation
             ''' </summary>
@@ -762,7 +673,6 @@ Namespace Encryption
                 End With
                 Return sb.ToString
             End Function
-
             ''' <summary>
             ''' Writes the Xml representation of this private key to a file
             ''' </summary>
@@ -771,11 +681,8 @@ Namespace Encryption
                 sw.Write(Me.ToXml)
                 sw.Close()
             End Sub
-
         End Class
-
 #End Region
-
         ''' <summary>
         ''' Instantiates a new asymmetric encryption session using the default key size; 
         ''' this is usally 1024 bits
@@ -783,7 +690,6 @@ Namespace Encryption
         Public Sub New()
             _rsa = GetRSAProvider()
         End Sub
-
         ''' <summary>
         ''' Instantiates a new asymmetric encryption session using a specific key size
         ''' </summary>
@@ -791,7 +697,6 @@ Namespace Encryption
             _KeySize = keySize
             _rsa = GetRSAProvider()
         End Sub
-
         ''' <summary>
         ''' Sets the name of the key container used to store this key on disk; this is an 
         ''' unavoidable side effect of the underlying Microsoft CryptoAPI. 
@@ -807,7 +712,6 @@ Namespace Encryption
                 _KeyContainerName = Value
             End Set
         End Property
-
         ''' <summary>
         ''' Returns the current key size, in bits
         ''' </summary>
@@ -816,7 +720,6 @@ Namespace Encryption
                 Return _rsa.KeySize
             End Get
         End Property
-
         ''' <summary>
         ''' Returns the maximum supported key size, in bits
         ''' </summary>
@@ -825,7 +728,6 @@ Namespace Encryption
                 Return _rsa.LegalKeySizes(0).MaxSize
             End Get
         End Property
-
         ''' <summary>
         ''' Returns the minimum supported key size, in bits
         ''' </summary>
@@ -834,7 +736,6 @@ Namespace Encryption
                 Return _rsa.LegalKeySizes(0).MinSize
             End Get
         End Property
-
         ''' <summary>
         ''' Returns valid key step sizes, in bits
         ''' </summary>
@@ -843,7 +744,6 @@ Namespace Encryption
                 Return _rsa.LegalKeySizes(0).SkipSize
             End Get
         End Property
-
         ''' <summary>
         ''' Returns the default public key as stored in the *.config file
         ''' </summary>
@@ -854,7 +754,6 @@ Namespace Encryption
                 Return pubkey
             End Get
         End Property
-
         ''' <summary>
         ''' Returns the default private key as stored in the *.config file
         ''' </summary>
@@ -865,7 +764,6 @@ Namespace Encryption
                 Return privkey
             End Get
         End Property
-
         ''' <summary>
         ''' Generates a new public/private key pair as objects
         ''' </summary>
@@ -876,7 +774,6 @@ Namespace Encryption
             publicKey = New PublicKey(PublicKeyXML)
             privateKey = New PrivateKey(PrivateKeyXML)
         End Sub
-
         ''' <summary>
         ''' Generates a new public/private key pair as XML strings
         ''' </summary>
@@ -885,7 +782,6 @@ Namespace Encryption
             publicKeyXML = rsa.ToXmlString(False)
             privateKeyXML = rsa.ToXmlString(True)
         End Sub
-
         ''' <summary>
         ''' Encrypts data using the default public key
         ''' </summary>
@@ -893,7 +789,6 @@ Namespace Encryption
             Dim PublicKey As PublicKey = DefaultPublicKey
             Return Encrypt(d, PublicKey)
         End Function
-
         ''' <summary>
         ''' Encrypts data using the provided public key
         ''' </summary>
@@ -901,7 +796,6 @@ Namespace Encryption
             _rsa.ImportParameters(publicKey.ToParameters)
             Return EncryptPrivate(d)
         End Function
-
         ''' <summary>
         ''' Encrypts data using the provided public key as XML
         ''' </summary>
@@ -909,7 +803,6 @@ Namespace Encryption
             LoadKeyXml(publicKeyXML, False)
             Return EncryptPrivate(d)
         End Function
-
         Private Function EncryptPrivate(ByVal d As Data) As Data
             Try
                 Return New Data(_rsa.Encrypt(d.Bytes, False))
@@ -921,7 +814,6 @@ Namespace Encryption
                 End If
             End Try
         End Function
-
         ''' <summary>
         ''' Decrypts data using the default private key
         ''' </summary>
@@ -930,7 +822,6 @@ Namespace Encryption
             PrivateKey.LoadFromConfig()
             Return Decrypt(encryptedData, PrivateKey)
         End Function
-
         ''' <summary>
         ''' Decrypts data using the provided private key
         ''' </summary>
@@ -938,7 +829,6 @@ Namespace Encryption
             _rsa.ImportParameters(PrivateKey.ToParameters)
             Return DecryptPrivate(encryptedData)
         End Function
-
         ''' <summary>
         ''' Decrypts data using the provided private key as XML
         ''' </summary>
@@ -946,7 +836,6 @@ Namespace Encryption
             LoadKeyXml(PrivateKeyXML, True)
             Return DecryptPrivate(encryptedData)
         End Function
-
         Private Sub LoadKeyXml(ByVal keyXml As String, ByVal isPrivate As Boolean)
             Try
                 _rsa.FromXmlString(keyXml)
@@ -961,11 +850,9 @@ Namespace Encryption
                  String.Format("The provided {0} encryption key XML does not appear to be valid.", s), ex)
             End Try
         End Sub
-
         Private Function DecryptPrivate(ByVal encryptedData As Data) As Data
             Return New Data(_rsa.Decrypt(encryptedData.Bytes, False))
         End Function
-
         ''' <summary>
         ''' gets the default RSA provider using the specified key size; 
         ''' note that Microsoft's CryptoAPI has an underlying file system dependency that is unavoidable
@@ -1002,13 +889,9 @@ Namespace Encryption
                 End If
             End Try
         End Function
-
     End Class
-
 #End Region
-
 #Region "  Data"
-
     ''' <summary>
     ''' represents Hex, Byte, Base64, or String data to encrypt/decrypt;
     ''' use the .Text property to set/get a string representation 
@@ -1020,30 +903,25 @@ Namespace Encryption
         Private _MaxBytes As Integer = 0
         Private _MinBytes As Integer = 0
         Private _StepBytes As Integer = 0
-
         ''' <summary>
         ''' Determines the default text encoding across ALL Data instances
         ''' </summary>
         Public Shared DefaultEncoding As Text.Encoding = System.Text.Encoding.GetEncoding("Windows-1252")
-
         ''' <summary>
         ''' Determines the default text encoding for this Data instance
         ''' </summary>
         Public Encoding As Text.Encoding = DefaultEncoding
-
         ''' <summary>
         ''' Creates new, empty encryption data
         ''' </summary>
         Public Sub New()
         End Sub
-
         ''' <summary>
         ''' Creates new encryption data with the specified byte array
         ''' </summary>
         Public Sub New(ByVal b As Byte())
             _b = b
         End Sub
-
         ''' <summary>
         ''' Creates new encryption data with the specified string; 
         ''' will be converted to byte array using default encoding
@@ -1051,7 +929,6 @@ Namespace Encryption
         Public Sub New(ByVal s As String)
             Me.Text = s
         End Sub
-
         ''' <summary>
         ''' Creates new encryption data using the specified string and the 
         ''' specified encoding to convert the string to a byte array.
@@ -1060,7 +937,6 @@ Namespace Encryption
             Me.Encoding = encoding
             Me.Text = s
         End Sub
-
         ''' <summary>
         ''' returns true if no data is present
         ''' </summary>
@@ -1075,7 +951,6 @@ Namespace Encryption
                 Return False
             End Get
         End Property
-
         ''' <summary>
         ''' allowed step interval, in bytes, for this data; if 0, no limit
         ''' </summary>
@@ -1087,7 +962,6 @@ Namespace Encryption
                 _StepBytes = Value
             End Set
         End Property
-
         ''' <summary>
         ''' allowed step interval, in bits, for this data; if 0, no limit
         ''' </summary>
@@ -1099,7 +973,6 @@ Namespace Encryption
                 _StepBytes = Value \ 8
             End Set
         End Property
-
         ''' <summary>
         ''' minimum number of bytes allowed for this data; if 0, no limit
         ''' </summary>
@@ -1111,7 +984,6 @@ Namespace Encryption
                 _MinBytes = Value
             End Set
         End Property
-
         ''' <summary>
         ''' minimum number of bits allowed for this data; if 0, no limit
         ''' </summary>
@@ -1123,7 +995,6 @@ Namespace Encryption
                 _MinBytes = Value \ 8
             End Set
         End Property
-
         ''' <summary>
         ''' maximum number of bytes allowed for this data; if 0, no limit
         ''' </summary>
@@ -1135,7 +1006,6 @@ Namespace Encryption
                 _MaxBytes = Value
             End Set
         End Property
-
         ''' <summary>
         ''' maximum number of bits allowed for this data; if 0, no limit
         ''' </summary>
@@ -1147,7 +1017,6 @@ Namespace Encryption
                 _MaxBytes = Value \ 8
             End Set
         End Property
-
         ''' <summary>
         ''' Returns the byte representation of the data; 
         ''' This will be padded to MinBytes and trimmed to MaxBytes as necessary!
@@ -1174,7 +1043,6 @@ Namespace Encryption
                 _b = Value
             End Set
         End Property
-
         ''' <summary>
         ''' Sets or returns text representation of bytes using the default text encoding
         ''' </summary>
@@ -1183,9 +1051,6 @@ Namespace Encryption
                 If _b Is Nothing Then
                     Return ""
                 Else
-                    '-- need to handle nulls here; oddly, C# will happily convert
-                    '-- nulls into the string whereas VB stops converting at the
-                    '-- first null!
                     Dim i As Integer = Array.IndexOf(_b, CType(0, Byte))
                     If i >= 0 Then
                         Return Me.Encoding.GetString(_b, 0, i)
@@ -1198,7 +1063,6 @@ Namespace Encryption
                 _b = Me.Encoding.GetBytes(Value)
             End Set
         End Property
-
         ''' <summary>
         ''' Sets or returns Hex string representation of this data
         ''' </summary>
@@ -1210,7 +1074,6 @@ Namespace Encryption
                 _b = Utils.FromHex(Value)
             End Set
         End Property
-
         ''' <summary>
         ''' Sets or returns Base64 string representation of this data
         ''' </summary>
@@ -1222,39 +1085,31 @@ Namespace Encryption
                 _b = Utils.FromBase64(Value)
             End Set
         End Property
-
         ''' <summary>
         ''' Returns text representation of bytes using the default text encoding
         ''' </summary>
         Public Shadows Function ToString() As String
             Return Me.Text
         End Function
-
         ''' <summary>
         ''' returns Base64 string representation of this data
         ''' </summary>
         Public Function ToBase64() As String
             Return Me.Base64
         End Function
-
         ''' <summary>
         ''' returns Hex string representation of this data
         ''' </summary>
         Public Function ToHex() As String
             Return Me.Hex
         End Function
-
     End Class
-
 #End Region
-
 #Region "  Utils"
-
     ''' <summary>
     ''' Friend class for shared utility methods used by multiple Encryption classes
     ''' </summary>
     Friend Class Utils
-
         ''' <summary>
         ''' converts an array of bytes to a string Hex representation
         ''' </summary>
@@ -1269,7 +1124,6 @@ Namespace Encryption
             Next
             Return sb.ToString
         End Function
-
         ''' <summary>
         ''' converts from a string Hex representation to an array of bytes
         ''' </summary>
@@ -1289,7 +1143,6 @@ Namespace Encryption
                  Environment.NewLine & hexEncoded & Environment.NewLine, ex)
             End Try
         End Function
-
         ''' <summary>
         ''' converts from a string Base64 representation to an array of bytes
         ''' </summary>
@@ -1304,7 +1157,6 @@ Namespace Encryption
                  Environment.NewLine & base64Encoded & Environment.NewLine, ex)
             End Try
         End Function
-
         ''' <summary>
         ''' converts from an array of bytes to a string Base64 representation
         ''' </summary>
@@ -1314,7 +1166,6 @@ Namespace Encryption
             End If
             Return Convert.ToBase64String(b)
         End Function
-
         ''' <summary>
         ''' retrieve an element from an XML string
         ''' </summary>
@@ -1326,13 +1177,11 @@ Namespace Encryption
             End If
             Return m.Groups("Element").ToString
         End Function
-
         ''' <summary>
         ''' Returns the specified string value from the application .config file
         ''' </summary>
         Friend Shared Function GetConfigString(ByVal key As String, _
          Optional ByVal isRequired As Boolean = True) As String
-
             Dim s As String = CType(ConfigurationManager.AppSettings.Get(key), String)
             If s = Nothing Then
                 If isRequired Then
@@ -1344,17 +1193,14 @@ Namespace Encryption
                 Return s
             End If
         End Function
-
         Friend Shared Function WriteConfigKey(ByVal key As String, ByVal value As String) As String
             Dim s As String = "<add key=""{0}"" value=""{1}"" />" & Environment.NewLine
             Return String.Format(s, key, value)
         End Function
-
         Friend Shared Function WriteXmlElement(ByVal element As String, ByVal value As String) As String
             Dim s As String = "<{0}>{1}</{0}>" & Environment.NewLine
             Return String.Format(s, element, value)
         End Function
-
         Friend Shared Function WriteXmlNode(ByVal element As String, Optional ByVal isClosing As Boolean = False) As String
             Dim s As String
             If isClosing Then
@@ -1364,9 +1210,6 @@ Namespace Encryption
             End If
             Return String.Format(s, element)
         End Function
-
     End Class
-
 #End Region
-
 End Namespace

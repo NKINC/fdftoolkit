@@ -3,13 +3,10 @@ Imports System.Net
 Imports System.Text
 Imports System.Web
 Imports System.Web.Mail
-'Imports System.Web.Mail.MailFormat
 Imports System.Diagnostics.Process
 Imports System.Data.OleDb
 Imports System.Data
-' MAILMESSAGE CLASS
 Namespace FDFApp
-    ' FDFERRORS CLASS
     Public Class FDFErrors
         Implements IDisposable
         Public ThrowErrors As Boolean = True
@@ -102,7 +99,6 @@ Namespace FDFApp
         Private _FDFErrors As New System.Collections.Generic.List(Of FDFError)
         Public Sub FDFAddError(ByVal FDFErrCode As FDFErc, ByVal FDFErrMessage As String, ByVal FDFErrModule As String, ByVal FDFErrNumber As Integer)
             If Not _FDFErrors Is Nothing Then
-                'ReDim Preserve _FDFErrors(_FDFErrors.Length)
                 Dim e As New FDFError
                 e.FDFError = FDFErrCode
                 e.FDFError_Module = FDFErrModule
@@ -111,9 +107,6 @@ Namespace FDFApp
                 e.FDFError_Code = ReturnErrCodeStr(FDFErrNumber)
                 _FDFErrors.Add(e)
             End If
-            'If ThrowErrors Then
-            '    ThrowError(New Exception(FDFErrMessage))
-            'End If
         End Sub
         Public Sub FDFAddError(ByVal FDFErrCode As FDFErc, ByVal FDFException As Exception)
             If Not _FDFErrors Is Nothing Then
@@ -156,36 +149,25 @@ Namespace FDFApp
             End If
             Dim FDFErrorx As FDFError
             Dim retString As String
-            retString = IIf(HTMLFormat, "<br>", vbNewLine) & "FDF Errors:"
+            retString = CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & "FDF Errors:"
             If FDFErrors.Length <= 0 Then Return ""
             For Each FDFErrorx In FDFErrors
-                retString = retString & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Error: " & FDFErrorx.FDFError_Code & " - " & FDFErrorx.FDFError & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "#: " & FDFErrorx.FDFError_Number & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Module: " & FDFErrorx.FDFError_Module & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Message: " & FDFErrorx.FDFError_Msg & IIf(HTMLFormat, "<br>", vbNewLine)
+                retString = retString & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "Error: " & FDFErrorx.FDFError_Code & " - " & FDFErrorx.FDFError & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "#: " & FDFErrorx.FDFError_Number & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "Module: " & FDFErrorx.FDFError_Module & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "Message: " & FDFErrorx.FDFError_Msg & CStr(IIf(HTMLFormat, "<br>", vbNewLine))
             Next
             Return retString
         End Function
-
 #Region " IDisposable Support "
         Private disposedValue As Boolean = False          ' To detect redundant calls
-
-        ' IDisposable
         Protected Overridable Sub Dispose(ByVal disposing As Boolean)
             If Not Me.disposedValue Then
                 If disposing Then
-                    ' TODO: free other state (managed objects).
                     _FDFErrors.Clear()
                     _FDFErrors = Nothing
                 End If
-
-                ' TODO: free your own state (unmanaged objects).
-                ' TODO: set large fields to null.
             End If
             Me.disposedValue = True
         End Sub
-
-
-        ' This code added by Visual Basic to correctly implement the disposable pattern.
         Public Sub Dispose() Implements IDisposable.Dispose
-            ' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
             Dispose(True)
             GC.SuppressFinalize(Me)
         End Sub

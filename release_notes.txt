@@ -1,6 +1,47 @@
 FDFApp.net Release Notes 
 http://www.nk-inc.com/software/fdftoolkit.net/releasenotes.aspx?app=FDFApp.net_2.0
+2.2017.06.2301
++ Updated ItextSharp.dll
++ Updated FDFDoc.Set_PDF_Fields_Merge()
 
+2.2017.05.2701
++ MODIFIED FDFDoc_Class.FDFCreateXDPFromHTMLForm
++ MODIFIED FDFDoc_Class.XDPSetValue
++ MODIFIED FDFDoc_Class.WriteXMLSubforms, FDFDoc_Class.WriteXMLFormFields, FDFDoc_Class.WriteXDPSubforms, FDFDoc_Class.WriteXDPFormFields
+
+2.2016.07.1201
++ Sanitized the code, removed rouge comments, set Project properties (FDFApp) option strict to strict, fixed errors and warnings
++ Major Change - Removed FDFApp.Mail.FDFType structure = use FDFApp.FDFDoc_Class.FDFType instead (see examples)
++ Modified FDFApp.FDFDoc_Class.WriteFields(method) - Set FldValue variable to empty string on every loop
++ Modified FDFApp.FDFApp_Class.parsePDF(methods) - Fixed iTextSharp.text.pdf.AcroFields.FIELD_TYPE_COMBO values
++ Modified FDFApp.FDFDoc_Class.WriteXDPFormFields(all methods)
++ Modified FDFApp.FDFDoc_Class.WriteXMLFormFields(all methods)
++ Added FDFApp.FDFDoc_Class.ConvertTrigger(all overloads)
++ Modified FDFApp.FDFDoc_Class.XDPGetAllActionsForField
++ Modified XDPGetValue(all overloads)
++ Modified parseXMLChildItems()
++ Modified parseFDFi(all overloads)
++ Modified FDFApp.PDFOpen(string),FDFApp.PDFOpenFromFile(string),FDFApp.PDFOpenFromURL(string),FDFApp.ParsePDF(all overloads) - Sets path for FDFDoc.FDFSetFile when opening from path or URL
++ Added FDFApp.FDFDoc_Class.FDFActions.Flags(Integer) for SubmitForm Actions (PDF,XFDF,FDF formats)
++ Added Overloads for FDFAddSubmitAction, FDFSetSubmitFormAction (to include Flags parameter)
++ Add support for the /Flags PDFName Switch in FDFGetSubmitAction when writing FDF data
++ /Flags with submission supports FDF(0), XFDF(32) and PDF(256) data formats
++ Bit Position for Flags can be found in iTextSharp.text.pdf.PdfAction.SUBMIT_*
++ Added FDFDoc_Class.Change_SubmitButtonURL(Overload for Bit Position - iTextSharp.text.pdf.PdfAction.SUBMIT_*)
++ New Examples reflect website and have been fixed and tested (new PDF forms in examples)
+
+2.2016.05.2301
++ Fixed FDFApp.FDFApp_Class.ParsePDF(*)
+
+2.2015.12.2401
++ Fixed FDFApp.FDFApp_Class().ParseFDF,FDFApp.FDFApp_Class().ParseFDFi*,FDFApp.FDFApp_Class().ParseFDFiB* methods and overloads
++ Supports multiselect listboxes importing FDF data
+
+2.2015.12.1101
++ Fixed FDFApp_Class.ParsePDF() + overloads (listbox display/export/value)
++ Added Overload for MultiSelection ListBox
+	+ Sub FDFDoc_Class.FDFAddField(string,string(),string(),string()...)
+	
 2.2015.07.2901
 + Fixed/Tested FDFDoc,FDFApp,XDP,XFA,XML,FDF,XFDF
 + Enhanced support for 3-dimensional XML based form data and subforms

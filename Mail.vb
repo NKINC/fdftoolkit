@@ -9,32 +9,26 @@ Imports System.Data.OleDb
 Imports System.Data
 Imports System.Data.SqlClient
 Imports System.Security.Cryptography
-' MAILMESSAGE CLASS
 Namespace FDFApp
 	Public Class Mail
-		'Public Enum MailFormat
-		'	HTML = 1
-		'	TEXT = 0
-		'End Enum
 		Public Class SMTPServer
 			Implements IDisposable
             Dim cdoSendUsingPort As Integer = 2
 			Private _SMTPServer As New Net.Mail.SmtpClient
 			Private _SMTPErrors As New FDFErrors
 			Private _SMTPCredentials As New System.Net.NetworkCredential
-			Enum FDFType
-				FDF = 1
-				xFDF = 2
-				XML = 3
-				PDF = 4
-				XDP = 5
-			End Enum
+            'Enum FDFType
+            '	FDF = 1
+            '	xFDF = 2
+            '	XML = 3
+            '	PDF = 4
+            '	XDP = 5
+            'End Enum
 			Enum SMTPAuthenticate
 				cdoNone = 0
 				cdoBasic = 1
 				cdoNTLM = 2
 			End Enum
-
 			Public Function SMTPHasErrors() As Boolean
 				Return _SMTPErrors.FDFHasErrors
 			End Function
@@ -54,10 +48,10 @@ Namespace FDFApp
 				Dim FDFError As FDFErrors.FDFError
 				FDFErrors = _SMTPErrors
 				Dim retString As String
-				retString = IIf(HTMLFormat, "<br>", vbNewLine) & "FDFDoc Errors:"
-				For Each FDFError In FDFErrors.FDFErrors
-					retString = retString & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Error: " & FDFError.FDFError & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "#: " & FDFError.FDFError_Number & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Module: " & FDFError.FDFError_Module & IIf(HTMLFormat, "<br>", vbNewLine) & vbTab & "Message: " & FDFError.FDFError_Msg & IIf(HTMLFormat, "<br>", vbNewLine)
-				Next
+                retString = CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & "FDFDoc Errors:"
+                For Each FDFError In FDFErrors.FDFErrors
+                    retString = retString & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "Error: " & FDFError.FDFError & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "#: " & FDFError.FDFError_Number & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "Module: " & FDFError.FDFError_Module & CStr(IIf(HTMLFormat, "<br>", vbNewLine)) & vbTab & "Message: " & FDFError.FDFError_Msg & CStr(IIf(HTMLFormat, "<br>", vbNewLine))
+                Next
 				Return retString
 			End Function
 			Public Sub New()
@@ -88,9 +82,6 @@ Namespace FDFApp
 					Return _SMTPServer.Host & ""
 				End Get
 				Set(ByVal Value As String)
-					'If Not Value = "localhost" Then
-					'	_SMTPServer.SMTPUseAuthentication = True
-					'End If
 					_SMTPServer.Host = Value & ""
 				End Set
 			End Property
@@ -125,7 +116,6 @@ Namespace FDFApp
                     _SMTPCredentials = New System.Net.NetworkCredential(Username, Password, Domain)
 				End If
 			End Sub
-
 			Public Function SendMail(ByVal MailMsg As Net.Mail.MailMessage, ByVal AttachFName As String, ByVal streamAttachment As Stream) As Boolean
 				Dim _results As Boolean = True
                 Dim cSmtp As New Net.Mail.SmtpClient
@@ -139,15 +129,12 @@ Namespace FDFApp
 				Try
 					If Not _SMTPCredentials Is Nothing Then
 						If _SMTPCredentials.UserName Is Nothing Or String_IsNullOrEmpty(_SMTPCredentials.UserName) Then
-                            'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 							cSmtp.UseDefaultCredentials = True
 						Else
 							cSmtp.UseDefaultCredentials = False
-							'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 							cSmtp.Credentials = _SMTPCredentials
 						End If
 					Else
-						'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 						cSmtp.UseDefaultCredentials = True
 					End If
 					MailMsg.DeliveryNotificationOptions = Net.Mail.DeliveryNotificationOptions.OnFailure
@@ -160,20 +147,14 @@ Namespace FDFApp
 					_results = False
 				End Try
 				Return _results
-
 			End Function
-			' Return String if object is not null, else return empty.string
-			Protected Function String_IsNullOrEmpty(ByVal s As Object) As Boolean
-				If IsDBNull(s) Then
-					Return True
-				Else
-					If String.Empty = s & "" Then
-						Return True
-					Else
-						Return False
-					End If
-				End If
-			End Function
+            Protected Function String_IsNullOrEmpty(ByVal s As Object) As Boolean
+                Try
+                    Return String.IsNullOrEmpty(CStr(s))
+                Catch ex As Exception
+                    Return String.IsNullOrEmpty(CStr(s))
+                End Try
+            End Function
 			Public Property FDFSMTPClient() As Net.Mail.SmtpClient
 				Get
 					Return _SMTPServer
@@ -193,15 +174,12 @@ Namespace FDFApp
 				Try
 					If Not _SMTPCredentials Is Nothing Then
 						If _SMTPCredentials.UserName Is Nothing Or String_IsNullOrEmpty(_SMTPCredentials.UserName) Then
-							'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 							cSmtp.UseDefaultCredentials = True
 						Else
 							cSmtp.UseDefaultCredentials = False
-							'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 							cSmtp.Credentials = _SMTPCredentials
 						End If
 					Else
-						'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 						cSmtp.UseDefaultCredentials = True
 					End If
 					MailMsg.DeliveryNotificationOptions = Net.Mail.DeliveryNotificationOptions.OnFailure
@@ -214,7 +192,6 @@ Namespace FDFApp
 				End Try
 				Return _results
 			End Function
-
 			Public Function SendMail(ByVal MailMsg As Net.Mail.MailMessage, ByVal AttachFName As String, ByVal bytAttachment() As Byte) As Boolean
 				Dim _results As Boolean = True
                 Dim cSmtp As New Net.Mail.SmtpClient
@@ -225,24 +202,19 @@ Namespace FDFApp
                     Dim att As New Net.Mail.Attachment(xmem, AttachFName)
 					MailMsg.Attachments.Add(att)
 				End If
-
 				Try
 					If Not _SMTPCredentials Is Nothing Then
 						If _SMTPCredentials.UserName Is Nothing Or String_IsNullOrEmpty(_SMTPCredentials.UserName) Then
-							'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 							cSmtp.UseDefaultCredentials = True
 						Else
 							cSmtp.UseDefaultCredentials = False
-							'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 							cSmtp.Credentials = _SMTPCredentials
 						End If
 					Else
-						'cSmtp.DeliveryMethod = SmtpDeliveryMethod.Network
 						cSmtp.UseDefaultCredentials = True
 					End If
 					MailMsg.DeliveryNotificationOptions = Net.Mail.DeliveryNotificationOptions.OnFailure
 					cSmtp.Send(MailMsg)
-					'Threading.Thread.Sleep(200)
 					_results = True
 					xmem.Dispose()
 					MailMsg.Dispose()
@@ -252,7 +224,7 @@ Namespace FDFApp
 				End Try
 				Return _results
 			End Function
-			Public Function PDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal PDFData As Byte(), Optional ByVal FileType As FDFType = FDFType.PDF, Optional ByVal Flatten As Boolean = False) As Boolean
+            Public Function PDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal PDFData As Byte(), Optional ByVal FileType As FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.PDF, Optional ByVal Flatten As Boolean = False) As Boolean
                 Dim _result As Boolean
                 Try
                     _result = SendMail(MailMsg, "PDFFORMDATA.pdf", PDFData)
@@ -262,372 +234,341 @@ Namespace FDFApp
                     Return False
                 End Try
             End Function
-			Public Function PDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal PDFData As Byte(), ByVal PDF_ATTACHMENT_NAME As String, Optional ByVal FileType As FDFType = FDFType.PDF, Optional ByVal Flatten As Boolean = False) As Boolean
-				Dim _result As Boolean
-				Try
-					_result = SendMail(MailMsg, PDF_ATTACHMENT_NAME, PDFData)
-					Return _result
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.PDFSendEmail", 3)
-					Return False
-				End Try
-			End Function
-
-			Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, Optional ByVal FDFDocument As FDFDoc_Class = Nothing, Optional ByVal FileType As FDFType = FDFType.FDF) As Boolean
-				Dim _result As Boolean
-				Dim xToday As String
-				xToday = Today
-				Try
-					FDFDocument.FDFData = FDFDocument.FDFSavetoStr(FileType, True)
-					Dim AttachX As Byte()
-					AttachX = FDFDocument.FDFSavetoBuf(FileType)
-					Dim FType As String = "fdf"
-					Select Case FileType
-						Case FDFType.FDF
-							FType = "fdf"
-						Case FDFType.xFDF
-							FType = "xfdf"
-						Case FDFType.XML
-							FType = "xml"
-						Case FDFType.XDP
-							FType = "xdp"
-						Case Else
-							FType = "fdf"
-					End Select
-					_result = SendMail(MailMsg, "PDFFORMDATA." & FType, AttachX)
-					Return _result
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
-					Return False
-				End Try
-			End Function
-
-			Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal FDFDocument As FDFDoc_Class, ByVal FileName As String, Optional ByVal FileType As FDFType = FDFType.FDF) As Boolean
-				Dim _result As Boolean
-				Dim xToday As String
-				xToday = Today
-				Try
-					FDFDocument.FDFData = FDFDocument.FDFSavetoStr(FileType, True)
-					Dim AttachX As Byte()
-					AttachX = FDFDocument.FDFSavetoBuf(FileType)
-					Dim FType As String
-					Dim tmpFilename As String = ""
-					If FileName.LastIndexOf(".") > 0 Then
-						tmpFilename = FileName.Substring(0, FileName.LastIndexOf("."))
-						tmpFilename = tmpFilename.TrimEnd(".")
-					Else
-						tmpFilename = FileName
-					End If
-					If Not tmpFilename.Length > 0 Then
-						tmpFilename = FileName
-					Else
-						tmpFilename = tmpFilename
-					End If
-					If tmpFilename.Length <= 0 Then
-						tmpFilename = "PDFAttachment"
-					End If
-					Select Case FileType
-						Case FDFType.FDF
-							FType = "fdf"
-						Case FDFType.xFDF
-							FType = "xfdf"
-						Case FDFType.XML
-							FType = "xml"
-						Case FDFType.XDP
-							FType = "xdp"
-						Case Else
-							FType = "fdf"
-					End Select
-					_result = SendMail(MailMsg, tmpFilename & "." & FType, AttachX)
-					Return _result
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
-					Return False
-				End Try
-			End Function
-
-            Private Function Determine_FDFType(ByVal FDFData As String) As FDFType
+            Public Function PDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal PDFData As Byte(), ByVal PDF_ATTACHMENT_NAME As String, Optional ByVal FileType As FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.PDF, Optional ByVal Flatten As Boolean = False) As Boolean
+                Dim _result As Boolean
+                Try
+                    _result = SendMail(MailMsg, PDF_ATTACHMENT_NAME, PDFData)
+                    Return _result
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.PDFSendEmail", 3)
+                    Return False
+                End Try
+            End Function
+            Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, Optional ByVal FDFDocument As FDFDoc_Class = Nothing, Optional ByVal FileType As FDFApp.FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.FDF) As Boolean
+                Dim _result As Boolean
+                Dim xToday As String
+                xToday = DateTime.Now.ToString
+                Try
+                    FDFDocument.FDFData = FDFDocument.FDFSavetoStr(FileType, True)
+                    Dim AttachX As Byte()
+                    AttachX = FDFDocument.FDFSavetoBuf(FileType)
+                    Dim FType As String = "fdf"
+                    Select Case FileType
+                        Case FDFDoc_Class.FDFType.FDF
+                            FType = "fdf"
+                        Case FDFDoc_Class.FDFType.xFDF
+                            FType = "xfdf"
+                        Case FDFDoc_Class.FDFType.XML
+                            FType = "xml"
+                        Case FDFDoc_Class.FDFType.XDP
+                            FType = "xdp"
+                        Case Else
+                            FType = "fdf"
+                    End Select
+                    _result = SendMail(MailMsg, "PDFFORMDATA." & FType, AttachX)
+                    Return _result
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
+                    Return False
+                End Try
+            End Function
+            Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal FDFDocument As FDFDoc_Class, ByVal FileName As String, Optional ByVal FileType As FDFApp.FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.FDF) As Boolean
+                Dim _result As Boolean
+                Dim xToday As String
+                xToday = DateTime.Now.ToString
+                Try
+                    FDFDocument.FDFData = FDFDocument.FDFSavetoStr(FileType, True)
+                    Dim AttachX As Byte()
+                    AttachX = FDFDocument.FDFSavetoBuf(FileType)
+                    Dim FType As String
+                    Dim tmpFilename As String = ""
+                    If FileName.LastIndexOf("."c) > 0 Then
+                        tmpFilename = FileName.Substring(0, FileName.LastIndexOf("."c))
+                        tmpFilename = tmpFilename.TrimEnd("."c)
+                    Else
+                        tmpFilename = FileName
+                    End If
+                    If Not tmpFilename.Length > 0 Then
+                        tmpFilename = FileName
+                    Else
+                        tmpFilename = tmpFilename
+                    End If
+                    If tmpFilename.Length <= 0 Then
+                        tmpFilename = "PDFAttachment"
+                    End If
+                    Select Case FileType
+                        Case FDFDoc_Class.FDFType.FDF
+                            FType = "fdf"
+                        Case FDFDoc_Class.FDFType.xFDF
+                            FType = "xfdf"
+                        Case FDFDoc_Class.FDFType.XML
+                            FType = "xml"
+                        Case FDFDoc_Class.FDFType.XDP
+                            FType = "xdp"
+                        Case Else
+                            FType = "fdf"
+                    End Select
+                    _result = SendMail(MailMsg, tmpFilename & "." & FType, AttachX)
+                    Return _result
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
+                    Return False
+                End Try
+            End Function
+            Private Function Determine_FDFType(ByVal FDFData As String) As FDFApp.FDFDoc_Class.FDFType
                 If FDFData.StartsWith("%FDF") Then
-                    Return FDFType.FDF
+                    Return FDFDoc_Class.FDFType.FDF
                 ElseIf FDFData.StartsWith("<?xml version=""1.0""") Then
                     If InStrRev(FDFData, "<xfdf", , CompareMethod.Text) > 0 Then
-                        Return FDFType.xFDF
+                        Return FDFDoc_Class.FDFType.xFDF
                     Else
-                        Return FDFType.XML
+                        Return FDFDoc_Class.FDFType.XML
                     End If
                 ElseIf FDFData.StartsWith("%PDF") Then
-                    Return FDFType.PDF
+                    Return FDFDoc_Class.FDFType.PDF
                 Else
                     Me._SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcBadFDF, "Error: Bad FDF or Unknown FDF Type", "Mail.FDFType", 1)
-                    Return FDFType.FDF
+                    Return FDFDoc_Class.FDFType.FDF
                 End If
             End Function
-			Private Function CreateTempFileName(ByVal cFDFDoc As FDFDoc_Class, ByVal PathTempDirectory As String, Optional ByVal FileType As FDFType = FDFType.FDF) As String
-				Dim strFN As String = ""
-				Dim xRan As Integer = 0
-				' Random FileName
-				Randomize()
-				xRan = Int(Rnd() * 9999) + 1
-				Try
-					' Save the FDF Locally
-					'Select Case Determine_FDFType(cFDFDoc.FDFData)
-					Select Case FileType
-						Case FDFType.FDF
-							If FileType = FDFType.PDF Then
-								FileType = FDFType.FDF
-							End If
-							strFN = "FDFAttachment_" & xRan
-							strFN = strFN & "." & "fdf"
-						Case FDFType.PDF
-							FileType = FDFType.PDF
-							strFN = "PDFAttachment_" & xRan
-							strFN = strFN & "." & "pdf"
-						Case FDFType.xFDF
-							If FileType = FDFType.PDF Then
-								FileType = FDFType.xFDF
-							End If
-							strFN = "xFDFAttachment_" & xRan
-							strFN = strFN & "." & "xfdf"
-						Case FDFType.XML
-							If FileType = FDFType.PDF Then
-								FileType = FDFType.XML
-							End If
-							strFN = "XMLAttachment_" & xRan
-							strFN = strFN & "." & "xml"
-					End Select
-
-					Dim strFDFPath As String = "", cFDFApp As New FDFApp_Class
-					strFDFPath = PathTempDirectory & strFN
-					If File.Exists(strFDFPath) Then
-						File.Delete(strFDFPath)
-					End If
-					'Dim binarywrite As New BinaryWriter(File.OpenWrite(strFDFPath))
-					Dim binarywrite As New BinaryWriter(File.Create(strFDFPath))
-					If FileType = FDFType.PDF Then
-						binarywrite.Write(cFDFDoc.PDFMergeFDF2Buf(cFDFDoc.FDFGetFile, True))
-					Else
-						binarywrite.Write(cFDFDoc.FDFSavetoBuf(FileType, True))
-					End If
-
-					binarywrite.Flush()
-					binarywrite.Close()
-
-					Return strFDFPath
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.FDFCreateTempFileName", 1)
-					Return ""
-				End Try
-			End Function
-			Private Function CreateTempPDFFileName(ByVal PDFPath As String, ByVal PathTempDirectory As String, Optional ByVal FileType As FDFType = FDFType.PDF) As String
-				Dim strFN As String
-				Dim xRan As Integer
-				' Random FileName
-				Randomize()
-				xRan = Int(Rnd() * 9999) + 1
-				strFN = "PDFAttachment_" & xRan
-				Try
-					' Save the FDF Locally
-					FileType = FDFType.PDF
-					strFN = strFN & "." & "pdf"
-
-					Dim strFDFPath As String, cFDFApp As New FDFApp_Class
-					strFDFPath = PathTempDirectory & strFN
-					If File.Exists(strFDFPath) Then
-						File.Delete(strFDFPath)
-					End If
-					Dim binarywrite As New BinaryWriter(File.OpenWrite(strFDFPath))
-					If FileType = FDFType.PDF Then
-						binarywrite.Write(cFDFApp.PDFSavetoBuf(PDFPath))
-					End If
-
-					binarywrite.Flush()
-					binarywrite.Close()
-
-					Return strFDFPath
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.FDFCreateTempFileName", 1)
-					Return ""
-				End Try
-			End Function
-			Private Function CreateTempPDFFileName(ByVal PDFData As Byte(), ByVal PathTempDirectory As String, Optional ByVal FileType As FDFType = FDFType.PDF) As String
-				Dim strFN As String
-				Dim xRan As Integer
-				' Random FileName
-				Randomize()
-				xRan = Int(Rnd() * 9999) + 1
-				strFN = "PDFAttachment_" & xRan
-				Try
-					' Save the FDF Locally
-					FileType = FDFType.PDF
-					strFN = strFN & "." & "pdf"
-
-					Dim strFDFPath As String, cFDFApp As New FDFApp_Class
-					strFDFPath = PathTempDirectory & strFN
-					If File.Exists(strFDFPath) Then
-						File.Delete(strFDFPath)
-					End If
-					Dim binarywrite As New BinaryWriter(File.OpenWrite(strFDFPath))
-					If FileType = FDFType.PDF Then
-						binarywrite.Write(PDFData)
-					End If
-
-					binarywrite.Flush()
-					binarywrite.Close()
-
-					Return strFDFPath
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.FDFCreateTempFileName", 1)
-					Return ""
-				End Try
-			End Function
-			Private Sub Add_Attachments(ByVal email As System.Net.Mail.MailMessage, ByVal strAttachments() As String)
-				Dim sAttach_Array() As String, sAttach As String
-				Dim nFileLen As Integer = 0, strFileName As String = "", attach As Net.Mail.Attachment
-				Try
-					If Not strAttachments Is Nothing Then
-						sAttach_Array = strAttachments
-					Else
-						sAttach_Array = Nothing
-					End If
-					If Not sAttach_Array Is Nothing Then
-						For Each sAttach In sAttach_Array
-							If sAttach.Length > 0 Then
-								strFileName = sAttach
-								If File.Exists(strFileName) Then
-									attach = New Net.Mail.Attachment(strFileName)
-									email.Attachments.Add(attach)
-								End If
-							End If
-						Next
-					End If
-				Catch ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Add_Attachment", 1)
-				End Try
-			End Sub
-			Private Sub Delete_Attachments(ByVal strAttachments() As String, Optional ByVal DeleteFile As Boolean = False)
-				Dim sAttach_Array() As String, sAttach As String
-				Dim nFileLen As Integer = "", strFileName As String
-				Try
-					If Not strAttachments Is Nothing Then
-						sAttach_Array = strAttachments
-					Else
-						sAttach_Array = Nothing
-					End If
-					If Not sAttach_Array Is Nothing Then
-						For Each sAttach In sAttach_Array
-							If sAttach.Length > 0 Then
-								strFileName = sAttach
-								If File.Exists(strFileName) Then
-									If DeleteFile = True Then
-										File.Delete(strFileName)
-									End If
-								End If
-							End If
-						Next
-					End If
-				Catch ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Delete_Attachments", 1)
-				End Try
-			End Sub
-
-			' ADDED 2008-09-03
-			Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal FDFDocument As FDFDoc_Class, ByVal FileType As FDFType, ByVal EncryptionKey As String, Optional ByVal EncryptionProvider As Encryption.Symmetric.Provider = Encryption.Symmetric.Provider.Rijndael) As Boolean
-				Dim _result As Boolean
-				Dim xToday As String
-				xToday = Today
-				Try
-					FDFDocument.FDFData = FDFDocument.FDFSavetoStr(FileType, True)
-					Dim AttachX As Byte()
-					AttachX = FDFDocument.FDFSavetoBuf(FileType)
-					Dim clsEncrypt As New Encryption.Asymmetric()
-					Dim sym As New Encryption.Symmetric(EncryptionProvider)
-					sym.Key = New Encryption.Data(EncryptionKey)
-					Dim encryptedData As New Encryption.Data
-					encryptedData = sym.Encrypt(FDFDocument.FDFSavetoStream(FileType, True))
-
-					Dim FType As String = "fdf"
-					Select Case FileType
-						Case FDFType.FDF
-							FType = "fdf"
-						Case FDFType.xFDF
-							FType = "xfdf"
-						Case FDFType.XML
-							FType = "xml"
-						Case FDFType.XDP
-							FType = "xdp"
-						Case Else
-							FType = "fdf"
-					End Select
-					_result = SendMail(MailMsg, "PDFFORMDATA." & FType, encryptedData.Bytes)
-					Return _result
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
-					Return False
-				End Try
-			End Function
-			Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal DecodedFDFDocument() As Byte, ByVal FileType As FDFType, ByVal EncryptionKey As String, Optional ByVal EncryptionProvider As Encryption.Symmetric.Provider = Encryption.Symmetric.Provider.Rijndael) As Boolean
-				Dim _result As Boolean
-				Dim xToday As String
-				xToday = Today
-				Try
-					Dim memstream As New MemoryStream(DecodedFDFDocument)
-					Dim clsEncrypt As New Encryption.Asymmetric()
-					Dim sym As New Encryption.Symmetric(EncryptionProvider)
-					sym.Key = New Encryption.Data(EncryptionKey)
-					Dim encryptedData As New Encryption.Data
-					encryptedData = sym.Encrypt(memstream)
-
-					Dim FType As String = "fdf"
-					Select Case FileType
-						Case FDFType.FDF
-							FType = "fdf"
-						Case FDFType.xFDF
-							FType = "xfdf"
-						Case FDFType.XML
-							FType = "xml"
-						Case FDFType.XDP
-							FType = "xdp"
-						Case Else
-							FType = "fdf"
-					End Select
-					_result = SendMail(MailMsg, "PDFFORMDATA." & FType, encryptedData.Bytes)
-					Return _result
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
-					Return False
-				End Try
-			End Function
-			Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal EncodedFDFDocument() As Byte, ByVal FileType As FDFType) As Boolean
-				Dim _result As Boolean
-				Dim xToday As String
-				xToday = Today
-				Try
-					Dim memstream As New MemoryStream(EncodedFDFDocument)
-
-					Dim FType As String = "fdf"
-					Select Case FileType
-						Case FDFType.FDF
-							FType = "fdf"
-						Case FDFType.xFDF
-							FType = "xfdf"
-						Case FDFType.XML
-							FType = "xml"
-						Case FDFType.XDP
-							FType = "xdp"
-						Case Else
-							FType = "fdf"
-					End Select
-					_result = SendMail(MailMsg, "PDFFORMDATA." & FType, EncodedFDFDocument)
-					Return _result
-				Catch Ex As Exception
-					_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
-					Return False
-				End Try
-			End Function
-
+            Private Function CreateTempFileName(ByVal cFDFDoc As FDFDoc_Class, ByVal PathTempDirectory As String, Optional ByVal FileType As FDFApp.FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.FDF) As String
+                Dim strFN As String = ""
+                Dim xRan As Integer = 0
+                Randomize()
+                xRan = CInt(Rnd() * 9999) + 1
+                Try
+                    Select Case FileType
+                        Case FDFDoc_Class.FDFType.FDF
+                            strFN = "FDFAttachment_" & xRan
+                            strFN = strFN & "." & "fdf"
+                        Case FDFDoc_Class.FDFType.PDF
+                            FileType = FDFDoc_Class.FDFType.PDF
+                            strFN = "PDFAttachment_" & xRan
+                            strFN = strFN & "." & "pdf"
+                        Case FDFDoc_Class.FDFType.xFDF
+                            If FileType = FDFDoc_Class.FDFType.PDF Then
+                                FileType = FDFDoc_Class.FDFType.xFDF
+                            End If
+                            strFN = "xFDFAttachment_" & xRan
+                            strFN = strFN & "." & "xfdf"
+                        Case FDFDoc_Class.FDFType.XML
+                            If FileType = FDFDoc_Class.FDFType.PDF Then
+                                FileType = FDFDoc_Class.FDFType.XML
+                            End If
+                            strFN = "XMLAttachment_" & xRan
+                            strFN = strFN & "." & "xml"
+                    End Select
+                    Dim strFDFPath As String = "", cFDFApp As New FDFApp_Class
+                    strFDFPath = PathTempDirectory & strFN
+                    If File.Exists(strFDFPath) Then
+                        File.Delete(strFDFPath)
+                    End If
+                    Dim binarywrite As New BinaryWriter(File.Create(strFDFPath))
+                    If FileType = FDFDoc_Class.FDFType.PDF Then
+                        binarywrite.Write(cFDFDoc.PDFMergeFDF2Buf(cFDFDoc.FDFGetFile, True))
+                    Else
+                        binarywrite.Write(cFDFDoc.FDFSavetoBuf(FileType, True))
+                    End If
+                    binarywrite.Flush()
+                    binarywrite.Close()
+                    Return strFDFPath
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.FDFCreateTempFileName", 1)
+                    Return ""
+                End Try
+            End Function
+            Private Function CreateTempPDFFileName(ByVal PDFPath As String, ByVal PathTempDirectory As String, Optional ByVal FileType As FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.PDF) As String
+                Dim strFN As String
+                Dim xRan As Integer
+                Randomize()
+                xRan = CInt(Rnd() * 9999) + 1
+                strFN = "PDFAttachment_" & xRan
+                Try
+                    FileType = FDFDoc_Class.FDFType.PDF
+                    strFN = strFN & "." & "pdf"
+                    Dim strFDFPath As String, cFDFApp As New FDFApp_Class
+                    strFDFPath = PathTempDirectory & strFN
+                    If File.Exists(strFDFPath) Then
+                        File.Delete(strFDFPath)
+                    End If
+                    Dim binarywrite As New BinaryWriter(File.OpenWrite(strFDFPath))
+                    If FileType = FDFDoc_Class.FDFType.PDF Then
+                        binarywrite.Write(cFDFApp.PDFSavetoBuf(PDFPath))
+                    End If
+                    binarywrite.Flush()
+                    binarywrite.Close()
+                    Return strFDFPath
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.FDFCreateTempFileName", 1)
+                    Return ""
+                End Try
+            End Function
+            Private Function CreateTempPDFFileName(ByVal PDFData As Byte(), ByVal PathTempDirectory As String, Optional ByVal FileType As FDFDoc_Class.FDFType = FDFDoc_Class.FDFType.PDF) As String
+                Dim strFN As String
+                Dim xRan As Integer
+                Randomize()
+                xRan = CInt(Rnd() * 9999) + 1
+                strFN = "PDFAttachment_" & xRan
+                Try
+                    FileType = FDFDoc_Class.FDFType.PDF
+                    strFN = strFN & "." & "pdf"
+                    Dim strFDFPath As String, cFDFApp As New FDFApp_Class
+                    strFDFPath = PathTempDirectory & strFN
+                    If File.Exists(strFDFPath) Then
+                        File.Delete(strFDFPath)
+                    End If
+                    Dim binarywrite As New BinaryWriter(File.OpenWrite(strFDFPath))
+                    If FileType = FDFDoc_Class.FDFType.PDF Then
+                        binarywrite.Write(PDFData)
+                    End If
+                    binarywrite.Flush()
+                    binarywrite.Close()
+                    Return strFDFPath
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.FDFCreateTempFileName", 1)
+                    Return ""
+                End Try
+            End Function
+            Private Sub Add_Attachments(ByVal email As System.Net.Mail.MailMessage, ByVal strAttachments() As String)
+                Dim sAttach_Array() As String, sAttach As String
+                Dim nFileLen As Integer = 0, strFileName As String = "", attach As Net.Mail.Attachment
+                Try
+                    If Not strAttachments Is Nothing Then
+                        sAttach_Array = strAttachments
+                    Else
+                        sAttach_Array = Nothing
+                    End If
+                    If Not sAttach_Array Is Nothing Then
+                        For Each sAttach In sAttach_Array
+                            If sAttach.Length > 0 Then
+                                strFileName = sAttach
+                                If File.Exists(strFileName) Then
+                                    attach = New Net.Mail.Attachment(strFileName)
+                                    email.Attachments.Add(attach)
+                                End If
+                            End If
+                        Next
+                    End If
+                Catch ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Add_Attachment", 1)
+                End Try
+            End Sub
+            Private Sub Delete_Attachments(ByVal strAttachments() As String, Optional ByVal DeleteFile As Boolean = False)
+                Dim sAttach_Array() As String, sAttach As String
+                Dim nFileLen As Integer = 0, strFileName As String
+                Try
+                    If Not strAttachments Is Nothing Then
+                        sAttach_Array = strAttachments
+                    Else
+                        sAttach_Array = Nothing
+                    End If
+                    If Not sAttach_Array Is Nothing Then
+                        For Each sAttach In sAttach_Array
+                            If sAttach.Length > 0 Then
+                                strFileName = sAttach
+                                If File.Exists(strFileName) Then
+                                    If DeleteFile = True Then
+                                        File.Delete(strFileName)
+                                    End If
+                                End If
+                            End If
+                        Next
+                    End If
+                Catch ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Delete_Attachments", 1)
+                End Try
+            End Sub
+            Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal FDFDocument As FDFDoc_Class, ByVal FileType As FDFApp.FDFDoc_Class.FDFType, ByVal EncryptionKey As String, Optional ByVal EncryptionProvider As Encryption.Symmetric.Provider = Encryption.Symmetric.Provider.Rijndael) As Boolean
+                Dim _result As Boolean
+                Dim xToday As String
+                xToday = DateTime.Now.ToString
+                Try
+                    FDFDocument.FDFData = FDFDocument.FDFSavetoStr(FileType, True)
+                    Dim AttachX As Byte()
+                    AttachX = FDFDocument.FDFSavetoBuf(FileType)
+                    Dim clsEncrypt As New Encryption.Asymmetric()
+                    Dim sym As New Encryption.Symmetric(EncryptionProvider)
+                    sym.Key = New Encryption.Data(EncryptionKey)
+                    Dim encryptedData As New Encryption.Data
+                    encryptedData = sym.Encrypt(FDFDocument.FDFSavetoStream(FileType, True))
+                    Dim FType As String = "fdf"
+                    Select Case FileType
+                        Case FDFDoc_Class.FDFType.FDF
+                            FType = "fdf"
+                        Case FDFDoc_Class.FDFType.xFDF
+                            FType = "xfdf"
+                        Case FDFDoc_Class.FDFType.XML
+                            FType = "xml"
+                        Case FDFDoc_Class.FDFType.XDP
+                            FType = "xdp"
+                        Case Else
+                            FType = "fdf"
+                    End Select
+                    _result = SendMail(MailMsg, "PDFFORMDATA." & FType, encryptedData.Bytes)
+                    Return _result
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
+                    Return False
+                End Try
+            End Function
+            Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal DecodedFDFDocument() As Byte, ByVal FileType As FDFDoc_Class.FDFType, ByVal EncryptionKey As String, Optional ByVal EncryptionProvider As Encryption.Symmetric.Provider = Encryption.Symmetric.Provider.Rijndael) As Boolean
+                Dim _result As Boolean
+                Dim xToday As String
+                xToday = DateTime.Now.ToString
+                Try
+                    Dim memstream As New MemoryStream(DecodedFDFDocument)
+                    Dim clsEncrypt As New Encryption.Asymmetric()
+                    Dim sym As New Encryption.Symmetric(EncryptionProvider)
+                    sym.Key = New Encryption.Data(EncryptionKey)
+                    Dim encryptedData As New Encryption.Data
+                    encryptedData = sym.Encrypt(memstream)
+                    Dim FType As String = "fdf"
+                    Select Case FileType
+                        Case FDFDoc_Class.FDFType.FDF
+                            FType = "fdf"
+                        Case FDFDoc_Class.FDFType.xFDF
+                            FType = "xfdf"
+                        Case FDFDoc_Class.FDFType.XML
+                            FType = "xml"
+                        Case FDFDoc_Class.FDFType.XDP
+                            FType = "xdp"
+                        Case Else
+                            FType = "fdf"
+                    End Select
+                    _result = SendMail(MailMsg, "PDFFORMDATA." & FType, encryptedData.Bytes)
+                    Return _result
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
+                    Return False
+                End Try
+            End Function
+            Public Function FDFSendEmail(ByVal MailMsg As Net.Mail.MailMessage, ByVal EncodedFDFDocument() As Byte, ByVal FileType As FDFDoc_Class.FDFType) As Boolean
+                Dim _result As Boolean
+                Dim xToday As String
+                xToday = DateTime.Now.ToString
+                Try
+                    Dim memstream As New MemoryStream(EncodedFDFDocument)
+                    Dim FType As String = "fdf"
+                    Select Case FileType
+                        Case FDFDoc_Class.FDFType.FDF
+                            FType = "fdf"
+                        Case FDFDoc_Class.FDFType.xFDF
+                            FType = "xfdf"
+                        Case FDFDoc_Class.FDFType.XML
+                            FType = "xml"
+                        Case FDFDoc_Class.FDFType.XDP
+                            FType = "xdp"
+                        Case Else
+                            FType = "fdf"
+                    End Select
+                    _result = SendMail(MailMsg, "PDFFORMDATA." & FType, EncodedFDFDocument)
+                    Return _result
+                Catch Ex As Exception
+                    _SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & Ex.Message, "FDFApp.SMTPServer.FDFSendEmail", 3)
+                    Return False
+                End Try
+            End Function
 			Private disposedValue As Boolean = False  ' To detect redundant calls
-
-			' IDisposable
 			Protected Overridable Sub Dispose(ByVal disposing As Boolean)
 				If Not Me.disposedValue Then
 					If disposing Then
@@ -636,28 +577,20 @@ Namespace FDFApp
 							_SMTPErrors = Nothing
 							_SMTPServer = Nothing
 						Catch ex As Exception
-
 						End Try
                     End If
-
                 End If
 				Me.disposedValue = True
 			End Sub
-
 #Region " IDisposable Support "
-			' This code added by Visual Basic to correctly implement the disposable pattern.
 			Public Sub Dispose() Implements IDisposable.Dispose
-				' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
 				Dispose(True)
 				GC.SuppressFinalize(Me)
 			End Sub
 #End Region
-
 		End Class
-
 		Public Class MailMessage
 			Implements IDisposable
-
             Private _MailMessage As New System.Net.Mail.MailMessage
             Public Property msgMailMessage() As Net.Mail.MailMessage
                 Get
@@ -667,7 +600,6 @@ Namespace FDFApp
                     _MailMessage = value
                 End Set
             End Property
-
             Public Sub New()
                 _MailMessage = New System.Net.Mail.MailMessage
             End Sub
@@ -676,8 +608,8 @@ Namespace FDFApp
                 _MailMessage = msg
             End Sub
 			Public Enum MailFormat
-				Text = False
-				HTML = True
+                Text = CInt(False)
+                HTML = CInt(True)
 			End Enum
 			Private Structure strucEmailAddress
 				Dim RecName As String
@@ -707,30 +639,27 @@ Namespace FDFApp
 				End If
 				Dim EmailAddress As Net.Mail.MailAddress
 				Try
-
 					For Each EmailAddress In EmailAddresses
 						Select Case EmailAddress.DisplayName
 							Case ""
 								If Not EmailAddress.Address = "" Then
-									strEmailList = strEmailList & IIf(strEmailList = "", "", "; ") & EmailAddress.Address
-								End If
-							Case Nothing
-								If Not EmailAddress.Address = "" Then
-									strEmailList = strEmailList & IIf(strEmailList = "", "", "; ") & EmailAddress.Address
-								End If
-							Case Else
-								If Not EmailAddress.Address = "" Then
-									strEmailList = strEmailList & IIf(strEmailList = "", "", "; ") & EmailAddress.DisplayName & " (" & EmailAddress.Address & ")"
-								End If
-						End Select
+                                    strEmailList = strEmailList & CStr(IIf(strEmailList = "", "", "; ")) & EmailAddress.Address
+                                End If
+                            Case Nothing
+                                If Not EmailAddress.Address = "" Then
+                                    strEmailList = strEmailList & CStr(IIf(strEmailList = "", "", "; ")) & EmailAddress.Address
+                                End If
+                            Case Else
+                                If Not EmailAddress.Address = "" Then
+                                    strEmailList = strEmailList & CStr(IIf(strEmailList = "", "", "; ")) & EmailAddress.DisplayName & " (" & EmailAddress.Address & ")"
+                                End If
+                        End Select
 					Next
 					Return strEmailList
 				Catch ex As Exception
-					'_FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "MailMessage.Return_Recipients", 1)
 					Return ""
 					Exit Function
 				End Try
-
 			End Function
 			Public Sub Add_CcRecipient(ByVal Email As String, Optional ByVal Name As String = "")
 				Dim Addr As Net.Mail.MailAddress
@@ -759,7 +688,24 @@ Namespace FDFApp
 				Set(ByVal value As MailAddress)
 					_MailMessage.From = value
 				End Set
-			End Property
+            End Property
+            Public Property msgReplyToAddress() As MailAddress
+                Get
+                    Return _MailMessage.ReplyTo
+                End Get
+                Set(ByVal value As MailAddress)
+                    _MailMessage.ReplyTo = value
+                End Set
+            End Property
+            Public Property msg() As System.Net.Mail.MailMessage
+                Get
+                    Return _MailMessage
+                End Get
+                Set(ByVal value As System.Net.Mail.MailMessage)
+                    _MailMessage = value
+                End Set
+            End Property
+
 			Public Sub Add_FromAddress(ByVal Email As String, Optional ByVal Name As String = "")
 				Dim Addr As Net.Mail.MailAddress
 				If Name.Length = 0 And Email.Length > 0 Then
@@ -821,7 +767,6 @@ Namespace FDFApp
 					Next
 				End Set
 			End Property
-
 			Public Property msgBodyFormatIsHTML() As Boolean
 				Get
 					Return _MailMessage.IsBodyHtml
@@ -830,7 +775,6 @@ Namespace FDFApp
 					_MailMessage.IsBodyHtml = isHTML
 				End Set
 			End Property
-
 			Public Sub Add_Attachment(ByVal streamAttachment As Stream, ByVal FileName As String, ByVal MimeType As String)
 				Dim nFileLen As Integer = 0, strFileName As String = "", attach As Net.Mail.Attachment
 				Try
@@ -839,7 +783,6 @@ Namespace FDFApp
 						_MailMessage.Attachments.Add(attach)
 					End If
 				Catch ex As Exception
-					'_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Add_Attachment", 1)
 				End Try
 			End Sub
 			Public Sub Add_Attachment(ByVal bytAttachment() As Byte, ByVal FileName As String, ByVal MimeType As String)
@@ -851,7 +794,6 @@ Namespace FDFApp
 						_MailMessage.Attachments.Add(attach)
 					End If
 				Catch ex As Exception
-					'_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Add_Attachment", 1)
 				End Try
 			End Sub
 			Public Sub Add_Attachment(ByVal FileName As String, ByVal MimeType As String)
@@ -862,7 +804,6 @@ Namespace FDFApp
 						_MailMessage.Attachments.Add(attach)
 					End If
 				Catch ex As Exception
-					'_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Add_Attachment", 1)
 				End Try
 			End Sub
 			Public Sub Add_Attachment(ByVal FileName As String)
@@ -873,45 +814,26 @@ Namespace FDFApp
 						_MailMessage.Attachments.Add(attach)
 					End If
 				Catch ex As Exception
-					'_SMTPErrors.FDFAddError(FDFErrors.FDFErc.FDFErcFileSysErr, "Error: " & ex.Message, "FDFApp.SMTPServer.Add_Attachment", 1)
 				End Try
 			End Sub
-
-
-
 			Private disposedValue As Boolean = False  ' To detect redundant calls
-
-			' IDisposable
 			Protected Overridable Sub Dispose(ByVal disposing As Boolean)
 				If Not Me.disposedValue Then
 					If disposing Then
-						' TODO: free other state (managed objects).
 						Try
 							_MailMessage = Nothing
-
 						Catch ex As Exception
-
 						End Try
-
-
 					End If
-
-					' TODO: free your own state (unmanaged objects).
-					' TODO: set large fields to null.
 				End If
 				Me.disposedValue = True
 			End Sub
-
 #Region " IDisposable Support "
-			' This code added by Visual Basic to correctly implement the disposable pattern.
 			Public Sub Dispose() Implements IDisposable.Dispose
-				' Do not change this code.  Put cleanup code in Dispose(ByVal disposing As Boolean) above.
 				Dispose(True)
 				GC.SuppressFinalize(Me)
 			End Sub
 #End Region
-
 		End Class
-
 	End Class
 End Namespace
