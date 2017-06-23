@@ -93,7 +93,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="itextsharp, Version=4.0.7.1, Culture=neutral, PublicKeyToken=8354ae6d2174ddca">
-      <HintPath>..\..\..\iTextSharp\itextsharp_4.0.7-source2\itextsharp-4.0.7.new3\bin\Release\itextsharp.dll</HintPath>
+      <HintPath>bin\itextsharp.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Name>System</Name>
