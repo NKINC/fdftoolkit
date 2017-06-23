@@ -18474,6 +18474,12 @@
             @throws IOException
             @throws DocumentException
         </member>
+        <member name="M:iTextSharp.text.pdf.TextField.GetListAppearance">
+            Get the <code>PdfAppearance</code> of a list field
+            @throws IOException on error
+            @throws DocumentException on error
+            @return A <code>PdfAppearance</code>
+        </member>
         <member name="M:iTextSharp.text.pdf.TextField.GetTextField">
             Gets a new text field.
             @throws IOException on error
