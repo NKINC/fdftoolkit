@@ -1,5 +1,6 @@
-D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\FDFApp.dll
-D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\bin\FDFApp.xml
-D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Release\ResolveAssemblyReference.cache
-D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Release\FDFApp.dll
-D:\Data\CODEPLEX.COM\Projects\FDFToolkit.net\obj\Release\FDFApp.xml
+F:\Data\PROGRAMMING\VS.Net\2008\FDFToolkit.net-SourceCode\FDFToolkit.net-SourceCode\bin\FDFApp.dll
+F:\Data\PROGRAMMING\VS.Net\2008\FDFToolkit.net-SourceCode\FDFToolkit.net-SourceCode\bin\FDFApp.xml
+F:\Data\PROGRAMMING\VS.Net\2008\FDFToolkit.net-SourceCode\FDFToolkit.net-SourceCode\bin\itextsharp.xml
+F:\Data\PROGRAMMING\VS.Net\2008\FDFToolkit.net-SourceCode\FDFToolkit.net-SourceCode\obj\Release\ResolveAssemblyReference.cache
+F:\Data\PROGRAMMING\VS.Net\2008\FDFToolkit.net-SourceCode\FDFToolkit.net-SourceCode\obj\Release\FDFApp.dll
+F:\Data\PROGRAMMING\VS.Net\2008\FDFToolkit.net-SourceCode\FDFToolkit.net-SourceCode\obj\Release\FDFApp.xml
