@@ -1,5 +1,13 @@
 FDFApp.net Release Notes 
 http://www.nk-inc.com/software/fdftoolkit.net/releasenotes.aspx?app=FDFApp.net_2.0
+2.2017.09.0100
++ Modified iTextSharp.dll
++ Modified FDFApp_Class.ParseXFDF
++ Modified FDFApp_Class.parseFDFiB
+
+2.2017.06.3001
++ Modified FDFDoc_Class.FDFGetFile
+
 2.2017.06.2301
 + Updated ItextSharp.dll
 + Updated FDFDoc.Set_PDF_Fields_Merge()
