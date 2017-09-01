@@ -1591,9 +1591,11 @@ ContinueProcess:
                                     Dim arV As iTextSharp.text.pdf.PdfArray = DirectCast(reader.GetField(fld), iTextSharp.text.pdf.PdfDictionary).GetAsArray(iTextSharp.text.pdf.PdfName.V)
                                     For x123 As Integer = 0 To arV.Size - 1
                                         Try
-                                            Dim strTemp As String = arV.GetAsString(x123).ToUnicodeString() & ""
-                                            If Not arrVals.Contains(strTemp) Then
-                                                arrVals.Add(strTemp)
+                                            If Not arV.GetAsString(x123) Is Nothing Then
+                                                Dim strTemp As String = arV.GetAsString(x123).ToUnicodeString() & ""
+                                                If Not arrVals.Contains(strTemp) Then
+                                                    arrVals.Add(strTemp)
+                                                End If
                                             End If
                                         Catch ex2 As Exception
                                             Err.Clear()
@@ -1684,9 +1686,9 @@ ContinueProcess:
                 For Each fld In fields
                     Dim fieldName As String
                     fieldName = DirectCast(fld.Key, String)
-                    Dim val As String = "" 'fld.ToString
+                    Dim val() As String = New String() {} 'fld.ToString
                     Dim FldType As String = ""
-                    val = reader.GetFieldValue(fieldName) & ""
+                    val = reader.GetFieldValues(fieldName)
                     Try
                         Dim arrVals As New System.Collections.Generic.List(Of String)
                         Dim arrDisplay As New System.Collections.Generic.List(Of String)
@@ -1745,24 +1747,24 @@ ContinueProcess:
                                         If arrVals.Count > 0 Then
                                             FDFDox.FDFAddField(fieldName & "", arrVals.ToArray, FDFDoc_Class.FieldType.FldMultiSelect, True, True)
                                         Else
-                                            FDFDox.FDFAddField(fieldName & "", val & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                            FDFDox.FDFAddField(fieldName & "", val, FDFDoc_Class.FieldType.FldTextual, True, True)
                                         End If
                                     End If
                                 Else
                                     If arrVals.Count > 0 Then
                                         FDFDox.FDFAddField(fieldName & "", arrVals.ToArray, FDFDoc_Class.FieldType.FldMultiSelect, True, True)
                                     Else
-                                        FDFDox.FDFAddField(fieldName & "", val & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                                        FDFDox.FDFAddField(fieldName & "", val, FDFDoc_Class.FieldType.FldTextual, True, True)
                                     End If
                                 End If
                             Catch ex As Exception
                                 Err.Clear()
                             End Try
                         Else
-                            FDFDox.FDFAddField(fieldName & "", val & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                            FDFDox.FDFAddField(fieldName & "", val, FDFDoc_Class.FieldType.FldTextual, True, True)
                         End If
                     Catch ex As Exception
-                        FDFDox.FDFAddField(fieldName & "", val & "", FDFDoc_Class.FieldType.FldTextual, True, True)
+                        FDFDox.FDFAddField(fieldName & "", val, FDFDoc_Class.FieldType.FldTextual, True, True)
                         Err.Clear()
                     End Try
                 Next
@@ -3152,7 +3154,121 @@ FOUNDIMAGE:
                 Return Nothing
             End Try
         End Function
+        '        Private Function parseXFDF(ByVal FDF As String, Optional ByVal FDFInitialize As Boolean = False) As FDFDoc_Class
+        '            If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
+        '            FDFDox.DefaultEncoding = _defaultEncoding
+        '            Dim strFields(2) As String
+        '            Dim FldStart As Integer, FldEnd As Integer
+        '            Dim intField(7) As Integer, MultiCntr As Integer
+        '            FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
+        '            Try
+        '                FDF = FDF.Replace(Chr(10), "")
+        '                FDF = FDF.Replace(Chr(13), "")
+        '                FldStart = FDF.ToLower.IndexOf("<fields") + 8
+        '                FldEnd = FDF.ToLower.IndexOf("</fields>", FldStart)
+        '                intField(0) = FldStart
+        '                Do While FldEnd > intField(0) + 1
+        '                    intField(1) = FDF.IndexOf("<field name=""", intField(0)) + 13
+        '                    intField(2) = FDF.IndexOf(""">", intField(1))
+        '                    Dim icntr As Integer = FDF.IndexOf(CStr("""/>".ToString()), intField(1))
+        '                    If ((intField(2) > icntr And icntr > 0) Or intField(2) = -1) Then
+        '                        intField(2) = FDF.IndexOf("""/>", intField(1))
+        '                        intField(0) = intField(2)
+        '                    Else
+        '                        strFields(1) = ""
+        '                        MultiCntr = 1
+        'IsMultiSelect:
+        '                        intField(3) = FDF.IndexOf("<value>", intField(2)) + 7
+        '                        intField(4) = FDF.IndexOf("</value>", intField(3))
+        '                        If intField(0) < FDF.IndexOf("</field>", intField(4) + 7) Then
+        '                            intField(0) = FDF.IndexOf("</field>", intField(4) + 7)
+        '                        Else
+        '                            intField(0) = FldEnd + 10
+        '                            Exit Do
+        '                        End If
+        '                        If intField(3) < FDF.IndexOf("<value>", intField(4), 20) Then
+        '                            strFields(1) = strFields(1) & CStr(IIf(MultiCntr > 1, "<value>", "")) & FDF.Substring(intField(3), intField(4) - intField(3)) & "</value>"
+        '                            GoTo IsMultiSelect
+        '                        Else
+        '                            strFields(1) = FDF.Substring(intField(3), intField(4) - intField(3))
+        '                        End If
+        '                        strFields(0) = FDF.Substring(intField(1), intField(2) - intField(1))
+        '                        If strFields(0) <> "" Then
+        '                            If MultiCntr > 1 Then
+        '                                strFields(1) = strFields(1).Replace("<value>", "(")
+        '                                strFields(1) = strFields(1).Replace("</value>", ")")
+        '                                FDFDox.FDFAddField(CStr(strFields(0)), CStr(XMLCheckCharReverse(strFields(1))), FDFDoc_Class.FieldType.FldMultiSelect)
+        '                            Else
+        '                                FDFDox.FDFAddField(CStr(strFields(0)), CStr(XMLCheckCharReverse(strFields(1))), FDFDoc_Class.FieldType.FldTextual)
+        '                            End If
+        '                        End If
+        '                    End If
+        '                    If intField(0) < 0 Then
+        '                        intField(0) = FldEnd + 10
+        '                        Exit Do
+        '                    End If
+        '                Loop
+        '                FDFDox.FDFData = FDF
+        '                Try
+        '                    intField(1) = FDF.IndexOf("<f href=""") + 9
+        '                    intField(2) = FDF.IndexOf("""/>", intField(1))
+        '                    If intField(1) > 8 And intField(2) >= 0 Then
+        '                        strFields(0) = FDF.Substring(intField(1), intField(2) - intField(1)) & ""
+        '                        FDFDox.FDFSetFile(strFields(0) & "")
+        '                    End If
+        '                Catch exFile As Exception
+        '                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, exFile)
+        '                    Err.Clear()
+        '                End Try
+        '                FDFDox.XDPAdjustSubforms()
+        '                Return FDFDox
+        '            Catch ex As Exception
+        '                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFApp.parseXFDF", 1)
+        '                Return FDFDox
+        '            End Try
+        '        End Function
         Private Function parseXFDF(ByVal FDF As String, Optional ByVal FDFInitialize As Boolean = False) As FDFDoc_Class
+            If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
+            FDFDox.DefaultEncoding = _defaultEncoding
+            Dim strFields(2) As String
+            Dim FldStart As Integer, FldEnd As Integer
+            Dim intField(7) As Integer ', MultiCntr As Integer
+            FDF = ByteArrayToString(_defaultEncoding.GetBytes(FDF))
+            Try
+                Dim xfdf As New iTextSharp.text.pdf.XfdfReader(_defaultEncoding.GetBytes(FDF))
+                For Each fldName As String In xfdf.Fields.Keys
+                    If Not xfdf.GetListValues(fldName) Is Nothing Then
+                        FDFDox.FDFAddField(fldName, xfdf.GetListValues(fldName), FDFDoc_Class.FieldType.FldMultiSelect, True, False)
+                    Else
+                        FDFDox.FDFAddField(fldName, xfdf.GetFieldValue(fldName), FDFDoc_Class.FieldType.FldTextual, True, False)
+                    End If
+                Next
+                FDF = FDF.Replace(Chr(10), "")
+                FDF = FDF.Replace(Chr(13), "")
+                FldStart = FDF.ToLower.IndexOf("<fields") + 8
+                FldEnd = FDF.ToLower.IndexOf("</fields>", FldStart)
+                intField(0) = FldStart
+                FDFDox.FDFData = FDF
+                Try
+                    intField(1) = FDF.IndexOf("<f href=""") + 9
+                    intField(2) = FDF.IndexOf("""/>", intField(1))
+                    If intField(1) > 8 And intField(2) >= 0 Then
+                        strFields(0) = FDF.Substring(intField(1), intField(2) - intField(1)) & ""
+                        FDFDox.FDFSetFile(strFields(0) & "")
+                    End If
+                Catch exFile As Exception
+                    _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, exFile)
+                    Err.Clear()
+                End Try
+                FDFDox.XDPAdjustSubforms()
+                Return FDFDox
+            Catch ex As Exception
+                _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFApp.parseXFDF", 1)
+                Return FDFDox
+            End Try
+
+        End Function
+        Private Function parseXFDF_OLD(ByVal FDF As String, Optional ByVal FDFInitialize As Boolean = False) As FDFDoc_Class
             If FDFInitialize Then FDFDox.Initialize(_defaultEncoding)
             FDFDox.DefaultEncoding = _defaultEncoding
             Dim strFields(2) As String
@@ -3195,9 +3311,9 @@ IsMultiSelect:
                             If MultiCntr > 1 Then
                                 strFields(1) = strFields(1).Replace("<value>", "(")
                                 strFields(1) = strFields(1).Replace("</value>", ")")
-                                FDFDox.FDFAddField(CStr(strFields(0)), CStr(XMLCheckCharReverse(strFields(1))), FDFDoc_Class.FieldType.FldMultiSelect)
+                                FDFDox.FDFAddField(strFields(0), XMLCheckCharReverse(strFields(1)), FDFDoc_Class.FieldType.FldMultiSelect)
                             Else
-                                FDFDox.FDFAddField(CStr(strFields(0)), CStr(XMLCheckCharReverse(strFields(1))), FDFDoc_Class.FieldType.FldTextual)
+                                FDFDox.FDFAddField(strFields(0), XMLCheckCharReverse(strFields(1)), FDFDoc_Class.FieldType.FldTextual)
                             End If
                         End If
                     End If
@@ -3214,6 +3330,7 @@ IsMultiSelect:
                         strFields(0) = FDF.Substring(intField(1), intField(2) - intField(1)) & ""
                         FDFDox.FDFSetFile(strFields(0) & "")
                     End If
+
                 Catch exFile As Exception
                     _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, exFile)
                     Err.Clear()
@@ -3224,6 +3341,7 @@ IsMultiSelect:
                 _FDFErrors.FDFAddError(FDFErrors.FDFErc.FDFErcInternalError, "Error: " & ex.Message, "FDFApp.parseXFDF", 1)
                 Return FDFDox
             End Try
+
         End Function
 #End Region
         ''' <summary>

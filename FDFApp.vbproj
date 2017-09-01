@@ -92,7 +92,9 @@
     <WarningsAsErrors>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="itextsharp, Version=4.0.7.0, Culture=neutral, PublicKeyToken=8354ae6d2174ddca" />
+    <Reference Include="itextsharp, Version=4.0.7.0, Culture=neutral, PublicKeyToken=8354ae6d2174ddca">
+      <HintPath>..\iTextSharp-USETHIS\itextsharp_4.0.7-source\bin\Release\itextsharp.dll</HintPath>
+    </Reference>
     <Reference Include="System">
       <Name>System</Name>
     </Reference>

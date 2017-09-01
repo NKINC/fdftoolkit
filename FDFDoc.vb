@@ -4038,7 +4038,14 @@ Namespace FDFApp
         ''' <remarks></remarks>
         Public ReadOnly Property FDFGetFile() As String
             Get
-                Return _PDF.FileName & ""
+                Try
+                    If _PDF.FileName Is Nothing Then
+                        Return ""
+                    End If
+                    Return _PDF.FileName & ""
+                Catch ex As Exception
+                    Return ""
+                End Try
             End Get
         End Property
         Private Function FileNameCheck(ByVal strFileName As String) As String
@@ -9305,7 +9312,7 @@ continue_setting_value:
                                                         FldValue = FldValue & "<value>" & XMLCheckChar(FldVal & "") & "</value>"
                                                     End If
                                                 Next
-                                                retString = retString & "<field name=""" & xFDFField.FieldName & """>" & XMLCheckChar(FldValue & "") & "</field>"
+                                                retString = retString & "<field name=""" & xFDFField.FieldName & """>" & (FldValue & "") & "</field>"
                                             End If
                                         Case FieldType.FldSubform
                                             If xFDFField.FieldValue.Count > 0 Then
